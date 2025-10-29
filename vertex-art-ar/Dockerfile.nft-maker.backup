@@ -1,0 +1,36 @@
+FROM node:16-alpine
+
+# Установка зависимостей
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    g++ \
+    make \
+    py3-numpy \
+    py3-pillow \
+    git \
+    cmake \
+    gcc \
+    g++ \
+    musl-dev \
+    linux-headers
+
+# Клонируем репозиторий AR.js
+RUN git clone https://github.com/AR-js-org/AR.js.git /AR.js
+
+# Устанавливаем зависимости
+RUN cd /AR.js && npm install
+
+# Устанавливаем утилиту для генерации NFT-маркеров
+# Так как arjs-nft-maker больше не доступен, мы установим альтернативы
+RUN npm install -g nft-markers-generator || echo "nft-markers-generator not available" && \
+    npm install -g ar-nft-generator || echo "ar-nft-generator not available"
+
+# Создание директории для работы
+WORKDIR /app
+
+# Копирование скрипта для генерации маркеров
+COPY generate-nft.js /app/generate-nft.js
+
+# Точка входа
+CMD ["node", "/app/generate-nft.js"]

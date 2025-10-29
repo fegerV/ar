@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <title>Enhanced AR.js Video Portrait Demo</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.2/aframe/build/aframe-ar-nft.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        #start-btn { 
+            position: fixed; 
+            top: 10px; 
+            left: 10px; 
+            z-index: 100; 
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #start-btn:hover {
+            background-color: #45a049;
+        }
+        #start-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .arjs-loader {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0.8);
+            z-index: 99;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .arjs-loader div {
+            text-align: center;
+            font-size: 1.25em;
+            color: white;
+        }
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            padding: 8px 12px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Кнопка старт, нужна для мобильных браузеров -->
+    <button id="start-btn" onclick="startVideo()" disabled>Запустить видео</button>
+    <div class="status-indicator" id="status-indicator">Загрузка...</div>
+    
+    <!-- Loading indicator -->
+    <div class="arjs-loader" id="loader">
+        <div>
+            <div>Загрузка AR-опыта</div>
+            <div>Пожалуйста, подождите</div>
+            <div class="loading-spinner">●●●</div>
+        </div>
+    </div>
+
+    <!-- AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        id="ar-scene"
+    >
+        <!-- NFT Marker Entity -->
+        <a-nft
+            type="nft"
+            url="{{ request.url.scheme }}://{{ request.url.netloc }}/nft-markers/{{ record.id }}"
+            smooth="true"
+            smoothCount="10"
+            smoothTolerance="0.01"
+            smoothThreshold="5"
+            id="nft-marker"
+        >
+            <!-- Video Entity -->
+            <a-video
+                id="ar-video"
+                src="{{ record.video_url }}"
+                width="1.5"
+                height="1"
+                position="0 0 0"
+                rotation="-90 0 0"
+                scale="1 1 1"
+                autoplay="false"
+                webkit-playsinline
+                playsinline
+                muted
+                loop="false"
+            ></a-video>
+        </a-nft>
+
+        <!-- Camera Entity -->
+        <a-entity camera></a-entity>
+    </a-scene>
+
+    <script>
+        // Состояния для отслеживания процесса
+        let isVideoPlaying = false;
+        let isMarkerDetected = false;
+        let videoTimeout = null;
+        
+        // Обновляем индикатор статуса
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status-indicator');
+            if (statusEl) {
+                statusEl.textContent = message;
+            }
+        }
+        
+        // Функция запуска видео
+        function startVideo() {
+            const video = document.getElementById('ar-video');
+            if (!video) return;
+            
+            // Очищаем предыдущий таймер, если он был
+            if (videoTimeout) {
+                clearTimeout(videoTimeout);
+            }
+            
+            // Воспроизводим видео
+            video.play()
+                .then(() => {
+                    isVideoPlaying = true;
+                    updateStatus('Видео воспроизводится...');
+                    
+                    // Устанавливаем таймер на 5 секунд
+                    videoTimeout = setTimeout(() => {
+                        pauseVideo();
+                        updateStatus('Видео остановлено (5 сек)');
+                    }, 5000);
+                })
+                .catch(e => {
+                    console.error("Ошибка автостарта видео: ", e);
+                    updateStatus('Ошибка воспроизведения');
+                });
+        }
+        
+        // Функция паузы видео
+        function pauseVideo() {
+            const video = document.getElementById('ar-video');
+            if (video) {
+                video.pause();
+                video.currentTime = 0;
+                isVideoPlaying = false;
+            }
+        }
+        
+        // Обработка события загрузки сцены
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            // Скрываем лоадер
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+            
+            // Активируем кнопку запуска
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) {
+                startBtn.disabled = false;
+            }
+            
+            updateStatus('Сцена загружена');
+        });
+        
+        // Обработка события обнаружения маркера
+        document.querySelector('a-scene').addEventListener('markerFound', function() {
+            isMarkerDetected = true;
+            updateStatus('Маркер обнаружен');
+            
+            // На мобильных устройствах кнопка уже доступна
+            // На десктопе можем автостартовать
+            if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                // Небольшая задержка для стабильности
+                setTimeout(() => {
+                    if (!isVideoPlaying) {
+                        startVideo();
+                    }
+                }, 500);
+            }
+        });
+        
+        // Обработка события потери маркера
+        document.querySelector('a-scene').addEventListener('markerLost', function() {
+            isMarkerDetected = false;
+            
+            // Останавливаем видео при потере маркера
+            if (isVideoPlaying) {
+                pauseVideo();
+                updateStatus('Маркер потерян');
+                
+                // Очищаем таймер
+                if (videoTimeout) {
+                    clearTimeout(videoTimeout);
+                    videoTimeout = null;
+                }
+            }
+        });
+        
+        // Обработка ошибок видео
+        document.getElementById('ar-video').addEventListener('error', function(e) {
+            console.error('Ошибка загрузки видео для AR-опыта:', e);
+            updateStatus('Ошибка видео');
+        });
+        
+        // Обработка окончания воспроизведения видео
+        document.getElementById('ar-video').addEventListener('ended', function() {
+            isVideoPlaying = false;
+            updateStatus('Видео завершено');
+        });
+        
+        // Автостарт на десктопах (только если не мобильное устройство)
+        window.onload = function() {
+            if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                // Кнопка будет активна после загрузки сцены
+                updateStatus('Ожидание загрузки...');
+            } else {
+                updateStatus('Ожидание маркера...');
+            }
+        };
+    </script>
+</body>
+</html>

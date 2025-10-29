@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+minio
+qrcode[pil]
+python-dotenv
+opencv-python-headless
+numpy
+pillow  # Required for NFT marker generation and image processing from Stogram integration
+docker
+python-magic
+requests
+passlib[bcrypt]
+python-jose[cryptography]

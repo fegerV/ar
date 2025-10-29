@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: vertex_art_app_simplified
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./app_data.db
+      - STORAGE_ROOT=/app/storage
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=secret
+      - SECRET_KEY=your-super-secret-key-here
+    volumes:
+      - ./storage:/app/storage
+      - ./app_data.db:/app/app_data.db
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: vertex_art_nginx_simplified
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  app_data:

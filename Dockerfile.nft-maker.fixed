@@ -1,0 +1,36 @@
+FROM node:16-alpine  
+  
+# Установка зависимостей  
+RUN apk add --no-cache   
+    python3   
+    py3-pip   
+    g++   
+    make   
+    py3-numpy   
+    py3-pillow   
+    git   
+    build-base   
+    openblas-dev   
+    cmake  
+  
+# Клонируем репозиторий ARToolKit5  
+RUN git clone https://github.com/artoolkitx/artoolkit5.git /tmp/artoolkit5  
+  
+# Собираем и устанавливаем ARToolKit5  
+WORKDIR /tmp/artoolkit5  
+RUN ./Configure --enable-nft  
+RUN make  
+RUN make install  
+  
+# Создаем директорию для работы  
+WORKDIR /app  
+  
+# Устанавливаем Python зависимости  
+RUN pip3 install numpy pillow  
+  
+# Копируем скрипты для генерации маркеров  
+COPY generate-nft.js /app/generate-nft.js  
+COPY nft_maker.py /app/nft_maker.py  
+  
+# Точка входа  
+ENTRYPOINT ["node", "/app/generate-nft.js"] 

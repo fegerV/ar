@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            background-color: white;
+            padding: 1.25rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .notifications-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 350px;
+        }
+
+        .notification {
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            color: white;
+            box-shadow: var(--box-shadow);
+            animation: slideIn 0.3s ease;
+            position: relative;
+        }
+
+        .notification.success {
+            background-color: var(--success-color);
+        }
+
+        .notification.error {
+            background-color: var(--danger-color);
+        }
+
+        .notification.warning {
+            background-color: var(--warning-color);
+            color: #212529;
+        }
+
+        .notification.info {
+            background-color: var(--info-color);
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification.warning .notification-close {
+            color: #212529;
+        }
+
+        .notification-message {
+            font-size: 0.9rem;
+        }
+
+        .notification-timestamp {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification-icon {
+            margin-right: 0.5rem;
+        }
+
+        .bell-icon {
+            position: relative;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: var(--danger-color);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header h1 {
+            color: var(--dark-color);
+            font-size: 1.75rem;
+        }
+
+        .logout-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background-color: white;
+            padding: 1.25rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .storage-info {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .storage-info h2 {
+            margin-top: 0;
+            color: var(--dark-color);
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .storage-bars {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .storage-bar-container {
+            background-color: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 1rem;
+        }
+
+        .storage-bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .storage-bar {
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+        }
+
+        .storage-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .storage-detail {
+            text-align: center;
+            padding: 0.75rem;
+            background-color: #f8f9fa;
+            border-radius: var(--border-radius);
+        }
+
+        .storage-detail .value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .content-stats {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .content-stats h2 {
+            margin-top: 0;
+            color: var(--dark-color);
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-item {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-item .id {
+            font-weight: bold;
+            color: var(--dark-color);
+        }
+
+        .stat-item .views {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .upload-section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-section h2 {
+            margin-top: 0;
+            color: var(--dark-color);
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 3px rgba(0, 123, 255, 0.15);
+        }
+
+        .form-help {
+            display: block;
+            margin-top: 0.25rem;
+            color: var(--secondary-color);
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .btn i {
+            margin-right: 0.5rem;
+        }
+
+        .records-section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .records-section h2 {
+            margin-top: 0;
+            color: var(--dark-color);
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+        }
+
+        .search-filter {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box, .filter-select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+        }
+
+        .search-box {
+            flex-grow: 1;
+            min-width: 200px;
+        }
+
+        .filter-select {
+            width: 150px;
+        }
+
+        .record {
+            border: 1px solid #eee;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border-radius: var(--border-radius);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .record {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+
+        .record-info {
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .record-info div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (min-width: 768px) {
+            .record-info {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+
+        .record-info strong {
+            color: var(--secondary-color);
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .record-info span {
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .record-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            transition: background-color 0.3s;
+        }
+
+        .view-btn {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .view-btn:hover {
+            background-color: #218838;
+        }
+
+        .delete-btn {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .qr-code {
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .qr-code img {
+            max-width: 120px;
+            max-height: 120px;
+            border: 1px solid #eee;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+        }
+
+        .image-preview {
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .image-preview img {
+            max-width: 100px;
+            max-height: 100px;
+            border: 1px solid #eee;
+            padding: 0.25rem;
+            border-radius: var(--border-radius);
+            object-fit: cover;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+            color: #ced4da;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-active {
+            background-color: var(--success-color);
+        }
+
+        .status-inactive {
+            background-color: var(--secondary-color);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Admin Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div id="notificationBell" class="bell-icon" title="Уведомления" onclick="toggleNotifications()">
+                    <!-- Bell icon using Unicode -->
+                    🔔
+                    <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+                </div>
+                <a href="/admin/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+        <!-- Контейнер для всплывающих уведомлений -->
+        <div id="notificationsContainer" class="notifications-container" style="display: none;"></div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3>Total Records</h3>
+                <div class="value" id="totalRecords">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Storage Used</h3>
+                <div class="value" id="storageUsed">0 MB</div>
+            </div>
+            <div class="stat-card">
+                <h3>Last Upload</h3>
+                <div class="value" id="lastUpload">--:--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Content</h3>
+                <div class="value" id="activeContent">0</div>
+            </div>
+    
+            <div class="storage-info" id="storageInfo">
+                <h2>System Information</h2>
+                <div class="storage-bars">
+                    <div class="storage-bar-container">
+                        <div class="storage-bar-label">
+                            <span>Disk Usage</span>
+                            <span id="diskUsedPercent">0%</span>
+                        </div>
+                        <div class="storage-bar">
+                            <div class="storage-bar-fill" id="diskUsageBar" style="width: 0%;"></div>
+                        </div>
+                    <div class="storage-bar-container">
+                        <div class="storage-bar-label">
+                            <span>Storage Usage</span>
+                            <span id="storageUsedPercent">0%</span>
+                        </div>
+                        <div class="storage-bar">
+                            <div class="storage-bar-fill" id="storageUsageBar" style="width: 0%; background-color: var(--success-color);"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="storage-details">
+                    <div class="storage-detail">
+                        <div>Total Disk Space</div>
+                        <div class="value" id="diskTotal">0 GB</div>
+                    </div>
+                    <div class="storage-detail">
+                        <div>Used Disk Space</div>
+                        <div class="value" id="diskUsed">0 GB</div>
+                    </div>
+                    <div class="storage-detail">
+                        <div>Free Disk Space</div>
+                        <div class="value" id="diskFree">0 GB</div>
+                    </div>
+                    <div class="storage-detail">
+                        <div>Storage Used</div>
+                        <div class="value" id="storageSize">0 MB</div>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="content-stats" id="contentStats">
+                <h2>Content Statistics</h2>
+                <div class="stats-grid" id="statsList">
+                    <!-- Statistics will be loaded here dynamically -->
+                    <div class="empty-state">
+                        <div>📊</div>
+                        <h3>Loading Statistics...</h3>
+                        <p>Content view statistics will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <h2>Upload New AR Content</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="image">Image (JPG/PNG, min 1024px)</label>
+                        <input type="file" id="image" name="image" accept="image/jpeg,image/png" required>
+                        <small class="form-help">Upload a high-resolution image that will trigger the AR experience</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="video">Video (MP4, max 10MB)</label>
+                        <input type="file" id="video" name="video" accept="video/mp4" required>
+                        <small class="form-help">Upload the AR video content to be displayed</small>
+                    </div>
+                </div>
+                <button type="submit" class="btn" id="uploadBtn">
+                    <span class="btn-text">Upload & Create NFT</span>
+                    <span class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+
+        <div class="records-section">
+            <h2>Content Records</h2>
+            <div class="search-filter">
+                <input type="text" class="search-box" id="searchInput" placeholder="Search by ID or date...">
+                <select class="filter-select" id="filterSelect">
+                    <option value="all">All Records</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                </select>
+            </div>
+            <div id="recordsList">
+                {% if records %}
+                    {% for record in records %}
+                    <div class="record" data-id="{{ record.id }}">
+                        <div class="record-info">
+                            <div>
+                                <strong>ID</strong>
+                                <span>{{ record.id }}</span>
+                            </div>
+                            <div>
+                                <strong>Created</strong>
+                                <span>{{ record.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                            </div>
+                            <div>
+                                <strong>Image URL</strong>
+                                <span>{{ record.image_url.split('/')[-1] if record.image_url else 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <strong>Video URL</strong>
+                                <span>{{ record.video_url.split('/')[-1] if record.video_url else 'N/A' }}</span>
+                            </div>
+                            <div class="image-preview">
+                                <strong>Image Preview</strong>
+                                <img src="/images/{{ record.id }}.jpg" alt="Image Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display: none; text-align: center; margin-top: 5px;">Нет изображения</div>
+                            </div>
+                            <div class="preview-thumbnails" style="display: flex; gap: 0.5rem;">
+                                <div>
+                                    <strong>Image Preview</strong>
+                                    {% if record.image_preview_url %}
+                                        <img src="/previews/{{ record.image_preview_url.split('/')[-1] }}" alt="Image Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                        <div style="display: none; text-align: center; margin-top: 5px;">Нет превью</div>
+                                    {% else %}
+                                        <div>No preview</div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <strong>Video Preview</strong>
+                                    {% if record.video_preview_url %}
+                                        <img src="/previews/{{ record.video_preview_url.split('/')[-1] }}" alt="Video Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                        <div style="display: none; text-align: center; margin-top: 5px;">Нет превью</div>
+                                    {% else %}
+                                        <div>No preview</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="qr-code">
+                                <strong>QR Code</strong>
+                                <img src="data:image/png;base64,{{ record.qr_code }}" alt="QR Code">
+                            </div>
+                        </div>
+                        <div class="record-actions">
+                            <a href="/ar/{{ record.id }}" class="action-btn view-btn" target="_blank">View AR</a>
+                            <button class="action-btn delete-btn" onclick="deleteRecord('{{ record.id }}')">Delete</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div>📁</div>
+                        <h3>No Content Records</h3>
+                        <p>Upload your first AR content to get started</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <footer>
+            <p>Vertex Art AR Admin Panel &copy; 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // Update stats when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
+        });
+
+        // Update statistics
+        function updateStats() {
+            const records = document.querySelectorAll('.record');
+            document.getElementById('totalRecords').textContent = records.length;
+            
+            // Calculate storage used (approximation)
+            let storageUsed = (records.length * 5).toFixed(1); // Assuming ~5MB per record
+            document.getElementById('storageUsed').textContent = storageUsed + ' MB';
+            
+            // Find last upload
+            if (records.length > 0) {
+                const firstRecord = records[0];
+                const dateSpan = firstRecord.querySelector('div:nth-child(2) span');
+                document.getElementById('lastUpload').textContent = dateSpan.textContent.split(' ')[1]; // Just time
+            } else {
+                document.getElementById('lastUpload').textContent = 'Never';
+            }
+            
+            document.getElementById('activeContent').textContent = records.length;
+        }
+
+        // Handle form submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const btnText = uploadBtn.querySelector('.btn-text');
+            const loadingSpinner = uploadBtn.querySelector('.loading');
+            
+            // Show loading state
+            btnText.style.display = 'none';
+            loadingSpinner.style.display = 'inline-block';
+            uploadBtn.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('image', document.getElementById('image').files[0]);
+            formData.append('video', document.getElementById('video').files[0]);
+            
+            try {
+                const response = await fetch('/admin/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('Files uploaded and NFT created successfully!');
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail || 'Upload failed');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                // Reset button state
+                btnText.style.display = 'inline';
+                loadingSpinner.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Delete record function
+        async function deleteRecord(id) {
+            if (confirm('Are you sure you want to permanently delete this record? This will remove the content and associated files.')) {
+                try {
+                    const response = await fetch(`/admin/delete/${id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        // Remove the record from the UI
+                        const recordElement = document.querySelector(`.record[data-id="${id}"]`);
+                        if (recordElement) {
+                            recordElement.remove();
+                            updateStats(); // Update stats after deletion
+                        }
+                        alert('Record deleted successfully!');
+                    } else {
+                        const error = await response.json();
+                        alert('Error: ' + error.detail || 'Delete failed');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const records = document.querySelectorAll('.record');
+            
+            records.forEach(record => {
+                const recordId = record.getAttribute('data-id').toLowerCase();
+                const recordDate = record.querySelector('div:nth-child(2) span').textContent.toLowerCase();
+                
+                if (recordId.includes(searchTerm) || recordDate.includes(searchTerm)) {
+                    record.style.display = 'flex';
+                } else {
+                    record.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter functionality
+        document.getElementById('filterSelect').addEventListener('change', function() {
+            const filterValue = this.value;
+            const records = document.querySelectorAll('.record');
+            
+            records.forEach(record => {
+                if (filterValue === 'all') {
+                    record.style.display = 'flex';
+                    return;
+                }
+                
+                const recordDate = new Date(record.querySelector('div:nth-child(2) span').textContent);
+                const now = new Date();
+                
+                let showRecord = false;
+                
+                if (filterValue === 'today') {
+                    const today = new Date();
+                    showRecord = recordDate.getDate() === today.getDate() &&
+                                recordDate.getMonth() === today.getMonth() &&
+                                recordDate.getFullYear() === today.getFullYear();
+                } else if (filterValue === 'week') {
+                    const oneWeekAgo = new Date();
+                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                    showRecord = recordDate >= oneWeekAgo;
+                } else if (filterValue === 'month') {
+                    const oneMonthAgo = new Date();
+                    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                    showRecord = recordDate >= oneMonthAgo;
+                }
+                
+                record.style.display = showRecord ? 'flex' : 'none';
+            });
+        });
+
+        // Функции для работы с уведомлениями
+        let notifications = [];
+        let unreadCount = 0;
+
+        // Показать/скрыть список уведомлений
+        function toggleNotifications() {
+            const container = document.getElementById('notificationsContainer');
+            const isVisible = container.style.display !== 'none';
+            container.style.display = isVisible ? 'none' : 'flex';
+            
+            // Если открываем список, помечаем все как прочитанные
+            if (!isVisible) {
+                markAllAsRead();
+            }
+        }
+
+        // Загрузить уведомления с сервера
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/notifications?unread_only=true');
+                if (response.ok) {
+                    const data = await response.json();
+                    notifications = data;
+                    updateNotificationBadge();
+                    showRecentNotifications();
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+
+        // Показать недавние уведомления
+        function showRecentNotifications() {
+            // Показываем только последние 5 уведомлений
+            const recentNotifications = notifications.slice(0, 5);
+            recentNotifications.forEach(notification => {
+                showNotification(notification);
+            });
+        }
+
+        // Показать уведомление
+        function showNotification(notification) {
+            // Проверяем, не отображается ли уже это уведомление
+            const existingNotification = document.querySelector(`.notification[data-id="${notification.id}"]`);
+            if (existingNotification) {
+                return;
+            }
+
+            const notificationEl = document.createElement('div');
+            notificationEl.className = `notification ${notification.notification_type}`;
+            notificationEl.setAttribute('data-id', notification.id);
+            notificationEl.innerHTML = `
+                <div class="notification-header">
+                    <div class="notification-title">${notification.title}</div>
+                    <button class="notification-close" onclick="closeNotification(this)">×</button>
+                </div>
+                <div class="notification-message">${notification.message}</div>
+                <div class="notification-timestamp">${new Date(notification.created_at).toLocaleString()}</div>
+            `;
+            
+            document.getElementById('notificationsContainer').appendChild(notificationEl);
+            
+            // Автоматически скрываем уведомление через 5 секунд, если это не ошибка
+            if (notification.notification_type !== 'error') {
+                setTimeout(() => {
+                    if (notificationEl.parentNode) {
+                        notificationEl.remove();
+                        updateNotificationBadge();
+                    }
+                }, 5000);
+            }
+        }
+
+        // Закрыть уведомление
+        function closeNotification(element) {
+            element.closest('.notification').remove();
+            updateNotificationBadge();
+        }
+
+        // Обновить значок уведомлений
+        function updateNotificationBadge() {
+            const unreadNotifications = notifications.filter(n => !n.is_read);
+            unreadCount = unreadNotifications.length;
+            const badge = document.getElementById('notificationBadge');
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Пометить все уведомления как прочитанные
+        async function markAllAsRead() {
+            if (unreadCount === 0) return;
+            
+            try {
+                await fetch('/notifications/mark-all-read', {
+                    method: 'PUT'
+                });
+                notifications.forEach(notification => {
+                    notification.is_read = true;
+                });
+                updateNotificationBadge();
+            } catch (error) {
+                console.error('Error marking notifications as read:', error);
+            }
+        }
+
+        // Периодически обновляем уведомления
+        setInterval(loadNotifications, 30000); // каждые 30 секунд
+        // Загружаем уведомления при загрузке страницы
+        document.addEventListener('DOMContentLoaded', loadNotifications);
+        
+        // Функции для работы с информацией о дисковом пространстве
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/admin/system-info');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateSystemInfo(data);
+                }
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+        
+        function updateSystemInfo(data) {
+            // Обновляем информацию о диске
+            document.getElementById('diskTotal').textContent = data.disk_info.total;
+            document.getElementById('diskUsed').textContent = data.disk_info.used;
+            document.getElementById('diskFree').textContent = data.disk_info.free;
+            document.getElementById('diskUsedPercent').textContent = data.disk_info.used_percent.toFixed(1) + '%';
+            document.getElementById('diskUsageBar').style.width = data.disk_info.used_percent + '%';
+            
+            // Обновляем информацию о хранилище
+            document.getElementById('storageSize').textContent = data.storage_info.total_size;
+            document.getElementById('storageUsedPercent').textContent = 'N/A'; // пока не реализовано
+            
+            // Обновляем детали хранилища
+            // Эти значения могут быть приближенными
+        }
+        
+        // Функции для работы со статистикой просмотров
+        async function loadContentStats() {
+            try {
+                const response = await fetch('/admin/content-stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateContentStats(data);
+                }
+            } catch (error) {
+                console.error('Error loading content stats:', error);
+            }
+        }
+        
+        function updateContentStats(data) {
+            const statsList = document.getElementById('statsList');
+            statsList.innerHTML = '';
+            
+            if (data.length === 0) {
+                statsList.innerHTML = `
+                    <div class="empty-state">
+                        <div>📊</div>
+                        <h3>No Statistics Yet</h3>
+                        <p>Content view statistics will appear here after users view AR content</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Показываем только топ-10 записей
+            const topStats = data.slice(0, 10);
+            topStats.forEach(stat => {
+                const statItem = document.createElement('div');
+                statItem.className = 'stat-item';
+                statItem.innerHTML = `
+                    <div class="id">${stat.id.substring(0, 8)}...</div>
+                    <div class="views">${stat.views} views</div>
+                `;
+                statsList.appendChild(statItem);
+            });
+        }
+        
+        // Периодически обновляем системную информацию
+        setInterval(loadSystemInfo, 60000); // каждую минуту
+        setInterval(loadContentStats, 30000); // каждые 30 секунд
+        
+        // Загружаем системную информацию и статистику при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSystemInfo();
+            loadContentStats();
+        });
+    </script>
+</body>
+</html>
