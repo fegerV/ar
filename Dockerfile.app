@@ -29,10 +29,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY vertex-art-ar/requirements-simple.txt .
+COPY vertex-ar/requirements-simple.txt .
 RUN pip install --no-cache-dir -r requirements-simple.txt
 
-COPY vertex-art-ar/ .
+COPY vertex-ar/ .
 
 EXPOSE 8000
 

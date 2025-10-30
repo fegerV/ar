@@ -49,18 +49,18 @@
 
 **Ошибка:**
 ```python
-RuntimeError: Directory '/home/engine/project/vertex-art-ar/storage' does not exist
+RuntimeError: Directory '/home/engine/project/vertex-ar/storage' does not exist
 ```
 
 **Причина:** FastAPI приложение монтирует storage директорию при старте, но она не существует.
 
 **Решение:**
 ```bash
-mkdir -p vertex-art-ar/storage/ar_content
-mkdir -p vertex-art-ar/storage/nft-markers
-mkdir -p vertex-art-ar/storage/qr-codes
-mkdir -p vertex-art-ar/static
-mkdir -p vertex-art-ar/templates
+mkdir -p vertex-ar/storage/ar_content
+mkdir -p vertex-ar/storage/nft-markers
+mkdir -p vertex-ar/storage/qr-codes
+mkdir -p vertex-ar/static
+mkdir -p vertex-ar/templates
 ```
 
 **Статус:** ✅ Исправлено
@@ -93,19 +93,19 @@ pip install jinja2>=3.1.0
 ModuleNotFoundError: No module named 'main'
 ```
 
-**Причина:** Тесты находятся в корневой директории, но импортируют модули из vertex-art-ar/
+**Причина:** Тесты находятся в корневой директории, но импортируют модули из vertex-ar/
 
 **Решение:**
 
-**Вариант 1 (рекомендуемый):** Переместить тесты в vertex-art-ar/tests/
+**Вариант 1 (рекомендуемый):** Переместить тесты в vertex-ar/tests/
 ```bash
-mkdir -p vertex-art-ar/tests
-mv test_*.py vertex-art-ar/tests/
+mkdir -p vertex-ar/tests
+mv test_*.py vertex-ar/tests/
 ```
 
 **Вариант 2:** Добавить путь в PYTHONPATH
 ```bash
-export PYTHONPATH="${PYTHONPATH}:./vertex-art-ar"
+export PYTHONPATH="${PYTHONPATH}:./vertex-ar"
 pytest
 ```
 
@@ -113,7 +113,7 @@ pytest
 ```ini
 # pytest.ini
 [pytest]
-pythonpath = vertex-art-ar
+pythonpath = vertex-ar
 ```
 
 **Статус:** ⚠️ Требует реорганизации
@@ -129,7 +129,7 @@ pythonpath = vertex-art-ar
 **Решение:** Создать conftest.py с общими фикстурами
 
 ```python
-# vertex-art-ar/tests/conftest.py
+# vertex-ar/tests/conftest.py
 import pytest
 from pathlib import Path
 from fastapi.testclient import TestClient
@@ -853,7 +853,7 @@ pytest tests/test_auth.py
 pytest tests/test_auth.py::test_password_hashing
 
 # With coverage
-pytest --cov=vertex-art-ar --cov-report=html
+pytest --cov=vertex-ar --cov-report=html
 
 # Verbose
 pytest -v
@@ -869,14 +869,14 @@ pytest -n auto
 
 ```bash
 # Generate HTML report
-pytest --cov=vertex-art-ar --cov-report=html
+pytest --cov=vertex-ar --cov-report=html
 open htmlcov/index.html
 
 # Generate terminal report
-pytest --cov=vertex-art-ar --cov-report=term-missing
+pytest --cov=vertex-ar --cov-report=term-missing
 
 # Generate XML (for CI)
-pytest --cov=vertex-art-ar --cov-report=xml
+pytest --cov=vertex-ar --cov-report=xml
 ```
 
 ---

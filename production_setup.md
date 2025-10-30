@@ -102,7 +102,7 @@ The application will be deployed with the following structure:
 ├── ssl/ (for SSL certificates)
 ├── setup_ssl.sh
 ├── Dockerfile.app
-├── vertex-art-ar/ (source code)
+├── vertex-ar/ (source code)
 └── minio-data/ (MinIO data)
 ```
 

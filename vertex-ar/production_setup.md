@@ -55,8 +55,8 @@ sudo apt install -y python3 python3-pip python3-venv git nginx supervisor curl w
 sudo su - vertexart
 
 # Clone repository
-git clone https://github.com/your-username/vertex-art-ar.git /opt/vertex-art-ar
-cd /opt/vertex-art-ar
+git clone https://github.com/your-username/vertex-ar.git /opt/vertex-ar
+cd /opt/vertex-ar
 ```
 
 ### Set Up Python Environment
@@ -78,7 +78,7 @@ Create a `.env` file in the project directory:
 ```bash
 cat > .env <<EOF
 DATABASE_URL=sqlite:///./app_data.db
-STORAGE_ROOT=/opt/vertex-art-ar/storage
+STORAGE_ROOT=/opt/vertex-ar/storage
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=secret
 SECRET_KEY=your-very-secure-secret-key-here
@@ -91,12 +91,12 @@ EOF
 
 ```bash
 # Create storage directories
-sudo mkdir -p /opt/vertex-art-ar/storage/ar_content
-sudo mkdir -p /opt/vertex-art-ar/storage/nft-markers
-sudo mkdir -p /opt/vertex-art-ar/storage/previews
+sudo mkdir -p /opt/vertex-ar/storage/ar_content
+sudo mkdir -p /opt/vertex-ar/storage/nft-markers
+sudo mkdir -p /opt/vertex-ar/storage/previews
 
 # Set proper ownership
-sudo chown -R vertexart:vertexart /opt/vertex-art-ar/storage
+sudo chown -R vertexart:vertexart /opt/vertex-ar/storage
 ```
 
 ## 4. Web Server Configuration (Nginx)
@@ -106,7 +106,7 @@ sudo chown -R vertexart:vertexart /opt/vertex-art-ar/storage
 Create a new site configuration:
 
 ```bash
-sudo tee /etc/nginx/sites-available/vertex-art-ar > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/vertex-ar > /dev/null <<EOF
 server {
     listen 80;
     server_name your-domain.com; # Change to your domain
@@ -122,14 +122,14 @@ server {
     
     # Serve static files
     location /static/ {
-        alias /opt/vertex-art-ar/static/;
+        alias /opt/vertex-ar/static/;
         expires 1y;
         add_header Cache-Control "public";
     }
     
     # Serve uploaded content
     location /storage/ {
-        alias /opt/vertex-art-ar/storage/;
+        alias /opt/vertex-ar/storage/;
         expires 1d;
         add_header Cache-Control "public";
     }
@@ -137,7 +137,7 @@ server {
 EOF
 
 # Enable site
-sudo ln -sf /etc/nginx/sites-available/vertex-art-ar /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/vertex-ar /etc/nginx/sites-enabled/
 
 # Remove default site
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -156,22 +156,22 @@ sudo systemctl restart nginx
 Create a supervisor configuration for the application:
 
 ```bash
-sudo tee /etc/supervisor/conf.d/vertex-art-ar.conf > /dev/null <<EOF
-[program:vertex-art-ar]
-command=/opt/vertex-art-ar/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-directory=/opt/vertex-art-ar
+sudo tee /etc/supervisor/conf.d/vertex-ar.conf > /dev/null <<EOF
+[program:vertex-ar]
+command=/opt/vertex-ar/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+directory=/opt/vertex-ar
 user=vertexart
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile=/var/log/vertex-art-ar.log
-environment=DATABASE_URL="sqlite:////opt/vertex-art-ar/app_data.db",STORAGE_ROOT="/opt/vertex-art-ar/storage"
+stdout_logfile=/var/log/vertex-ar.log
+environment=DATABASE_URL="sqlite:////opt/vertex-ar/app_data.db",STORAGE_ROOT="/opt/vertex-ar/storage"
 EOF
 
 # Reload supervisor configuration
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start vertex-art-ar
+sudo supervisorctl start vertex-ar
 ```
 
 ## 6. SSL Certificate (Let's Encrypt)
@@ -195,11 +195,11 @@ sudo certbot --nginx -d your-domain.com
 
 ```bash
 # Set ownership of application files
-sudo chown -R vertexart:vertexart /opt/vertex-art-ar
+sudo chown -R vertexart:vertexart /opt/vertex-ar
 
 # Create database file with proper permissions
-sudo touch /opt/vertex-art-ar/app_data.db
-sudo chown vertexart:vertexart /opt/vertex-art-ar/app_data.db
+sudo touch /opt/vertex-ar/app_data.db
+sudo chown vertexart:vertexart /opt/vertex-ar/app_data.db
 ```
 
 ### Test Application
@@ -217,7 +217,7 @@ curl -I http://your-domain.com
 
 ### Log Files
 
-- Application logs: `/var/log/vertex-art-ar.log`
+- Application logs: `/var/log/vertex-ar.log`
 - Nginx logs: `/var/log/nginx/`
 
 ### Regular Maintenance Tasks
@@ -234,17 +234,17 @@ curl -I http://your-domain.com
 
 3. Check application health:
    ```bash
-   sudo supervisorctl status vertex-art-ar
+   sudo supervisorctl status vertex-ar
    ```
 
 4. Backup database regularly:
    ```bash
-   cp /opt/vertex-art-ar/app_data.db backup_$(date +%Y%m%d).db
+   cp /opt/vertex-ar/app_data.db backup_$(date +%Y%m%d).db
    ```
 
 5. Backup storage directory:
    ```bash
-   tar -czf storage_backup_$(date +%Y%m%d).tar.gz /opt/vertex-art-ar/storage
+   tar -czf storage_backup_$(date +%Y%m%d).tar.gz /opt/vertex-ar/storage
    ```
 
 ## 9. Docker Production Setup (Alternative)
@@ -279,8 +279,8 @@ sudo usermod -aG docker $USER
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/vertex-art-ar.git /opt/vertex-art-ar
-cd /opt/vertex-art-ar
+git clone https://github.com/your-username/vertex-ar.git /opt/vertex-ar
+cd /opt/vertex-ar
 
 # Build and start services
 docker compose up -d

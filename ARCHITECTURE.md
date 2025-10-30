@@ -610,7 +610,7 @@ tasks = {
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python vertex-art-ar/main.py
+python vertex-ar/main.py
 ```
 
 ### Production Deployment (Docker)

@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-PROJECT_DIR="/opt/vertex-art-ar"
+PROJECT_DIR="/opt/vertex-ar"
 VENV_DIR="$PROJECT_DIR/venv"
 USER="vertexart"
 GROUP="vertexart"
@@ -70,16 +70,16 @@ setup_database() {
     
     # Create database and user
     sudo -u postgres psql <<EOF
-CREATE DATABASE vertex_art_ar;
+CREATE DATABASE vertex_ar;
 CREATE USER vertexart WITH PASSWORD 'vertexart_password';
-GRANT ALL PRIVILEGES ON DATABASE vertex_art_ar TO vertexart;
+GRANT ALL PRIVILEGES ON DATABASE vertex_ar TO vertexart;
 EOF
     
     # Verify database creation
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw vertex_art_ar; then
-        log "Database 'vertex_art_ar' created successfully"
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw vertex_ar; then
+        log "Database 'vertex_ar' created successfully"
     else
-        error "Failed to create database 'vertex_art_ar'"
+        error "Failed to create database 'vertex_ar'"
         exit 1
     fi
     
@@ -172,7 +172,7 @@ deploy_application() {
         cd $PROJECT_DIR
         git pull
     else
-        git clone https://github.com/your-username/vertex-art-ar.git $PROJECT_DIR
+        git clone https://github.com/your-username/vertex-ar.git $PROJECT_DIR
         cd $PROJECT_DIR
     fi
     
@@ -187,7 +187,7 @@ deploy_application() {
     # Create .env file if it doesn't exist
     if [ ! -f ".env" ]; then
         cat > .env <<EOF
-DATABASE_URL=postgresql://vertexart:vertexart_password@localhost/vertex_art_ar
+DATABASE_URL=postgresql://vertexart:vertexart_password@localhost/vertex_ar
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
@@ -209,7 +209,7 @@ setup_nginx() {
     log "Setting up Nginx..."
     
     # Create Nginx configuration
-    sudo tee /etc/nginx/sites-available/vertex-art-ar > /dev/null <<EOF
+    sudo tee /etc/nginx/sites-available/vertex-ar > /dev/null <<EOF
 server {
     listen 80;
     server_name _; # Accept any domain, change to your domain in production
@@ -271,7 +271,7 @@ server {
 EOF
     
     # Enable site
-    sudo ln -sf /etc/nginx/sites-available/vertex-art-ar /etc/nginx/sites-enabled/
+    sudo ln -sf /etc/nginx/sites-available/vertex-ar /etc/nginx/sites-enabled/
     
     # Remove default site
     sudo rm -f /etc/nginx/sites-enabled/default
@@ -290,21 +290,21 @@ setup_supervisor() {
     log "Setting up Supervisor..."
     
     # Create Supervisor configuration
-    sudo tee /etc/supervisor/conf.d/vertex-art-ar.conf > /dev/null <<EOF
-[program:vertex-art-ar]
+    sudo tee /etc/supervisor/conf.d/vertex-ar.conf > /dev/null <<EOF
+[program:vertex-ar]
 command=$VENV_DIR/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 directory=$PROJECT_DIR
 user=$USER
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile=/var/log/vertex-art-ar.log
+stdout_logfile=/var/log/vertex-ar.log
 EOF
     
     # Reload Supervisor configuration
     sudo supervisorctl reread
     sudo supervisorctl update
-    sudo supervisorctl start vertex-art-ar
+    sudo supervisorctl start vertex-ar
     
     log "Supervisor setup completed."
 }

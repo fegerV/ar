@@ -1,5 +1,5 @@
 """
-Simplified AR Backend for Vertex-Art-AR - Focus on core AR functionality
+Simplified AR Backend for Vertex-AR - Focus on core AR functionality
 Based on Stogram approach: No blockchain, no IPFS, no NFT - just image + video AR content
 """
 from __future__ import annotations

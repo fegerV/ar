@@ -1,5 +1,5 @@
 """
-Вспомогательные утилиты для Vertex-Art-AR
+Вспомогательные утилиты для Vertex-AR
 """
 import os
 import shutil

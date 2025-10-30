@@ -10,7 +10,7 @@ import time
 import json
 
 # Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-art-ar'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
 
 from main import Database, _hash_password
 from fastapi.testclient import TestClient

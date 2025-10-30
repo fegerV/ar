@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Simplified AR Backend Deployment Script for Vertex-Art-AR
-# Based on Stogram approach but for Vertex-Art-AR project
+# Simplified AR Backend Deployment Script for Vertex-AR
+# Based on Stogram approach but for Vertex-AR project
 
 set -e
 
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}===================================${NC}"
-echo -e "${GREEN}Vertex-Art-AR Simplified Deployment${NC}"
+echo -e "${GREEN}Vertex-AR Simplified Deployment${NC}"
 echo -e "${GREEN}===================================${NC}"
 echo ""
 

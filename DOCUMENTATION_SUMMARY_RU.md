@@ -78,7 +78,7 @@
 ```bash
 # Установка
 git clone https://github.com/your-org/vertex-ar.git
-cd vertex-ar/vertex-art-ar
+cd vertex-ar/vertex-ar
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

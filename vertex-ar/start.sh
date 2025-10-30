@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Simple AR Backend Startup Script for Vertex-Art-AR (Simplified)
-# Based on Stogram approach but maintaining core Vertex-Art-AR functionality
+# Simple AR Backend Startup Script for Vertex-AR (Simplified)
+# Based on Stogram approach but maintaining core Vertex-AR functionality
 
-echo "Starting Vertex-Art-AR (Simplified)..."
+echo "Starting Vertex-AR (Simplified)..."
 echo "====================================="
 
 # Check if virtual environment exists

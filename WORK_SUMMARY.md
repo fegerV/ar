@@ -152,7 +152,7 @@ User Documentation: 0% (планируется)
 
 ### Исправленные файлы
 
-#### 1. vertex-art-ar/main.py
+#### 1. vertex-ar/main.py
 ```python
 # БЫЛО:
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
@@ -163,7 +163,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, 
 # + Удалены неиспользуемые импорты: os, tempfile, дублированный List
 ```
 
-#### 2. vertex-art-ar/requirements.txt
+#### 2. vertex-ar/requirements.txt
 ```python
 # ДОБАВЛЕНО:
 jinja2>=3.1.0  # Required for templating
@@ -412,14 +412,14 @@ Documentation Tree:
 1. **Форматирование кода**
    ```bash
    pip install black isort
-   black vertex-art-ar/
-   isort vertex-art-ar/
+   black vertex-ar/
+   isort vertex-ar/
    ```
 
 2. **Запуск тестов**
    ```bash
    pytest -v
-   pytest --cov=vertex-art-ar --cov-report=html
+   pytest --cov=vertex-ar --cov-report=html
    ```
 
 3. **Pre-commit hooks**
@@ -635,37 +635,37 @@ Documentation Tree:
 
 ### B. Изменены файлы
 
-1. ✅ vertex-art-ar/main.py (добавлен импорт Request)
-2. ✅ vertex-art-ar/requirements.txt (добавлены версии и пакеты)
+1. ✅ vertex-ar/main.py (добавлен импорт Request)
+2. ✅ vertex-ar/requirements.txt (добавлены версии и пакеты)
 
 ### C. Команды для быстрого старта
 
 ```bash
 # 1. Установить зависимости
-pip install -r vertex-art-ar/requirements.txt
-pip install -r vertex-art-ar/requirements-dev.txt
+pip install -r vertex-ar/requirements.txt
+pip install -r vertex-ar/requirements-dev.txt
 
 # 2. Скопировать .env.example
-cp vertex-art-ar/.env.example vertex-art-ar/.env
+cp vertex-ar/.env.example vertex-ar/.env
 # Отредактировать .env с вашими настройками
 
 # 3. Создать директории
-mkdir -p vertex-art-ar/storage/{ar_content,nft-markers,qr-codes}
-mkdir -p vertex-art-ar/static
-mkdir -p vertex-art-ar/templates
+mkdir -p vertex-ar/storage/{ar_content,nft-markers,qr-codes}
+mkdir -p vertex-ar/static
+mkdir -p vertex-ar/templates
 
 # 4. Форматирование кода
-black vertex-art-ar/
-isort vertex-art-ar/
+black vertex-ar/
+isort vertex-ar/
 
 # 5. Проверка кода
-flake8 vertex-art-ar/ --max-line-length=120
+flake8 vertex-ar/ --max-line-length=120
 
 # 6. Запуск тестов
-pytest -v --cov=vertex-art-ar
+pytest -v --cov=vertex-ar
 
 # 7. Запуск приложения
-cd vertex-art-ar
+cd vertex-ar
 python main.py
 ```
 
