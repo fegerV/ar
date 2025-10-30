@@ -1,0 +1,140 @@
+# Development Dependencies for Vertex AR
+# Install with: pip install -r requirements-dev.txt
+
+# Include production requirements
+-r requirements.txt
+
+# ============================================
+# Testing
+# ============================================
+
+# Test framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0  # Parallel test execution
+pytest-mock>=3.11.0
+
+# HTTP client for API testing
+httpx>=0.25.0
+
+# Test fixtures and utilities
+faker>=19.0.0
+factory-boy>=3.3.0
+
+# ============================================
+# Linting & Code Quality
+# ============================================
+
+# PEP 8 style checker
+flake8>=6.1.0
+flake8-docstrings>=1.7.0
+flake8-bugbear>=23.9.0
+flake8-comprehensions>=3.14.0
+flake8-simplify>=0.21.0
+
+# Pylint
+pylint>=3.0.0
+
+# Type checking
+mypy>=1.6.0
+types-requests>=2.31.0
+
+# ============================================
+# Formatting
+# ============================================
+
+# Code formatter
+black>=23.10.0
+
+# Import sorter
+isort>=5.12.0
+
+# ============================================
+# Security
+# ============================================
+
+# Dependency vulnerability scanner
+pip-audit>=2.6.0
+
+# Security issue scanner
+bandit>=1.7.5
+safety>=2.3.0
+
+# ============================================
+# Development Tools
+# ============================================
+
+# Git hooks
+pre-commit>=3.5.0
+
+# Interactive Python shell
+ipython>=8.16.0
+ipdb>=0.13.13
+
+# Environment management
+python-dotenv>=1.0.0
+
+# ============================================
+# Documentation
+# ============================================
+
+# Documentation generator
+sphinx>=7.2.0
+sphinx-rtd-theme>=1.3.0
+sphinx-autodoc-typehints>=1.24.0
+
+# Markdown support
+myst-parser>=2.0.0
+
+# ============================================
+# Performance & Profiling
+# ============================================
+
+# Performance testing
+locust>=2.17.0
+
+# Memory profiler
+memory-profiler>=0.61.0
+
+# Line profiler
+line-profiler>=4.1.0
+
+# ============================================
+# Database Tools
+# ============================================
+
+# Database migrations
+alembic>=1.12.0
+
+# Database viewer
+ipython-sql>=0.5.0
+
+# ============================================
+# Monitoring & Debugging
+# ============================================
+
+# Debug toolbar
+fastapi-debug-toolbar>=0.6.0
+
+# Request logging
+loguru>=0.7.0
+
+# ============================================
+# Code Coverage
+# ============================================
+
+# Coverage reporting
+coverage[toml]>=7.3.0
+coverage-badge>=1.1.0
+
+# ============================================
+# Build & Deploy
+# ============================================
+
+# Build tools
+build>=1.0.0
+twine>=4.0.0
+
+# Docker utilities
+docker-compose>=1.29.0

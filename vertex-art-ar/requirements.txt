@@ -1,15 +1,17 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-asyncpg
-minio
-qrcode[pil]
-python-dotenv
-opencv-python-headless
-numpy
-pillow  # Required for NFT marker generation and image processing from Stogram integration
-docker
-python-magic
-requests
-passlib[bcrypt]
-python-jose[cryptography]
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+minio>=7.2.0
+qrcode[pil]>=7.4.0
+python-dotenv>=1.0.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+pillow>=10.0.0  # Required for NFT marker generation and image processing
+docker>=6.1.0
+python-magic>=0.4.27
+requests>=2.31.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+jinja2>=3.1.0  # Required for templating
+httpx>=0.25.0  # Required for testing

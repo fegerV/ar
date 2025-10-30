@@ -11,22 +11,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-import os
 from dotenv import load_dotenv
 import uuid
 import qrcode
 from io import BytesIO
 import base64
-import tempfile
 import logging
-from typing import List
 
 # Добавляем импорт для новых функций
 from utils import get_disk_usage, get_storage_usage, format_bytes
