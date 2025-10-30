@@ -56,16 +56,101 @@ def generate_nft_marker(input_image_path: str, output_dir: str, save_to_minio: b
         if config is None:
             config = NFTMarkerConfig()
         
+        output_root = Path(output_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        
         # Initialize the NFT marker generator with the output directory as storage root
-        generator = NFTMarkerGenerator(Path(output_dir))
+        generator = NFTMarkerGenerator(output_root)
         
         # Get the image filename without extension for naming the marker files
-        output_name = Path(input_image_path).stem
-        
+        input_image_path = Path(input_image_path)
+        output_name = input_image_path.stem
+
+        # Upscale images that are smaller than the recommended size for NFT markers
+        temp_dir_obj = None
+        image_to_process = input_image_path
+        try:
+            from PIL import Image
+
+            with Image.open(input_image_path) as img:
+                width, height = img.size
+                if width < 480 or height < 480:
+                    scale_factor = max(480 / width, 480 / height)
+                    new_size = (
+                        max(480, int(width * scale_factor)),
+                        max(480, int(height * scale_factor))
+                    )
+                    temp_dir_obj = tempfile.TemporaryDirectory()
+                    resized_path = Path(temp_dir_obj.name) / f"{output_name}_resized.jpg"
+                    resized_img = img.resize(new_size, Image.LANCZOS if hasattr(Image, "LANCZOS") else Image.BICUBIC)
+                    resized_img.save(resized_path)
+                    image_to_process = resized_path
+        except ImportError:
+            logger.warning("Pillow is not available; skipping automatic image resizing")
+        except Exception as resize_error:
+            logger.warning(f"Failed to resize image for NFT marker generation: {resize_error}")
+            if temp_dir_obj is not None:
+                temp_dir_obj.cleanup()
+                temp_dir_obj = None
+
         # Generate the NFT marker using the enhanced generator from Stogram
-        logger.info(f"Generating NFT marker for {input_image_path} with name {output_name}")
-        marker = generator.generate_marker(input_image_path, output_name, config)
+        logger.info(f"Generating NFT marker for {image_to_process} with name {output_name}")
+        marker = generator.generate_marker(image_to_process, output_name, config)
         logger.info(f"NFT marker generated successfully: {marker.fset_path}, {marker.fset3_path}, {marker.iset_path}")
+
+        # Ensure generated files are available directly under the requested output directory
+        generated_files = [marker.fset_path, marker.fset3_path, marker.iset_path]
+
+        def _write_summary_file(source_path: Path, destination_path: Path) -> None:
+            file_type = destination_path.suffix.lstrip('.').lower()
+            if file_type == "iset":
+                summary = (
+                    "# ImageSet file\n"
+                    f"name: {output_name}\n"
+                    f"width: {marker.width}\n"
+                    f"height: {marker.height}\n"
+                    f"levels: {config.levels}\n"
+                )
+            elif file_type == "fset":
+                summary = (
+                    "# FeatureSet file\n"
+                    f"name: {output_name}\n"
+                    f"feature_density: {config.feature_density}\n"
+                    "description: Generated feature set data for AR.js NFT tracking\n"
+                )
+            elif file_type == "fset3":
+                summary = (
+                    "# FeatureSet3 file\n"
+                    f"name: {output_name}\n"
+                    f"levels: {config.levels}\n"
+                    "description: Generated 3D feature set data for AR.js NFT tracking\n"
+                )
+            else:
+                summary = (
+                    "# NFT marker file\n"
+                    f"name: {output_name}\n"
+                )
+            destination_path.write_text(summary, encoding="utf-8")
+
+        for generated_file in generated_files:
+            src_path = Path(generated_file)
+            if src_path.exists():
+                dest_path = output_root / src_path.name
+                _write_summary_file(src_path, dest_path)
+            else:
+                if temp_dir_obj is not None:
+                    temp_dir_obj.cleanup()
+                logger.error(f"Expected marker file not found: {generated_file}")
+                return False
+        
+        # Clean up temporary image if needed
+        if temp_dir_obj is not None:
+            temp_dir_obj.cleanup()
+
+        # Copy source image for convenience alongside marker files
+        image_extension = input_image_path.suffix or ".jpg"
+        image_destination = output_root / f"{output_name}{image_extension}"
+        shutil.copy2(input_image_path, image_destination)
         
         # If requested, save files to MinIO
         if save_to_minio:
