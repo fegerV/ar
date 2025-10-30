@@ -1,20 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Admin Panel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="Vertex AR Admin Panel - Manage AR content and monitor system performance">
+    <title>Admin Panel - Vertex AR</title>
     <style>
         :root {
             --primary-color: #007bff;
+            --primary-hover: #0056b3;
             --secondary-color: #6c757d;
             --success-color: #28a745;
             --danger-color: #dc3545;
+            --danger-hover: #c82333;
             --warning-color: #ffc107;
             --info-color: #17a2b8;
             --light-color: #f8f9fa;
             --dark-color: #343a40;
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
             --border-radius: 8px;
             --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --transition-speed: 0.3s;
+            --header-height: 70px;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --light-color: #2d2d2d;
+            --dark-color: #e0e0e0;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
         * {
@@ -24,27 +42,70 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f7fa;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             line-height: 1.6;
             padding: 1rem;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
+            width: 100%;
         }
 
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
             margin-bottom: 1.5rem;
             background-color: white;
-            padding: 1.25rem;
+            padding: 1rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: var(--light-color);
+        }
+
+        .header h1 {
+            color: var(--dark-color);
+            font-size: clamp(1.25rem, 4vw, 1.75rem);
+            margin: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         .notifications-container {
@@ -56,6 +117,15 @@
             flex-direction: column;
             gap: 0.5rem;
             max-width: 350px;
+            pointer-events: none;
+        }
+
+        @media (max-width: 480px) {
+            .notifications-container {
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
         }
 
         .notification {
@@ -65,6 +135,7 @@
             box-shadow: var(--box-shadow);
             animation: slideIn 0.3s ease;
             position: relative;
+            pointer-events: all;
         }
 
         .notification.success {
@@ -93,21 +164,22 @@
 
         .notification-title {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         .notification-close {
             background: none;
             border: none;
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.5rem;
             cursor: pointer;
             padding: 0;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
+            line-height: 1;
         }
 
         .notification.warning .notification-close {
@@ -136,34 +208,33 @@
             }
         }
 
-        .notification-icon {
-            margin-right: 0.5rem;
-        }
-
         .bell-icon {
             position: relative;
             cursor: pointer;
             font-size: 1.5rem;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            transition: background-color var(--transition-speed);
+        }
+
+        .bell-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
         }
 
         .notification-badge {
             position: absolute;
-            top: -5px;
-            right: -5px;
+            top: 0;
+            right: 0;
             background-color: var(--danger-color);
             color: white;
             border-radius: 50%;
-            width: 18px;
+            min-width: 18px;
             height: 18px;
             font-size: 0.7rem;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .header h1 {
-            color: var(--dark-color);
-            font-size: 1.75rem;
+            font-weight: bold;
         }
 
         .logout-btn {
@@ -174,33 +245,53 @@
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 0.9rem;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
         }
 
         .logout-btn:hover {
-            background-color: #c82333;
+            background-color: var(--danger-hover);
         }
 
         .stats-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
 
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .stat-card {
-            background-color: white;
+            background-color: var(--light-color);
             padding: 1.25rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             text-align: center;
+            transition: transform var(--transition-speed);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
         }
 
         .stat-card h3 {
             color: var(--secondary-color);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
             margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
         }
 
         .stat-card .value {
@@ -209,30 +300,31 @@
             color: var(--primary-color);
         }
 
-        .storage-info {
-            background-color: white;
+        .storage-info,
+        .content-stats {
+            background-color: var(--light-color);
             padding: 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             margin-bottom: 1.5rem;
         }
 
-        .storage-info h2 {
-            margin-top: 0;
+        .storage-info h2,
+        .content-stats h2 {
+            margin: 0 0 1.25rem 0;
             color: var(--dark-color);
-            margin-bottom: 1.25rem;
             font-size: 1.5rem;
         }
 
         .storage-bars {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1rem;
             margin-bottom: 1rem;
         }
 
         .storage-bar-container {
-            background-color: #f8f9fa;
+            background-color: var(--bg-color);
             border-radius: var(--border-radius);
             padding: 1rem;
         }
@@ -242,23 +334,30 @@
             justify-content: space-between;
             margin-bottom: 0.5rem;
             font-size: 0.9rem;
+            font-weight: 500;
         }
 
         .storage-bar {
-            height: 20px;
-            background-color: #e9ecef;
-            border-radius: 10px;
+            height: 24px;
+            background-color: var(--border-color);
+            border-radius: 12px;
             overflow: hidden;
+            position: relative;
         }
 
         .storage-bar-fill {
             height: 100%;
-            background-color: var(--primary-color);
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
         }
 
         .storage-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 1rem;
             margin-top: 1rem;
         }
@@ -266,8 +365,14 @@
         .storage-detail {
             text-align: center;
             padding: 0.75rem;
-            background-color: #f8f9fa;
+            background-color: var(--bg-color);
             border-radius: var(--border-radius);
+        }
+
+        .storage-detail .label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.25rem;
         }
 
         .storage-detail .value {
@@ -276,39 +381,30 @@
             color: var(--primary-color);
         }
 
-        .content-stats {
-            background-color: white;
-            padding: 1.5rem;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            margin-bottom: 1.5rem;
-        }
-
-        .content-stats h2 {
-            margin-top: 0;
-            color: var(--dark-color);
-            margin-bottom: 1.25rem;
-            font-size: 1.5rem;
-        }
-
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1rem;
         }
 
         .stat-item {
-            background-color: #f8f9fa;
+            background-color: var(--bg-color);
             padding: 1rem;
             border-radius: var(--border-radius);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: transform var(--transition-speed);
+        }
+
+        .stat-item:hover {
+            transform: translateX(4px);
         }
 
         .stat-item .id {
-            font-weight: bold;
+            font-weight: 500;
             color: var(--dark-color);
+            font-family: monospace;
         }
 
         .stat-item .views {
@@ -317,10 +413,11 @@
             padding: 0.25rem 0.75rem;
             border-radius: 20px;
             font-weight: bold;
+            font-size: 0.9rem;
         }
 
         .upload-section {
-            background-color: white;
+            background-color: var(--light-color);
             padding: 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -328,16 +425,16 @@
         }
 
         .upload-section h2 {
-            margin-top: 0;
+            margin: 0 0 1.25rem 0;
             color: var(--dark-color);
-            margin-bottom: 1.25rem;
             font-size: 1.5rem;
         }
 
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
+            margin-bottom: 1.5rem;
         }
 
         .form-group {
@@ -351,19 +448,50 @@
             font-weight: 500;
         }
 
-        .form-group input {
+        .form-group input[type="file"] {
             width: 100%;
             padding: 0.75rem;
-            border: 1px solid #ddd;
+            border: 2px dashed var(--border-color);
             border-radius: var(--border-radius);
             font-size: 1rem;
-            transition: border-color 0.3s;
+            transition: border-color var(--transition-speed);
+            cursor: pointer;
+            background-color: var(--bg-color);
         }
 
-        .form-group input:focus {
+        .form-group input[type="file"]:hover {
+            border-color: var(--primary-color);
+        }
+
+        .form-group input[type="file"]:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 3px rgba(0, 123, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .file-info {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+
+        .file-preview {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            display: none;
+        }
+
+        .file-preview.active {
+            display: block;
+        }
+
+        .file-preview img {
+            max-width: 100%;
+            height: auto;
+            border-radius: var(--border-radius);
+            margin-top: 0.5rem;
         }
 
         .form-help {
@@ -371,6 +499,26 @@
             margin-top: 0.25rem;
             color: var(--secondary-color);
             font-size: 0.85rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            width: 0%;
+            transition: width 0.3s ease;
         }
 
         .btn {
@@ -382,31 +530,53 @@
             cursor: pointer;
             font-size: 1rem;
             font-weight: 500;
-            transition: background-color 0.3s;
+            transition: all var(--transition-speed);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 0.5rem;
+            min-width: 120px;
         }
 
-        .btn:hover {
-            background-color: #0056b3;
+        .btn:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
         }
 
-        .btn i {
-            margin-right: 0.5rem;
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-text {
+            display: inline-block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .records-section {
-            background-color: white;
+            background-color: var(--light-color);
             padding: 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
         }
 
         .records-section h2 {
-            margin-top: 0;
+            margin: 0 0 1.25rem 0;
             color: var(--dark-color);
-            margin-bottom: 1.25rem;
             font-size: 1.5rem;
         }
 
@@ -417,72 +587,121 @@
             flex-wrap: wrap;
         }
 
-        .search-box, .filter-select {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
+        .search-box,
+        .filter-select {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
             border-radius: var(--border-radius);
             font-size: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: border-color var(--transition-speed);
         }
 
         .search-box {
-            flex-grow: 1;
+            flex: 1;
             min-width: 200px;
         }
 
+        .search-box:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
         .filter-select {
-            width: 150px;
+            min-width: 150px;
         }
 
         .record {
-            border: 1px solid #eee;
+            border: 1px solid var(--border-color);
             padding: 1.25rem;
             margin-bottom: 1rem;
             border-radius: var(--border-radius);
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            background-color: var(--bg-color);
+            transition: box-shadow var(--transition-speed);
+        }
+
+        .record:hover {
+            box-shadow: var(--box-shadow);
         }
 
         @media (min-width: 768px) {
             .record {
                 flex-direction: row;
-                align-items: center;
+                align-items: flex-start;
             }
         }
 
         .record-info {
             flex-grow: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 1rem;
         }
 
-        .record-info div {
+        .record-info-item {
             display: flex;
             flex-direction: column;
         }
 
-        @media (min-width: 768px) {
-            .record-info {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
-        }
-
-        .record-info strong {
+        .record-info-item strong {
             color: var(--secondary-color);
             font-size: 0.85rem;
             margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .record-info span {
+        .record-info-item span {
             font-weight: 500;
-            word-break: break-all;
+            word-break: break-word;
+        }
+
+        .preview-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .preview-item {
+            text-align: center;
+        }
+
+        .preview-item strong {
+            display: block;
+            color: var(--secondary-color);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .preview-item img {
+            max-width: 100%;
+            height: auto;
+            max-height: 100px;
+            border: 1px solid var(--border-color);
+            padding: 0.25rem;
+            border-radius: var(--border-radius);
+            object-fit: cover;
         }
 
         .record-actions {
             display: flex;
+            flex-direction: column;
             gap: 0.5rem;
-            flex-wrap: wrap;
+            min-width: 120px;
+        }
+
+        @media (max-width: 767px) {
+            .record-actions {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
         }
 
         .action-btn {
@@ -495,7 +714,9 @@
             align-items: center;
             justify-content: center;
             border: none;
-            transition: background-color 0.3s;
+            transition: all var(--transition-speed);
+            font-weight: 500;
+            gap: 0.5rem;
         }
 
         .view-btn {
@@ -505,6 +726,7 @@
 
         .view-btn:hover {
             background-color: #218838;
+            transform: translateY(-1px);
         }
 
         .delete-btn {
@@ -513,202 +735,248 @@
         }
 
         .delete-btn:hover {
-            background-color: #c82333;
+            background-color: var(--danger-hover);
+            transform: translateY(-1px);
         }
 
         .qr-code {
-            margin-top: 0.5rem;
             text-align: center;
+            margin-top: 0.5rem;
         }
 
         .qr-code img {
-            max-width: 120px;
-            max-height: 120px;
-            border: 1px solid #eee;
-            padding: 0.5rem;
-            border-radius: var(--border-radius);
-        }
-
-        .image-preview {
-            margin-top: 0.5rem;
-            text-align: center;
-        }
-
-        .image-preview img {
             max-width: 100px;
             max-height: 100px;
-            border: 1px solid #eee;
-            padding: 0.25rem;
+            border: 1px solid var(--border-color);
+            padding: 0.5rem;
             border-radius: var(--border-radius);
-            object-fit: cover;
+            background: white;
         }
 
         .empty-state {
             text-align: center;
-            padding: 2rem;
+            padding: 3rem 1rem;
             color: var(--secondary-color);
         }
 
-        .empty-state i {
-            font-size: 3rem;
+        .empty-state-icon {
+            font-size: 4rem;
             margin-bottom: 1rem;
-            display: block;
-            color: #ced4da;
+            opacity: 0.5;
         }
 
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .skeleton {
+            animation: skeleton-loading 1s linear infinite alternate;
         }
 
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-
-        .status-active {
-            background-color: var(--success-color);
-        }
-
-        .status-inactive {
-            background-color: var(--secondary-color);
+        @keyframes skeleton-loading {
+            0% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
         }
 
         footer {
             text-align: center;
             margin-top: 2rem;
+            padding: 1rem;
             color: var(--secondary-color);
             font-size: 0.9rem;
+        }
+
+        /* Accessibility improvements */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* Print styles */
+        @media print {
+            .header-actions,
+            .upload-section,
+            .record-actions,
+            .notifications-container {
+                display: none !important;
+            }
+            
+            body {
+                background: white;
+                color: black;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <header class="header" role="banner">
             <h1>Admin Dashboard</h1>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div id="notificationBell" class="bell-icon" title="Уведомления" onclick="toggleNotifications()">
-                    <!-- Bell icon using Unicode -->
+            <div class="header-actions">
+                <button 
+                    class="theme-toggle" 
+                    id="themeToggle" 
+                    aria-label="Toggle dark mode"
+                    title="Toggle dark/light theme"
+                >
+                    <span id="themeIcon">🌙</span>
+                </button>
+                <div 
+                    id="notificationBell" 
+                    class="bell-icon" 
+                    role="button"
+                    tabindex="0"
+                    aria-label="Notifications" 
+                    title="Notifications"
+                >
                     🔔
-                    <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+                    <span id="notificationBadge" class="notification-badge" style="display: none;" aria-live="polite">0</span>
                 </div>
                 <a href="/admin/logout" class="logout-btn">Logout</a>
             </div>
-        </div>
-        <!-- Контейнер для всплывающих уведомлений -->
-        <div id="notificationsContainer" class="notifications-container" style="display: none;"></div>
+        </header>
 
-        <div class="stats-container">
+        <div id="notificationsContainer" class="notifications-container" role="alert" aria-live="assertive"></div>
+
+        <section class="stats-container" aria-label="Statistics Overview">
             <div class="stat-card">
                 <h3>Total Records</h3>
-                <div class="value" id="totalRecords">0</div>
+                <div class="value" id="totalRecords" aria-live="polite">0</div>
             </div>
             <div class="stat-card">
                 <h3>Storage Used</h3>
-                <div class="value" id="storageUsed">0 MB</div>
+                <div class="value" id="storageUsed" aria-live="polite">0 MB</div>
             </div>
             <div class="stat-card">
                 <h3>Last Upload</h3>
-                <div class="value" id="lastUpload">--:--</div>
+                <div class="value" id="lastUpload" aria-live="polite">--:--</div>
             </div>
             <div class="stat-card">
                 <h3>Active Content</h3>
-                <div class="value" id="activeContent">0</div>
+                <div class="value" id="activeContent" aria-live="polite">0</div>
             </div>
-    
-            <div class="storage-info" id="storageInfo">
-                <h2>System Information</h2>
-                <div class="storage-bars">
-                    <div class="storage-bar-container">
-                        <div class="storage-bar-label">
-                            <span>Disk Usage</span>
-                            <span id="diskUsedPercent">0%</span>
-                        </div>
-                        <div class="storage-bar">
-                            <div class="storage-bar-fill" id="diskUsageBar" style="width: 0%;"></div>
-                        </div>
-                    <div class="storage-bar-container">
-                        <div class="storage-bar-label">
-                            <span>Storage Usage</span>
-                            <span id="storageUsedPercent">0%</span>
-                        </div>
-                        <div class="storage-bar">
-                            <div class="storage-bar-fill" id="storageUsageBar" style="width: 0%; background-color: var(--success-color);"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="storage-details">
-                    <div class="storage-detail">
-                        <div>Total Disk Space</div>
-                        <div class="value" id="diskTotal">0 GB</div>
-                    </div>
-                    <div class="storage-detail">
-                        <div>Used Disk Space</div>
-                        <div class="value" id="diskUsed">0 GB</div>
-                    </div>
-                    <div class="storage-detail">
-                        <div>Free Disk Space</div>
-                        <div class="value" id="diskFree">0 GB</div>
-                    </div>
-                    <div class="storage-detail">
-                        <div>Storage Used</div>
-                        <div class="value" id="storageSize">0 MB</div>
-                    </div>
-                </div>
-            </div>
-    
-            <div class="content-stats" id="contentStats">
-                <h2>Content Statistics</h2>
-                <div class="stats-grid" id="statsList">
-                    <!-- Statistics will be loaded here dynamically -->
-                    <div class="empty-state">
-                        <div>📊</div>
-                        <h3>Loading Statistics...</h3>
-                        <p>Content view statistics will appear here</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </section>
 
-        <div class="upload-section">
+        <section class="storage-info" id="storageInfo" aria-label="System Information">
+            <h2>System Information</h2>
+            <div class="storage-bars">
+                <div class="storage-bar-container">
+                    <div class="storage-bar-label">
+                        <span>Disk Usage</span>
+                        <span id="diskUsedPercent" aria-live="polite">0%</span>
+                    </div>
+                    <div class="storage-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <div class="storage-bar-fill" id="diskUsageBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="storage-bar-container">
+                    <div class="storage-bar-label">
+                        <span>Storage Usage</span>
+                        <span id="storageUsedPercent" aria-live="polite">0%</span>
+                    </div>
+                    <div class="storage-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <div class="storage-bar-fill" id="storageUsageBar" style="width: 0%; background-color: var(--success-color);"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="storage-details">
+                <div class="storage-detail">
+                    <div class="label">Total Disk Space</div>
+                    <div class="value" id="diskTotal" aria-live="polite">0 GB</div>
+                </div>
+                <div class="storage-detail">
+                    <div class="label">Used Disk Space</div>
+                    <div class="value" id="diskUsed" aria-live="polite">0 GB</div>
+                </div>
+                <div class="storage-detail">
+                    <div class="label">Free Disk Space</div>
+                    <div class="value" id="diskFree" aria-live="polite">0 GB</div>
+                </div>
+                <div class="storage-detail">
+                    <div class="label">Storage Used</div>
+                    <div class="value" id="storageSize" aria-live="polite">0 MB</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-stats" id="contentStats" aria-label="Content Statistics">
+            <h2>Content Statistics</h2>
+            <div class="stats-grid" id="statsList">
+                <div class="empty-state skeleton">
+                    <div class="empty-state-icon">📊</div>
+                    <h3>Loading Statistics...</h3>
+                    <p>Content view statistics will appear here</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="upload-section" aria-label="Upload New Content">
             <h2>Upload New AR Content</h2>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="image">Image (JPG/PNG, min 1024px)</label>
-                        <input type="file" id="image" name="image" accept="image/jpeg,image/png" required>
-                        <small class="form-help">Upload a high-resolution image that will trigger the AR experience</small>
+                        <label for="image">Image (JPG/PNG, min 1024px, max 10MB)</label>
+                        <input 
+                            type="file" 
+                            id="image" 
+                            name="image" 
+                            accept="image/jpeg,image/png" 
+                            required
+                            aria-describedby="imageHelp"
+                        >
+                        <small class="form-help" id="imageHelp">Upload a high-resolution image that will trigger the AR experience</small>
+                        <div class="file-info" id="imageInfo"></div>
+                        <div class="file-preview" id="imagePreview">
+                            <strong>Preview:</strong>
+                            <img id="imagePreviewImg" alt="Image preview">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="video">Video (MP4, max 10MB)</label>
-                        <input type="file" id="video" name="video" accept="video/mp4" required>
-                        <small class="form-help">Upload the AR video content to be displayed</small>
+                        <input 
+                            type="file" 
+                            id="video" 
+                            name="video" 
+                            accept="video/mp4" 
+                            required
+                            aria-describedby="videoHelp"
+                        >
+                        <small class="form-help" id="videoHelp">Upload the AR video content to be displayed</small>
+                        <div class="file-info" id="videoInfo"></div>
                     </div>
                 </div>
+                <div class="progress-bar" id="uploadProgress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar-fill" id="uploadProgressFill"></div>
+                </div>
                 <button type="submit" class="btn" id="uploadBtn">
-                    <span class="btn-text">Upload & Create NFT</span>
-                    <span class="loading" style="display: none;"></span>
+                    <span class="btn-text" id="uploadBtnText">Upload & Create NFT</span>
+                    <span class="loading" id="uploadLoading" style="display: none;"></span>
                 </button>
             </form>
-        </div>
+        </section>
 
-        <div class="records-section">
+        <section class="records-section" aria-label="Content Records">
             <h2>Content Records</h2>
             <div class="search-filter">
-                <input type="text" class="search-box" id="searchInput" placeholder="Search by ID or date...">
-                <select class="filter-select" id="filterSelect">
+                <input 
+                    type="text" 
+                    class="search-box" 
+                    id="searchInput" 
+                    placeholder="Search by ID or date..."
+                    aria-label="Search records"
+                >
+                <select class="filter-select" id="filterSelect" aria-label="Filter by date">
                     <option value="all">All Records</option>
                     <option value="today">Today</option>
                     <option value="week">This Week</option>
@@ -718,95 +986,179 @@
             <div id="recordsList">
                 {% if records %}
                     {% for record in records %}
-                    <div class="record" data-id="{{ record.id }}">
+                    <article class="record" data-id="{{ record.id }}" data-date="{{ record.created_at.isoformat() }}">
                         <div class="record-info">
-                            <div>
+                            <div class="record-info-item">
                                 <strong>ID</strong>
-                                <span>{{ record.id }}</span>
+                                <span>{{ record.id[:12] }}...</span>
                             </div>
-                            <div>
+                            <div class="record-info-item">
                                 <strong>Created</strong>
                                 <span>{{ record.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
                             </div>
-                            <div>
-                                <strong>Image URL</strong>
-                                <span>{{ record.image_url.split('/')[-1] if record.image_url else 'N/A' }}</span>
+                            <div class="record-info-item">
+                                <strong>Image</strong>
+                                <span>{{ record.image_url.split('/')[-1][:20] if record.image_url else 'N/A' }}...</span>
                             </div>
-                            <div>
-                                <strong>Video URL</strong>
-                                <span>{{ record.video_url.split('/')[-1] if record.video_url else 'N/A' }}</span>
+                            <div class="record-info-item">
+                                <strong>Video</strong>
+                                <span>{{ record.video_url.split('/')[-1][:20] if record.video_url else 'N/A' }}...</span>
                             </div>
-                            <div class="image-preview">
+                        </div>
+                        <div class="preview-section">
+                            <div class="preview-item">
                                 <strong>Image Preview</strong>
-                                <img src="/images/{{ record.id }}.jpg" alt="Image Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                <div style="display: none; text-align: center; margin-top: 5px;">Нет изображения</div>
+                                {% if record.image_preview_url %}
+                                    <img 
+                                        src="/previews/{{ record.image_preview_url.split('/')[-1] }}" 
+                                        alt="Image preview for {{ record.id }}"
+                                        loading="lazy"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                    >
+                                    <div style="display: none;">No preview</div>
+                                {% else %}
+                                    <div>No preview</div>
+                                {% endif %}
                             </div>
-                            <div class="preview-thumbnails" style="display: flex; gap: 0.5rem;">
-                                <div>
-                                    <strong>Image Preview</strong>
-                                    {% if record.image_preview_url %}
-                                        <img src="/previews/{{ record.image_preview_url.split('/')[-1] }}" alt="Image Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                        <div style="display: none; text-align: center; margin-top: 5px;">Нет превью</div>
-                                    {% else %}
-                                        <div>No preview</div>
-                                    {% endif %}
-                                </div>
-                                <div>
-                                    <strong>Video Preview</strong>
-                                    {% if record.video_preview_url %}
-                                        <img src="/previews/{{ record.video_preview_url.split('/')[-1] }}" alt="Video Preview" style="max-width: 100px; max-height: 100px; border: 1px solid #eee; padding: 0.25rem; border-radius: var(--border-radius);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                        <div style="display: none; text-align: center; margin-top: 5px;">Нет превью</div>
-                                    {% else %}
-                                        <div>No preview</div>
-                                    {% endif %}
-                                </div>
+                            <div class="preview-item">
+                                <strong>Video Preview</strong>
+                                {% if record.video_preview_url %}
+                                    <img 
+                                        src="/previews/{{ record.video_preview_url.split('/')[-1] }}" 
+                                        alt="Video preview for {{ record.id }}"
+                                        loading="lazy"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                    >
+                                    <div style="display: none;">No preview</div>
+                                {% else %}
+                                    <div>No preview</div>
+                                {% endif %}
                             </div>
-                            <div class="qr-code">
+                            <div class="preview-item qr-code">
                                 <strong>QR Code</strong>
-                                <img src="data:image/png;base64,{{ record.qr_code }}" alt="QR Code">
+                                <img src="data:image/png;base64,{{ record.qr_code }}" alt="QR Code for {{ record.id }}">
                             </div>
                         </div>
                         <div class="record-actions">
-                            <a href="/ar/{{ record.id }}" class="action-btn view-btn" target="_blank">View AR</a>
-                            <button class="action-btn delete-btn" onclick="deleteRecord('{{ record.id }}')">Delete</button>
+                            <a href="/ar/{{ record.id }}" class="action-btn view-btn" target="_blank" rel="noopener noreferrer">
+                                👁️ View AR
+                            </a>
+                            <button class="action-btn delete-btn" onclick="deleteRecord('{{ record.id }}')" aria-label="Delete record {{ record.id }}">
+                                🗑️ Delete
+                            </button>
                         </div>
-                    </div>
+                    </article>
                     {% endfor %}
                 {% else %}
                     <div class="empty-state">
-                        <div>📁</div>
+                        <div class="empty-state-icon">📁</div>
                         <h3>No Content Records</h3>
                         <p>Upload your first AR content to get started</p>
                     </div>
                 {% endif %}
             </div>
-        </div>
+        </section>
 
-        <footer>
-            <p>Vertex AR Admin Panel &copy; 2025</p>
+        <footer role="contentinfo">
+            <p>Vertex AR Admin Panel &copy; 2025 | Built with ❤️</p>
         </footer>
     </div>
 
     <script>
-        // Update stats when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStats();
+        // Theme management
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+        
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('theme', theme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        }
+        
+        themeToggle.addEventListener('click', toggleTheme);
+        
+        // Initialize theme
+        const savedTheme = localStorage.getItem('theme') || (prefersDarkScheme.matches ? 'dark' : 'light');
+        setTheme(savedTheme);
+
+        // File preview and validation
+        const imageInput = document.getElementById('image');
+        const videoInput = document.getElementById('video');
+        const imageInfo = document.getElementById('imageInfo');
+        const videoInfo = document.getElementById('videoInfo');
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewImg = document.getElementById('imagePreviewImg');
+
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > MAX_FILE_SIZE) {
+                    imageInfo.textContent = `⚠️ File too large: ${formatFileSize(file.size)} (max 10MB)`;
+                    imageInfo.style.color = 'var(--danger-color)';
+                    imageInput.value = '';
+                    imagePreview.classList.remove('active');
+                    return;
+                }
+                
+                imageInfo.textContent = `✓ ${file.name} (${formatFileSize(file.size)})`;
+                imageInfo.style.color = 'var(--success-color)';
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreviewImg.src = e.target.result;
+                    imagePreview.classList.add('active');
+                };
+                reader.readAsDataURL(file);
+            }
         });
 
-        // Update statistics
+        videoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > MAX_FILE_SIZE) {
+                    videoInfo.textContent = `⚠️ File too large: ${formatFileSize(file.size)} (max 10MB)`;
+                    videoInfo.style.color = 'var(--danger-color)';
+                    videoInput.value = '';
+                    return;
+                }
+                
+                videoInfo.textContent = `✓ ${file.name} (${formatFileSize(file.size)})`;
+                videoInfo.style.color = 'var(--success-color)';
+            }
+        });
+
+        // Update stats
         function updateStats() {
             const records = document.querySelectorAll('.record');
             document.getElementById('totalRecords').textContent = records.length;
             
-            // Calculate storage used (approximation)
-            let storageUsed = (records.length * 5).toFixed(1); // Assuming ~5MB per record
+            let storageUsed = (records.length * 5).toFixed(1);
             document.getElementById('storageUsed').textContent = storageUsed + ' MB';
             
-            // Find last upload
             if (records.length > 0) {
                 const firstRecord = records[0];
-                const dateSpan = firstRecord.querySelector('div:nth-child(2) span');
-                document.getElementById('lastUpload').textContent = dateSpan.textContent.split(' ')[1]; // Just time
+                const dateSpan = firstRecord.querySelector('.record-info-item:nth-child(2) span');
+                if (dateSpan) {
+                    const dateParts = dateSpan.textContent.split(' ');
+                    document.getElementById('lastUpload').textContent = dateParts[1] || 'Recently';
+                }
             } else {
                 document.getElementById('lastUpload').textContent = 'Never';
             }
@@ -814,69 +1166,124 @@
             document.getElementById('activeContent').textContent = records.length;
         }
 
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 5000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="notification-header">
+                    <div class="notification-title">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()" aria-label="Close notification">×</button>
+                </div>
+                <div class="notification-message">${message}</div>
+            `;
+            
+            document.getElementById('notificationsContainer').appendChild(notification);
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, duration);
+            }
+        }
+
         // Handle form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const uploadBtn = document.getElementById('uploadBtn');
-            const btnText = uploadBtn.querySelector('.btn-text');
-            const loadingSpinner = uploadBtn.querySelector('.loading');
+            const btnText = document.getElementById('uploadBtnText');
+            const loadingSpinner = document.getElementById('uploadLoading');
+            const progressBar = document.getElementById('uploadProgress');
+            const progressFill = document.getElementById('uploadProgressFill');
+            
+            // Validate files
+            if (!imageInput.files[0] || !videoInput.files[0]) {
+                showToast('Please select both image and video files', 'error');
+                return;
+            }
             
             // Show loading state
-            btnText.style.display = 'none';
+            btnText.textContent = 'Uploading...';
             loadingSpinner.style.display = 'inline-block';
             uploadBtn.disabled = true;
+            progressBar.classList.add('active');
             
             const formData = new FormData();
-            formData.append('image', document.getElementById('image').files[0]);
-            formData.append('video', document.getElementById('video').files[0]);
+            formData.append('image', imageInput.files[0]);
+            formData.append('video', videoInput.files[0]);
             
             try {
+                // Simulate progress (real progress tracking requires XMLHttpRequest)
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 10;
+                    if (progress <= 90) {
+                        progressFill.style.width = progress + '%';
+                        progressBar.setAttribute('aria-valuenow', progress);
+                    }
+                }, 200);
+                
                 const response = await fetch('/admin/upload', {
                     method: 'POST',
                     body: formData
                 });
                 
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressBar.setAttribute('aria-valuenow', 100);
+                
                 if (response.ok) {
-                    alert('Files uploaded and NFT created successfully!');
-                    location.reload();
+                    showToast('Files uploaded and NFT created successfully!', 'success');
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     const error = await response.json();
-                    alert('Error: ' + error.detail || 'Upload failed');
+                    showToast(error.detail || 'Upload failed', 'error');
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Network error: ' + error.message, 'error');
             } finally {
-                // Reset button state
-                btnText.style.display = 'inline';
-                loadingSpinner.style.display = 'none';
-                uploadBtn.disabled = false;
+                setTimeout(() => {
+                    btnText.textContent = 'Upload & Create NFT';
+                    loadingSpinner.style.display = 'none';
+                    uploadBtn.disabled = false;
+                    progressBar.classList.remove('active');
+                    progressFill.style.width = '0%';
+                    progressBar.setAttribute('aria-valuenow', 0);
+                }, 1000);
             }
         });
         
         // Delete record function
         async function deleteRecord(id) {
-            if (confirm('Are you sure you want to permanently delete this record? This will remove the content and associated files.')) {
-                try {
-                    const response = await fetch(`/admin/delete/${id}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    if (response.ok) {
-                        // Remove the record from the UI
-                        const recordElement = document.querySelector(`.record[data-id="${id}"]`);
-                        if (recordElement) {
+            if (!confirm('Are you sure you want to permanently delete this record? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/delete/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    const recordElement = document.querySelector(`.record[data-id="${id}"]`);
+                    if (recordElement) {
+                        recordElement.style.opacity = '0';
+                        recordElement.style.transform = 'translateX(-20px)';
+                        setTimeout(() => {
                             recordElement.remove();
-                            updateStats(); // Update stats after deletion
-                        }
-                        alert('Record deleted successfully!');
-                    } else {
-                        const error = await response.json();
-                        alert('Error: ' + error.detail || 'Delete failed');
+                            updateStats();
+                        }, 300);
                     }
-                } catch (error) {
-                    alert('Error: ' + error.message);
+                    showToast('Record deleted successfully!', 'success');
+                } else {
+                    const error = await response.json();
+                    showToast(error.detail || 'Delete failed', 'error');
                 }
+            } catch (error) {
+                showToast('Network error: ' + error.message, 'error');
             }
         }
 
@@ -884,18 +1291,48 @@
         document.getElementById('searchInput').addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
             const records = document.querySelectorAll('.record');
+            let visibleCount = 0;
             
             records.forEach(record => {
                 const recordId = record.getAttribute('data-id').toLowerCase();
-                const recordDate = record.querySelector('div:nth-child(2) span').textContent.toLowerCase();
+                const recordDate = record.getAttribute('data-date').toLowerCase();
                 
                 if (recordId.includes(searchTerm) || recordDate.includes(searchTerm)) {
                     record.style.display = 'flex';
+                    visibleCount++;
                 } else {
                     record.style.display = 'none';
                 }
             });
+            
+            if (visibleCount === 0 && searchTerm) {
+                showSearchEmptyState();
+            } else {
+                removeSearchEmptyState();
+            }
         });
+
+        function showSearchEmptyState() {
+            const recordsList = document.getElementById('recordsList');
+            if (!document.getElementById('searchEmptyState')) {
+                const emptyState = document.createElement('div');
+                emptyState.id = 'searchEmptyState';
+                emptyState.className = 'empty-state';
+                emptyState.innerHTML = `
+                    <div class="empty-state-icon">🔍</div>
+                    <h3>No Results Found</h3>
+                    <p>Try adjusting your search terms</p>
+                `;
+                recordsList.appendChild(emptyState);
+            }
+        }
+
+        function removeSearchEmptyState() {
+            const emptyState = document.getElementById('searchEmptyState');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        }
 
         // Filter functionality
         document.getElementById('filterSelect').addEventListener('change', function() {
@@ -908,9 +1345,8 @@
                     return;
                 }
                 
-                const recordDate = new Date(record.querySelector('div:nth-child(2) span').textContent);
+                const recordDate = new Date(record.getAttribute('data-date'));
                 const now = new Date();
-                
                 let showRecord = false;
                 
                 if (filterValue === 'today') {
@@ -932,23 +1368,10 @@
             });
         });
 
-        // Функции для работы с уведомлениями
+        // Notification system
         let notifications = [];
         let unreadCount = 0;
 
-        // Показать/скрыть список уведомлений
-        function toggleNotifications() {
-            const container = document.getElementById('notificationsContainer');
-            const isVisible = container.style.display !== 'none';
-            container.style.display = isVisible ? 'none' : 'flex';
-            
-            // Если открываем список, помечаем все как прочитанные
-            if (!isVisible) {
-                markAllAsRead();
-            }
-        }
-
-        // Загрузить уведомления с сервера
         async function loadNotifications() {
             try {
                 const response = await fetch('/notifications?unread_only=true');
@@ -956,62 +1379,12 @@
                     const data = await response.json();
                     notifications = data;
                     updateNotificationBadge();
-                    showRecentNotifications();
                 }
             } catch (error) {
                 console.error('Error loading notifications:', error);
             }
         }
 
-        // Показать недавние уведомления
-        function showRecentNotifications() {
-            // Показываем только последние 5 уведомлений
-            const recentNotifications = notifications.slice(0, 5);
-            recentNotifications.forEach(notification => {
-                showNotification(notification);
-            });
-        }
-
-        // Показать уведомление
-        function showNotification(notification) {
-            // Проверяем, не отображается ли уже это уведомление
-            const existingNotification = document.querySelector(`.notification[data-id="${notification.id}"]`);
-            if (existingNotification) {
-                return;
-            }
-
-            const notificationEl = document.createElement('div');
-            notificationEl.className = `notification ${notification.notification_type}`;
-            notificationEl.setAttribute('data-id', notification.id);
-            notificationEl.innerHTML = `
-                <div class="notification-header">
-                    <div class="notification-title">${notification.title}</div>
-                    <button class="notification-close" onclick="closeNotification(this)">×</button>
-                </div>
-                <div class="notification-message">${notification.message}</div>
-                <div class="notification-timestamp">${new Date(notification.created_at).toLocaleString()}</div>
-            `;
-            
-            document.getElementById('notificationsContainer').appendChild(notificationEl);
-            
-            // Автоматически скрываем уведомление через 5 секунд, если это не ошибка
-            if (notification.notification_type !== 'error') {
-                setTimeout(() => {
-                    if (notificationEl.parentNode) {
-                        notificationEl.remove();
-                        updateNotificationBadge();
-                    }
-                }, 5000);
-            }
-        }
-
-        // Закрыть уведомление
-        function closeNotification(element) {
-            element.closest('.notification').remove();
-            updateNotificationBadge();
-        }
-
-        // Обновить значок уведомлений
         function updateNotificationBadge() {
             const unreadNotifications = notifications.filter(n => !n.is_read);
             unreadCount = unreadNotifications.length;
@@ -1024,7 +1397,6 @@
             }
         }
 
-        // Пометить все уведомления как прочитанные
         async function markAllAsRead() {
             if (unreadCount === 0) return;
             
@@ -1041,12 +1413,7 @@
             }
         }
 
-        // Периодически обновляем уведомления
-        setInterval(loadNotifications, 30000); // каждые 30 секунд
-        // Загружаем уведомления при загрузке страницы
-        document.addEventListener('DOMContentLoaded', loadNotifications);
-        
-        // Функции для работы с информацией о дисковом пространстве
+        // System info
         async function loadSystemInfo() {
             try {
                 const response = await fetch('/admin/system-info');
@@ -1060,22 +1427,18 @@
         }
         
         function updateSystemInfo(data) {
-            // Обновляем информацию о диске
             document.getElementById('diskTotal').textContent = data.disk_info.total;
             document.getElementById('diskUsed').textContent = data.disk_info.used;
             document.getElementById('diskFree').textContent = data.disk_info.free;
-            document.getElementById('diskUsedPercent').textContent = data.disk_info.used_percent.toFixed(1) + '%';
-            document.getElementById('diskUsageBar').style.width = data.disk_info.used_percent + '%';
+            const diskPercent = data.disk_info.used_percent.toFixed(1);
+            document.getElementById('diskUsedPercent').textContent = diskPercent + '%';
+            document.getElementById('diskUsageBar').style.width = diskPercent + '%';
+            document.getElementById('diskUsageBar').parentElement.setAttribute('aria-valuenow', diskPercent);
             
-            // Обновляем информацию о хранилище
             document.getElementById('storageSize').textContent = data.storage_info.total_size;
-            document.getElementById('storageUsedPercent').textContent = 'N/A'; // пока не реализовано
-            
-            // Обновляем детали хранилища
-            // Эти значения могут быть приближенными
         }
         
-        // Функции для работы со статистикой просмотров
+        // Content stats
         async function loadContentStats() {
             try {
                 const response = await fetch('/admin/content-stats');
@@ -1095,7 +1458,7 @@
             if (data.length === 0) {
                 statsList.innerHTML = `
                     <div class="empty-state">
-                        <div>📊</div>
+                        <div class="empty-state-icon">📊</div>
                         <h3>No Statistics Yet</h3>
                         <p>Content view statistics will appear here after users view AR content</p>
                     </div>
@@ -1103,27 +1466,46 @@
                 return;
             }
             
-            // Показываем только топ-10 записей
             const topStats = data.slice(0, 10);
             topStats.forEach(stat => {
                 const statItem = document.createElement('div');
                 statItem.className = 'stat-item';
                 statItem.innerHTML = `
-                    <div class="id">${stat.id.substring(0, 8)}...</div>
+                    <div class="id">${stat.id.substring(0, 12)}...</div>
                     <div class="views">${stat.views} views</div>
                 `;
                 statsList.appendChild(statItem);
             });
         }
         
-        // Периодически обновляем системную информацию
-        setInterval(loadSystemInfo, 60000); // каждую минуту
-        setInterval(loadContentStats, 30000); // каждые 30 секунд
-        
-        // Загружаем системную информацию и статистику при загрузке страницы
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            updateStats();
             loadSystemInfo();
             loadContentStats();
+            loadNotifications();
+            
+            // Periodic updates
+            setInterval(loadSystemInfo, 60000);
+            setInterval(loadContentStats, 30000);
+            setInterval(loadNotifications, 30000);
+        });
+
+        // Keyboard accessibility
+        document.getElementById('notificationBell').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                markAllAsRead();
+            }
+        });
+
+        // Network status indicator
+        window.addEventListener('online', () => {
+            showToast('Connection restored', 'success', 3000);
+        });
+
+        window.addEventListener('offline', () => {
+            showToast('No internet connection', 'warning');
         });
     </script>
 </body>
