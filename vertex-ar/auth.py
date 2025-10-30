@@ -15,6 +15,7 @@ security = HTTPBasic()
 # Get admin credentials from environment variables
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "secret")  # Вместо хеша пароля, будем использовать простой пароль из .env
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
@@ -31,15 +32,23 @@ def authenticate_user(username: str, password: str) -> bool:
     """
     Проверяет, соответствует ли имя пользователя и пароль учетным данным администратора
     """
-    if username == ADMIN_USERNAME:
-        # Сравниваем введенный пароль с паролем из .env
-        # Если в .env пароль уже захеширован, используем verify_password
-        # Если в .env простой пароль, сравниваем напрямую
-        if ADMIN_PASSWORD and ADMIN_PASSWORD.startswith('$2b$'):  # Проверяем, является ли пароль bcrypt хешем
-            return verify_password(password, ADMIN_PASSWORD)
-        else:  # Простой пароль
-            return password == (ADMIN_PASSWORD or "")
-    return False
+    if username != ADMIN_USERNAME:
+        return False
+    
+    # Сначала проверяем ADMIN_PASSWORD_HASH, если он есть
+    if ADMIN_PASSWORD_HASH:
+        return verify_password(password, ADMIN_PASSWORD_HASH)
+    
+    # Если ADMIN_PASSWORD начинается с $2b$, это bcrypt хеш
+    if ADMIN_PASSWORD and ADMIN_PASSWORD.startswith('$2b$'):
+        return verify_password(password, ADMIN_PASSWORD)
+    
+    # Иначе это простой пароль, сравниваем напрямую
+    return password == (ADMIN_PASSWORD or "")
+
+def authenticate_admin(username: str, password: str) -> bool:
+    """Псевдоним для аутентификации администратора"""
+    return authenticate_user(username, password)
 
 def create_access_token(data: dict) -> str:
     """
