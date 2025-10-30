@@ -322,23 +322,23 @@ class NFTMarkerGenerator:
             output_path.write_bytes(self._create_placeholder_iset(image_path))
             return True
     
-    def _create_placeholder_fset(self, image_path: Path) -> bytes:
-        """Create placeholder fset when PIL is not available."""
-        data = b"ARJS_FSET_PLACEHOLDER_"
+    def _create_placeholder(self, image_path: Path, marker_type: str) -> bytes:
+        """Create placeholder marker file when PIL is not available."""
+        data = f"ARJS_{marker_type.upper()}_PLACEHOLDER_".encode()
         data += hashlib.md5(str(image_path).encode()).digest()
         return data
+    
+    def _create_placeholder_fset(self, image_path: Path) -> bytes:
+        """Create placeholder fset when PIL is not available."""
+        return self._create_placeholder(image_path, "fset")
     
     def _create_placeholder_fset3(self, image_path: Path) -> bytes:
         """Create placeholder fset3 when PIL is not available."""
-        data = b"ARJS_FSET3_PLACEHOLDER_"
-        data += hashlib.md5(str(image_path).encode()).digest()
-        return data
+        return self._create_placeholder(image_path, "fset3")
     
     def _create_placeholder_iset(self, image_path: Path) -> bytes:
         """Create placeholder iset when PIL is not available."""
-        data = b"ARJS_ISET_PLACEHOLDER_"
-        data += hashlib.md5(str(image_path).encode()).digest()
-        return data
+        return self._create_placeholder(image_path, "iset")
     
     def generate_marker(
         self,

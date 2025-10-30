@@ -13,6 +13,7 @@ import shutil
 from storage_local import upload_file
 import logging
 from typing import Optional
+from dotenv import load_dotenv
 
 # Импортируем новый генератор маркеров из Stogram
 from nft_marker_generator import NFTMarkerGenerator, NFTMarkerConfig
@@ -20,6 +21,10 @@ from nft_marker_generator import NFTMarkerGenerator, NFTMarkerConfig
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 
 def generate_nft(image_url: str, video_url: str) -> str:
@@ -35,7 +40,7 @@ def generate_nft(image_url: str, video_url: str) -> str:
     """
     # В реальной реализации здесь будет логика создания NFT
     # Сейчас просто возвращаем URL к AR-странице
-    return f"http://localhost:8000/ar/{os.path.basename(image_url).split('.')[0]}"
+    return f"{BASE_URL}/ar/{os.path.basename(image_url).split('.')[0]}"
 
 
 def generate_nft_marker(input_image_path: str, output_dir: str, save_to_minio: bool = False, config: Optional[NFTMarkerConfig] = None) -> bool:

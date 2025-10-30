@@ -44,6 +44,10 @@ STORAGE_ROOT = BASE_DIR / "storage"
 STATIC_ROOT = BASE_DIR / "static"
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 
+# Get base URL from environment or use default
+import os
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
 VERSION_FILE = BASE_DIR / "VERSION"
 try:
     VERSION = VERSION_FILE.read_text().strip()
@@ -235,7 +239,7 @@ database = Database(DB_PATH)
 tokens = TokenManager()
 
 # Монтируем шаблоны
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 async def get_current_user(
@@ -342,15 +346,11 @@ async def upload_ar_content(
         f.write(await video.read())
     
     # Генерируем QR-код
-    ar_url = f"http://localhost:8000/ar/{content_id}"
+    ar_url = f"{BASE_URL}/ar/{content_id}"
     qr_img = qrcode.make(ar_url)
     qr_buffer = BytesIO()
     qr_img.save(qr_buffer, format="PNG")
     qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
-    
-    # Создаем директорию для маркеров
-    markers_dir = STORAGE_ROOT / "nft-markers" / content_id
-    markers_dir.mkdir(parents=True, exist_ok=True)
     
     # Генерируем NFT-маркеры
     from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator

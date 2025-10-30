@@ -147,7 +147,6 @@ def generate_and_save_preview(file_content: bytes, file_type: str, record_id: st
         
         # Генерируем превью
         preview_content = PreviewGenerator.generate_preview(file_content, file_type)
-        logger.info(f"Превью сгенерировано для {record_id}, размер: {len(preview_content) if preview_content else 0} байт")
         
         if preview_content:
             logger.info(f"Превью успешно сгенерировано для {record_id}, размер: {len(preview_content)} байт")
@@ -156,8 +155,8 @@ def generate_and_save_preview(file_content: bytes, file_type: str, record_id: st
             preview_filename = f"previews/{record_id}_{preview_type}.jpg"
             logger.info(f"Пытаемся сохранить превью с именем: {preview_filename}")
             
-            # Загружаем превью в MinIO
-            result = storage.upload_file_from_bytes(preview_content, preview_filename, "image/jpeg")
+            # Загружаем превью в хранилище
+            result = storage.upload_file(preview_content, preview_filename, "image/jpeg")
             
             if result:
                 logger.info(f"Превью успешно сохранено: {preview_filename}")

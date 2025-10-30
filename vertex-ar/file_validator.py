@@ -31,13 +31,6 @@ class FileValidator:
             
             # Проверяем, что изображение не повреждено
             image.verify()
-            
-            # После verify нужно снова открыть изображение для проверки размеров
-            image = Image.open(BytesIO(content))
-            width, height = image.size
-            
-            if width < min_dimension and height < min_dimension:
-                return False, f"Изображение слишком маленькое. Минимальный размер: {min_dimension}px по одной стороне"
                 
             return True, ""
         except Exception as e:
