@@ -56,35 +56,68 @@ def generate_nft_marker(input_image_path: str, output_dir: str, save_to_minio: b
         if config is None:
             config = NFTMarkerConfig()
         
-        # Initialize the NFT marker generator with the output directory as storage root
-        generator = NFTMarkerGenerator(Path(output_dir))
+        output_root = Path(output_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        
+        # Create a temporary directory for the generator
+        temp_dir_obj = tempfile.TemporaryDirectory()
+        temp_storage_root = Path(temp_dir_obj.name)
+        
+        # Initialize the NFT marker generator with temporary storage
+        generator = NFTMarkerGenerator(temp_storage_root)
         
         # Get the image filename without extension for naming the marker files
-        output_name = Path(input_image_path).stem
+        input_image_path = Path(input_image_path)
+        output_name = input_image_path.stem
         
         # Generate the NFT marker using the enhanced generator from Stogram
         logger.info(f"Generating NFT marker for {input_image_path} with name {output_name}")
         marker = generator.generate_marker(input_image_path, output_name, config)
         logger.info(f"NFT marker generated successfully: {marker.fset_path}, {marker.fset3_path}, {marker.iset_path}")
         
+        # Copy generated files to output directory
+        generated_files = [
+            (Path(marker.fset_path), output_root / f"{output_name}.fset"),
+            (Path(marker.fset3_path), output_root / f"{output_name}.fset3"),
+            (Path(marker.iset_path), output_root / f"{output_name}.iset")
+        ]
+        
+        for src_path, dest_path in generated_files:
+            if src_path.exists():
+                shutil.copy2(src_path, dest_path)
+                logger.info(f"Copied {src_path.name} to {dest_path}")
+            else:
+                logger.error(f"Expected marker file not found: {src_path}")
+                temp_dir_obj.cleanup()
+                return False
+        
+        # Copy source image to output directory
+        image_extension = input_image_path.suffix or ".jpg"
+        image_destination = output_root / f"{output_name}{image_extension}"
+        shutil.copy2(input_image_path, image_destination)
+        logger.info(f"Copied source image to {image_destination}")
+        
+        # Clean up temporary directory
+        temp_dir_obj.cleanup()
+        
         # If requested, save files to MinIO
         if save_to_minio:
             logger.info("Uploading NFT marker files to MinIO...")
-            marker_files = [marker.fset_path, marker.fset3_path, marker.iset_path]
+            marker_files = [f"{output_name}.fset", f"{output_name}.fset3", f"{output_name}.iset"]
             for marker_file in marker_files:
-                if os.path.exists(marker_file):
-                    with open(marker_file, 'rb') as f:
+                file_path = output_root / marker_file
+                if file_path.exists():
+                    with open(file_path, 'rb') as f:
                         file_content = f.read()
-                    # Extract filename and upload to MinIO with nft-markers prefix
-                    filename = os.path.basename(marker_file)
-                    object_name = f"nft-markers/{filename}"
+                    # Upload to MinIO with nft-markers prefix
+                    object_name = f"nft-markers/{marker_file}"
                     upload_url = upload_file(file_content, object_name, "application/octet-stream")
                     if upload_url:
-                        logger.info(f"Uploaded {filename} to MinIO: {upload_url}")
+                        logger.info(f"Uploaded {marker_file} to MinIO: {upload_url}")
                     else:
-                        logger.error(f"Failed to upload {filename} to MinIO")
+                        logger.error(f"Failed to upload {marker_file} to MinIO")
                 else:
-                    logger.error(f"Marker file does not exist: {marker_file}")
+                    logger.error(f"Marker file does not exist: {file_path}")
         
         return True
         
