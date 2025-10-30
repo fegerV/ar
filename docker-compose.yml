@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.app
-    container_name: vertex_art_app_simplified
+    container_name: vertex_ar_app_simplified
     ports:
       - "8000:8000"
     environment:
@@ -20,7 +20,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: vertex_art_nginx_simplified
+    container_name: vertex_ar_nginx_simplified
     ports:
       - "80:80"
       - "443:443"

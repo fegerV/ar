@@ -387,7 +387,7 @@ Vertex AR - это полнофункциональная платформа, с
 ### Модульная архитектура
 
 ```
-vertex-art-ar/
+vertex-ar/
 │
 ├── main.py                          # Основное приложение FastAPI
 │   ├── Database                     # Класс работы с БД
@@ -659,7 +659,7 @@ git clone https://github.com/your-org/vertex-ar.git
 cd vertex-ar
 
 # Переход в основную директорию
-cd vertex-art-ar
+cd vertex-ar
 ```
 
 #### Шаг 2: Создание виртуального окружения
@@ -1341,16 +1341,16 @@ pytest -x
 
 ```bash
 # Проверка стиля
-flake8 vertex-art-ar/
+flake8 vertex-ar/
 
 # Проверка типов
-mypy vertex-art-ar/
+mypy vertex-ar/
 
 # Форматирование
-black vertex-art-ar/
+black vertex-ar/
 
 # Сортировка импортов
-isort vertex-art-ar/
+isort vertex-ar/
 ```
 
 ### Структура тестов

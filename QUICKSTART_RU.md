@@ -16,7 +16,7 @@
 ```bash
 # Клонирование репозитория
 git clone https://github.com/your-org/vertex-ar.git
-cd vertex-ar/vertex-art-ar
+cd vertex-ar/vertex-ar
 
 # Создание виртуального окружения
 python3.11 -m venv .venv

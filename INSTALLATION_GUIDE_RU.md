@@ -325,13 +325,13 @@ cd vertex-ar
 
 # Проверка структуры
 ls -la
-# Должны увидеть: vertex-art-ar/, README.md, и др.
+# Должны увидеть: vertex-ar/, README.md, и др.
 ```
 
 ### Шаг 2: Переход в основную директорию
 
 ```bash
-cd vertex-art-ar
+cd vertex-ar
 ls -la
 # Должны увидеть: main.py, requirements.txt, templates/, и др.
 ```
@@ -356,7 +356,7 @@ source .venv/bin/activate
 
 После активации в начале строки появится `(.venv)`:
 ```bash
-(.venv) user@host:~/vertex-ar/vertex-art-ar$
+(.venv) user@host:~/vertex-ar/vertex-ar$
 ```
 
 **Windows (Command Prompt):**
@@ -969,7 +969,7 @@ docker run hello-world
 cd /path/to/vertex-ar
 
 # Сборка образа
-docker build -f Dockerfile.app -t vertex-ar:latest vertex-art-ar/
+docker build -f Dockerfile.app -t vertex-ar:latest vertex-ar/
 
 # Проверка образа
 docker images | grep vertex-ar
@@ -983,8 +983,8 @@ docker images | grep vertex-ar
 docker run -d \
   --name vertex-ar \
   -p 8000:8000 \
-  -v $(pwd)/vertex-art-ar/storage:/app/storage \
-  -v $(pwd)/vertex-art-ar/app_data.db:/app/app_data.db \
+  -v $(pwd)/vertex-ar/storage:/app/storage \
+  -v $(pwd)/vertex-ar/app_data.db:/app/app_data.db \
   -e SECRET_KEY=your-secret-key \
   -e DEBUG=False \
   vertex-ar:latest
@@ -996,9 +996,9 @@ docker run -d \
 docker run -d \
   --name vertex-ar \
   -p 8000:8000 \
-  -v $(pwd)/vertex-art-ar/storage:/app/storage \
-  -v $(pwd)/vertex-art-ar/app_data.db:/app/app_data.db \
-  --env-file vertex-art-ar/.env \
+  -v $(pwd)/vertex-ar/storage:/app/storage \
+  -v $(pwd)/vertex-ar/app_data.db:/app/app_data.db \
+  --env-file vertex-ar/.env \
   vertex-ar:latest
 ```
 
@@ -1012,17 +1012,17 @@ version: '3.8'
 services:
   vertex-ar:
     build:
-      context: ./vertex-art-ar
+      context: ./vertex-ar
       dockerfile: ../Dockerfile.app
     container_name: vertex-ar
     ports:
       - "8000:8000"
     volumes:
-      - ./vertex-art-ar/storage:/app/storage
-      - ./vertex-art-ar/app_data.db:/app/app_data.db
-      - ./vertex-art-ar/logs:/app/logs
+      - ./vertex-ar/storage:/app/storage
+      - ./vertex-ar/app_data.db:/app/app_data.db
+      - ./vertex-ar/logs:/app/logs
     env_file:
-      - ./vertex-art-ar/.env
+      - ./vertex-ar/.env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -1171,7 +1171,7 @@ nginx -v
 # Клонирование
 cd /home/vertex
 git clone https://github.com/your-org/vertex-ar.git
-cd vertex-ar/vertex-art-ar
+cd vertex-ar/vertex-ar
 
 # Создание venv
 python3.11 -m venv .venv
@@ -1198,7 +1198,7 @@ nano .env  # отредактируйте настройки
 #### Создание конфигурации
 
 ```bash
-# /home/vertex/vertex-ar/vertex-art-ar/gunicorn_config.py
+# /home/vertex/vertex-ar/vertex-ar/gunicorn_config.py
 import multiprocessing
 
 # Server socket
@@ -1213,8 +1213,8 @@ timeout = 300
 keepalive = 5
 
 # Logging
-accesslog = "/home/vertex/vertex-ar/vertex-art-ar/logs/access.log"
-errorlog = "/home/vertex/vertex-ar/vertex-art-ar/logs/error.log"
+accesslog = "/home/vertex/vertex-ar/vertex-ar/logs/access.log"
+errorlog = "/home/vertex/vertex-ar/vertex-ar/logs/error.log"
 loglevel = "info"
 
 # Process naming
@@ -1222,7 +1222,7 @@ proc_name = "vertex-ar"
 
 # Server mechanics
 daemon = False
-pidfile = "/home/vertex/vertex-ar/vertex-art-ar/gunicorn.pid"
+pidfile = "/home/vertex/vertex-ar/vertex-ar/gunicorn.pid"
 user = "vertex"
 group = "vertex"
 umask = 0o007
@@ -1250,14 +1250,14 @@ sudo nano /etc/supervisor/conf.d/vertex-ar.conf
 Содержимое:
 ```ini
 [program:vertex-ar]
-directory=/home/vertex/vertex-ar/vertex-art-ar
-command=/home/vertex/vertex-ar/vertex-art-ar/.venv/bin/gunicorn main:app -c gunicorn_config.py
+directory=/home/vertex/vertex-ar/vertex-ar
+command=/home/vertex/vertex-ar/vertex-ar/.venv/bin/gunicorn main:app -c gunicorn_config.py
 user=vertex
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile=/home/vertex/vertex-ar/vertex-art-ar/logs/supervisor.log
-environment=PATH="/home/vertex/vertex-ar/vertex-art-ar/.venv/bin"
+stdout_logfile=/home/vertex/vertex-ar/vertex-ar/logs/supervisor.log
+environment=PATH="/home/vertex/vertex-ar/vertex-ar/.venv/bin"
 ```
 
 #### Запуск через Supervisor
@@ -1354,13 +1354,13 @@ server {
     
     # Static files
     location /storage/ {
-        alias /home/vertex/vertex-ar/vertex-art-ar/storage/;
+        alias /home/vertex/vertex-ar/vertex-ar/storage/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
     
     location /static/ {
-        alias /home/vertex/vertex-ar/vertex-art-ar/static/;
+        alias /home/vertex/vertex-ar/vertex-ar/static/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -1455,7 +1455,7 @@ https://www.ssllabs.com/ssltest/analyze.html?d=yourdomain.com
 
 # Конфигурация
 BACKUP_DIR="/home/vertex/backups"
-PROJECT_DIR="/home/vertex/vertex-ar/vertex-art-ar"
+PROJECT_DIR="/home/vertex/vertex-ar/vertex-ar"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_NAME="vertex-ar-backup-$DATE"
 
@@ -1521,16 +1521,16 @@ tar -xzf vertex-ar-backup-20240115_020000.tar.gz
 
 # Восстановление БД
 cp vertex-ar-backup-20240115_020000/app_data.db \
-   /home/vertex/vertex-ar/vertex-art-ar/
+   /home/vertex/vertex-ar/vertex-ar/
 
 # Восстановление storage
-rm -rf /home/vertex/vertex-ar/vertex-art-ar/storage
+rm -rf /home/vertex/vertex-ar/vertex-ar/storage
 cp -r vertex-ar-backup-20240115_020000/storage \
-   /home/vertex/vertex-ar/vertex-art-ar/
+   /home/vertex/vertex-ar/vertex-ar/
 
 # Восстановление .env (если нужно)
 cp vertex-ar-backup-20240115_020000/.env \
-   /home/vertex/vertex-ar/vertex-art-ar/
+   /home/vertex/vertex-ar/vertex-ar/
 
 # Запуск приложения
 sudo supervisorctl start vertex-ar
@@ -1544,7 +1544,7 @@ sudo supervisorctl start vertex-ar
 
 ```bash
 # Application logs
-tail -f /home/vertex/vertex-ar/vertex-art-ar/logs/app.log
+tail -f /home/vertex/vertex-ar/vertex-ar/logs/app.log
 
 # Nginx access logs
 sudo tail -f /var/log/nginx/vertex-ar-access.log
@@ -1553,7 +1553,7 @@ sudo tail -f /var/log/nginx/vertex-ar-access.log
 sudo tail -f /var/log/nginx/vertex-ar-error.log
 
 # Supervisor logs
-sudo tail -f /home/vertex/vertex-ar/vertex-art-ar/logs/supervisor.log
+sudo tail -f /home/vertex/vertex-ar/vertex-ar/logs/supervisor.log
 
 # System logs
 sudo journalctl -u nginx -f
@@ -1586,7 +1586,7 @@ sudo logrotate -f /etc/logrotate.d/nginx
 
 # Ручная очистка
 sudo truncate -s 0 /var/log/nginx/vertex-ar-access.log
-truncate -s 0 /home/vertex/vertex-ar/vertex-art-ar/logs/app.log
+truncate -s 0 /home/vertex/vertex-ar/vertex-ar/logs/app.log
 ```
 
 ### Обновление приложения
@@ -1600,7 +1600,7 @@ cd /home/vertex/vertex-ar
 git pull origin main
 
 # Активация venv
-cd vertex-art-ar
+cd vertex-ar
 source .venv/bin/activate
 
 # Обновление зависимостей
@@ -1627,7 +1627,7 @@ sudo lsof -i :8000
 
 **Проверка 2: Права доступа**
 ```bash
-ls -la /home/vertex/vertex-ar/vertex-art-ar/
+ls -la /home/vertex/vertex-ar/vertex-ar/
 # Исправление: sudo chown -R vertex:vertex /home/vertex/vertex-ar/
 ```
 
@@ -1661,10 +1661,10 @@ sudo systemctl restart nginx
 sudo supervisorctl stop vertex-ar
 
 # Проверьте lock файл
-ls -la /home/vertex/vertex-ar/vertex-art-ar/app_data.db*
+ls -la /home/vertex/vertex-ar/vertex-ar/app_data.db*
 
 # Удалите lock файлы
-rm /home/vertex/vertex-ar/vertex-art-ar/app_data.db-*
+rm /home/vertex/vertex-ar/vertex-ar/app_data.db-*
 
 # Запустите приложение
 sudo supervisorctl start vertex-ar

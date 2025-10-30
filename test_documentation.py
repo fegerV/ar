@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 
 # Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-art-ar'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
 
 def test_readme_completeness():
     """Проверка актуальности README.md"""
@@ -17,7 +17,7 @@ def test_readme_completeness():
     
     try:
         # Проверяем наличие файла README.md
-        readme_path = Path("vertex-art-ar/README.md")
+        readme_path = Path("vertex-ar/README.md")
         if not readme_path.exists():
             print("  Файл README.md не найден: ОШИБКА")
             return False
@@ -53,7 +53,7 @@ def test_readme_completeness():
             print("  Все необходимые разделы присутствуют: УСПЕШНО")
         
         # Проверяем актуальность информации о версии
-        version_file = Path("vertex-art-ar/VERSION")
+        version_file = Path("vertex-ar/VERSION")
         if version_file.exists():
             with open(version_file, "r") as f:
                 current_version = f.read().strip()
@@ -78,7 +78,7 @@ def test_installation_instructions():
     
     try:
         # Проверяем наличие файла README_DEPLOYMENT.md
-        deployment_readme_path = Path("vertex-art-ar/README_DEPLOYMENT.md")
+        deployment_readme_path = Path("vertex-ar/README_DEPLOYMENT.md")
         if not deployment_readme_path.exists():
             print("  Файл README_DEPLOYMENT.md не найден: ОШИБКА")
             return False
@@ -139,7 +139,7 @@ def test_api_documentation():
     
     try:
         # Проверяем наличие файла PROJECT_DOCS.md
-        api_docs_path = Path("vertex-art-ar/PROJECT_DOCS.md")
+        api_docs_path = Path("vertex-ar/PROJECT_DOCS.md")
         if not api_docs_path.exists():
             print("  Файл PROJECT_DOCS.md не найден: ОШИБКА")
             return False
@@ -201,7 +201,7 @@ def test_changelog_consistency():
     
     try:
         # Проверяем наличие файла CHANGELOG.md
-        changelog_path = Path("vertex-art-ar/CHANGELOG.md")
+        changelog_path = Path("vertex-ar/CHANGELOG.md")
         if not changelog_path.exists():
             print("  Файл CHANGELOG.md не найден: ОШИБКА")
             return False
@@ -213,7 +213,7 @@ def test_changelog_consistency():
             content = f.read()
         
         # Проверяем наличие последней версии из файла VERSION
-        version_file = Path("vertex-art-ar/VERSION")
+        version_file = Path("vertex-ar/VERSION")
         if version_file.exists():
             with open(version_file, "r") as f:
                 current_version = f.read().strip()
@@ -245,7 +245,7 @@ def test_license_information():
     
     try:
         # Проверяем наличие файла LICENSE
-        license_path = Path("vertex-art-ar/LICENSE")
+        license_path = Path("vertex-ar/LICENSE")
         if not license_path.exists():
             print("  Файл LICENSE не найден: ОШИБКА")
             return False

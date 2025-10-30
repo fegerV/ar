@@ -24,7 +24,7 @@
 
 **Команда:**
 ```bash
-flake8 --max-line-length=120 --extend-ignore=E501,W503 vertex-art-ar/*.py
+flake8 --max-line-length=120 --extend-ignore=E501,W503 vertex-ar/*.py
 ```
 
 **Результаты:** 411 предупреждений
@@ -225,14 +225,14 @@ ipython>=8.14.0
 
 **Ошибка:**
 ```
-RuntimeError: Directory '/home/engine/project/vertex-art-ar/storage' does not exist
+RuntimeError: Directory '/home/engine/project/vertex-ar/storage' does not exist
 ```
 
 **Решение:**
 ```bash
-mkdir -p vertex-art-ar/storage
-mkdir -p vertex-art-ar/static
-mkdir -p vertex-art-ar/templates
+mkdir -p vertex-ar/storage
+mkdir -p vertex-ar/static
+mkdir -p vertex-ar/templates
 ```
 
 **Статус:** ✅ Исправлено
@@ -256,7 +256,7 @@ pip install jinja2
 **Создать conftest.py:**
 
 ```python
-# vertex-art-ar/tests/conftest.py
+# vertex-ar/tests/conftest.py
 import pytest
 from pathlib import Path
 from main import Database
@@ -411,7 +411,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 ### 6.2 Рекомендуемая структура
 
 ```
-vertex-art-ar/
+vertex-ar/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI app, routes
@@ -591,13 +591,13 @@ jobs:
         pip install -r requirements-dev.txt
     
     - name: Lint with flake8
-      run: flake8 vertex-art-ar/
+      run: flake8 vertex-ar/
     
     - name: Type check with mypy
-      run: mypy vertex-art-ar/
+      run: mypy vertex-ar/
     
     - name: Test with pytest
-      run: pytest --cov=vertex-art-ar --cov-report=xml
+      run: pytest --cov=vertex-ar --cov-report=xml
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
@@ -666,11 +666,11 @@ jobs:
 pip install black isort
 
 # Format all Python files
-black vertex-art-ar/
-isort vertex-art-ar/
+black vertex-ar/
+isort vertex-ar/
 
 # Check results
-flake8 vertex-art-ar/ --max-line-length=120
+flake8 vertex-ar/ --max-line-length=120
 ```
 
 ### Запуск тестов
@@ -683,7 +683,7 @@ pip install pytest pytest-asyncio pytest-cov httpx
 pytest -v
 
 # With coverage
-pytest --cov=vertex-art-ar --cov-report=html
+pytest --cov=vertex-ar --cov-report=html
 
 # Open coverage report
 open htmlcov/index.html
@@ -699,7 +699,7 @@ pip install pip-audit bandit
 pip-audit
 
 # Check code for security issues
-bandit -r vertex-art-ar/
+bandit -r vertex-ar/
 ```
 
 ---

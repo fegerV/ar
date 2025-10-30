@@ -22,8 +22,8 @@ def test_local_application_launch():
         temp_dir = tempfile.mkdtemp()
         
         # Копируем необходимые файлы в временную директорию
-        src_dir = Path("vertex-art-ar")
-        dst_dir = Path(temp_dir) / "vertex-art-ar"
+        src_dir = Path("vertex-ar")
+        dst_dir = Path(temp_dir) / "vertex-ar"
         shutil.copytree(src_dir, dst_dir)
         
         # Пытаемся запустить приложение в фоновом режиме
@@ -87,7 +87,7 @@ def test_docker_launch():
         print(f"    Docker установлен: {docker_check.stdout.strip()}")
         
         # Проверяем наличие Dockerfile
-        dockerfile_path = Path("vertex-art-ar/Dockerfile")
+        dockerfile_path = Path("vertex-ar/Dockerfile")
         if not dockerfile_path.exists():
             print("    Dockerfile не найден")
             return False
@@ -97,8 +97,8 @@ def test_docker_launch():
         # Пытаемся собрать Docker образ
         print("  Сборка Docker образа")
         build_process = subprocess.run([
-            "docker", "build", "-t", "vertex-art-ar:test", "."
-        ], cwd="vertex-art-ar", capture_output=True, text=True)
+            "docker", "build", "-t", "vertex-ar:test", "."
+        ], cwd="vertex-ar", capture_output=True, text=True)
         
         if build_process.returncode == 0:
             print("    Docker образ успешно собран: УСПЕШНО")
@@ -107,7 +107,7 @@ def test_docker_launch():
             print("  Запуск Docker контейнера")
             run_process = subprocess.run([
                 "docker", "run", "-d", "-p", "8000:8000", 
-                "--name", "vertex-art-ar-test", "vertex-art-ar:test"
+                "--name", "vertex-ar-test", "vertex-ar:test"
             ], capture_output=True, text=True)
             
             if run_process.returncode == 0:
@@ -127,9 +127,9 @@ def test_docker_launch():
                     print(f"    Невозможно получить доступ к приложению через Docker: {e}")
                 
                 # Останавливаем контейнер
-                subprocess.run(["docker", "stop", "vertex-art-ar-test"], 
+                subprocess.run(["docker", "stop", "vertex-ar-test"], 
                                capture_output=True)
-                subprocess.run(["docker", "rm", "vertex-art-ar-test"], 
+                subprocess.run(["docker", "rm", "vertex-ar-test"], 
                                capture_output=True)
                 
                 return True
@@ -151,8 +151,8 @@ def test_application_after_restart():
     try:
         # Создаем временную директорию
         temp_dir = tempfile.mkdtemp()
-        src_dir = Path("vertex-art-ar")
-        dst_dir = Path(temp_dir) / "vertex-art-ar"
+        src_dir = Path("vertex-ar")
+        dst_dir = Path(temp_dir) / "vertex-ar"
         shutil.copytree(src_dir, dst_dir)
         
         # Запускаем приложение первый раз
@@ -217,8 +217,8 @@ def test_application_logs():
     try:
         # Создаем временную директорию
         temp_dir = tempfile.mkdtemp()
-        src_dir = Path("vertex-art-ar")
-        dst_dir = Path(temp_dir) / "vertex-art-ar"
+        src_dir = Path("vertex-ar")
+        dst_dir = Path(temp_dir) / "vertex-ar"
         shutil.copytree(src_dir, dst_dir)
         
         # Запускаем приложение и собираем логи

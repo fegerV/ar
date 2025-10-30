@@ -54,7 +54,7 @@ python -m venv .venv
 
 ```bash
 # Production зависимости
-pip install -r vertex-art-ar/requirements.txt
+pip install -r vertex-ar/requirements.txt
 
 # Development зависимости
 pip install pytest pytest-asyncio pytest-cov flake8 pylint mypy black isort httpx
@@ -62,10 +62,10 @@ pip install pytest pytest-asyncio pytest-cov flake8 pylint mypy black isort http
 
 ### 4. Настройка переменных окружения
 
-Создайте файл `.env` в директории `vertex-art-ar/`:
+Создайте файл `.env` в директории `vertex-ar/`:
 
 ```bash
-cp vertex-art-ar/.env.example vertex-art-ar/.env
+cp vertex-ar/.env.example vertex-ar/.env
 ```
 
 Отредактируйте `.env`:
@@ -97,7 +97,7 @@ LOG_LEVEL=INFO
 ### 5. Создание необходимых директорий
 
 ```bash
-cd vertex-art-ar
+cd vertex-ar
 mkdir -p storage static templates
 mkdir -p storage/ar_content storage/nft-markers storage/qr-codes
 ```
@@ -159,7 +159,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 vertex-ar/
-├── vertex-art-ar/                 # Основное приложение
+├── vertex-ar/                 # Основное приложение
 │   ├── main.py                   # FastAPI application
 │   ├── auth.py                   # Authentication module
 │   ├── database.py               # Database layer
@@ -505,7 +505,7 @@ pytest tests/test_auth.py
 pytest tests/test_auth.py::test_password_hashing
 
 # С coverage
-pytest --cov=vertex-art-ar --cov-report=html
+pytest --cov=vertex-ar --cov-report=html
 
 # Verbose mode
 pytest -v
@@ -855,19 +855,19 @@ def test_process_error(feature, monkeypatch):
 
 ```bash
 # 1. Форматирование
-black vertex-art-ar/*.py
+black vertex-ar/*.py
 
 # 2. Импорты
-isort vertex-art-ar/*.py
+isort vertex-ar/*.py
 
 # 3. Linting
-flake8 vertex-art-ar/
+flake8 vertex-ar/
 
 # 4. Type checking
-mypy vertex-art-ar/
+mypy vertex-ar/
 
 # 5. Tests
-pytest --cov=vertex-art-ar
+pytest --cov=vertex-ar
 
 # 6. Security check
 pip-audit

@@ -150,7 +150,7 @@
 |----------|----------|-----------|--------|
 | [README_DEPLOYMENT.md](./README_DEPLOYMENT.md) | Инструкции по развертыванию | DevOps, SysAdmins | ✅ Exists |
 | [production_setup.md](./production_setup.md) | Production настройка | DevOps | ✅ Exists |
-| [.env.example](./vertex-art-ar/.env.example) | Пример конфигурации | Разработчики, DevOps | ✅ Complete |
+| [.env.example](./vertex-ar/.env.example) | Пример конфигурации | Разработчики, DevOps | ✅ Complete |
 
 **Deployment документация включает:**
 - Docker setup
@@ -186,7 +186,7 @@
 
 ## 📋 Документация по модулям
 
-### Backend модули (vertex-art-ar/)
+### Backend модули (vertex-ar/)
 
 | Модуль | Описание | Документация |
 |--------|----------|--------------|
