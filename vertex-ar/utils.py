@@ -4,7 +4,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 
 def get_disk_usage(path: str = ".") -> Dict[str, int]:
@@ -32,7 +32,7 @@ def format_bytes(bytes_value: int) -> str:
     return f"{bytes_value:.2f} PB"
 
 
-def get_storage_usage(storage_path: str = "storage") -> Dict[str, any]:
+def get_storage_usage(storage_path: str = "storage") -> Dict[str, Any]:
     """
     Получить информацию об использовании хранилища
     """

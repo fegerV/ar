@@ -5,6 +5,7 @@ Based on Stogram approach: No blockchain, no IPFS, no NFT - just image + video A
 from __future__ import annotations
 
 import secrets
+import shutil
 import sqlite3
 import threading
 from datetime import datetime
@@ -83,16 +84,37 @@ class Database:
                     username TEXT NOT NULL,
                     image_path TEXT NOT NULL,
                     video_path TEXT NOT NULL,
+                    image_preview_path TEXT,
+                    video_preview_path TEXT,
                     marker_fset TEXT NOT NULL,
                     marker_fset3 TEXT NOT NULL,
                     marker_iset TEXT NOT NULL,
                     ar_url TEXT NOT NULL,
                     qr_code TEXT,
+                    view_count INTEGER NOT NULL DEFAULT 0,
+                    click_count INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(username) REFERENCES users(username)
                 )
                 """
             )
+            # Add columns to existing tables if they don't exist
+            try:
+                self._connection.execute("ALTER TABLE ar_content ADD COLUMN image_preview_path TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE ar_content ADD COLUMN video_preview_path TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE ar_content ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE ar_content ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
     
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
@@ -127,17 +149,21 @@ class Database:
         marker_iset: str,
         ar_url: str,
         qr_code: Optional[str],
+        image_preview_path: Optional[str] = None,
+        video_preview_path: Optional[str] = None,
     ) -> Dict[str, Any]:
         self._execute(
             """
             INSERT INTO ar_content (
                 id, username, image_path, video_path,
+                image_preview_path, video_preview_path,
                 marker_fset, marker_fset3, marker_iset,
                 ar_url, qr_code
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (content_id, username, image_path, video_path,
+             image_preview_path, video_preview_path,
              marker_fset, marker_fset3, marker_iset, ar_url, qr_code),
         )
         return self.get_ar_content(content_id)
@@ -158,6 +184,25 @@ class Database:
         else:
             cursor = self._execute("SELECT * FROM ar_content ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
+    
+    def increment_view_count(self, content_id: str) -> None:
+        """Увеличить счетчик просмотров AR контента."""
+        self._execute(
+            "UPDATE ar_content SET view_count = view_count + 1 WHERE id = ?",
+            (content_id,),
+        )
+    
+    def increment_click_count(self, content_id: str) -> None:
+        """Увеличить счетчик кликов по ссылкам AR контента."""
+        self._execute(
+            "UPDATE ar_content SET click_count = click_count + 1 WHERE id = ?",
+            (content_id,),
+        )
+    
+    def delete_ar_content(self, content_id: str) -> bool:
+        """Удалить AR контент из базы данных."""
+        cursor = self._execute("DELETE FROM ar_content WHERE id = ?", (content_id,))
+        return cursor.rowcount > 0
 
 
 def _hash_password(password: str) -> str:
@@ -335,15 +380,48 @@ async def upload_ar_content(
     content_dir = user_storage / content_id
     content_dir.mkdir(parents=True, exist_ok=True)
     
+    # Читаем содержимое файлов для генерации превью
+    image.file.seek(0)
+    image_content = await image.read()
+    video.file.seek(0)
+    video_content = await video.read()
+    
     # Сохраняем изображение
     image_path = content_dir / f"{content_id}.jpg"
     with open(image_path, "wb") as f:
-        f.write(await image.read())
+        f.write(image_content)
     
     # Сохраняем видео
     video_path = content_dir / f"{content_id}.mp4"
     with open(video_path, "wb") as f:
-        f.write(await video.read())
+        f.write(video_content)
+    
+    # Генерируем превью
+    from preview_generator import PreviewGenerator
+    image_preview_path = None
+    video_preview_path = None
+    
+    try:
+        # Генерируем превью изображения
+        image_preview = PreviewGenerator.generate_image_preview(image_content)
+        if image_preview:
+            image_preview_path = content_dir / f"{content_id}_preview.jpg"
+            with open(image_preview_path, "wb") as f:
+                f.write(image_preview)
+            logger.info(f"Превью изображения создано: {image_preview_path}")
+    except Exception as e:
+        logger.error(f"Ошибка при генерации превью изображения: {e}")
+    
+    try:
+        # Генерируем превью видео
+        video_preview = PreviewGenerator.generate_video_preview(video_content)
+        if video_preview:
+            video_preview_path = content_dir / f"{content_id}_video_preview.jpg"
+            with open(video_preview_path, "wb") as f:
+                f.write(video_preview)
+            logger.info(f"Превью видео создано: {video_preview_path}")
+    except Exception as e:
+        logger.error(f"Ошибка при генерации превью видео: {e}")
     
     # Генерируем QR-код
     ar_url = f"{BASE_URL}/ar/{content_id}"
@@ -364,6 +442,8 @@ async def upload_ar_content(
         username=username,
         image_path=str(image_path),
         video_path=str(video_path),
+        image_preview_path=str(image_preview_path) if image_preview_path else None,
+        video_preview_path=str(video_preview_path) if video_preview_path else None,
         marker_fset=marker_result.fset_path,
         marker_fset3=marker_result.fset3_path,
         marker_iset=marker_result.iset_path,
@@ -396,6 +476,9 @@ async def view_ar_content(content_id: str, animation: bool = False) -> HTMLRespo
     content = database.get_ar_content(content_id)
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    
+    # Увеличиваем счетчик просмотров
+    database.increment_view_count(content_id)
     
     if animation:
         # Возвращаем HTML для анимированного портрета
@@ -1203,140 +1286,74 @@ class ARContentView:
 content_views = ARContentView()
 
 
-# Модифицируем существующий эндпоинт AR-страницы, чтобы добавить счётчик просмотров
-@app.get("/ar/{content_id}", response_class=HTMLResponse, tags=["ar"])
-async def view_ar_content(content_id: str) -> HTMLResponse:
-    """View AR content page (public access)."""
-    content = database.get_ar_content(content_id)
-    if not content:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
-    
-    # Увеличиваем счётчик просмотров
-    view_count = content_views.increment_view(content_id)
-    logger.info(f"AR content {content_id} viewed. Total views: {view_count}")
-    
-    html = f"""
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>AR Content - {content_id}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.2/aframe/build/aframe-ar-nft.js"></script>
-    <style>
-      body {{
-        margin: 0;
-        overflow: hidden;
-      }}
-      #start-btn {{
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        z-index: 100;
-        padding: 10px 16px;
-        font-size: 14px;
-        border: none;
-        border-radius: 4px;
-        background-color: rgba(0, 0, 0, 0.7);
-        color: #ffffff;
-        cursor: pointer;
-      }}
-      #view-count {{
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 100;
-        padding: 10px 16px;
-        font-size: 14px;
-        border: none;
-        border-radius: 4px;
-        background-color: rgba(0, 0, 0, 0.7);
-        color: #ffffff;
-      }}
-    </style>
-  </head>
-  <body>
-    <button id="start-btn" onclick="startVideo()">Start Video</button>
-    <div id="view-count">Views: {view_count}</div>
-    <a-scene
-      vr-mode-ui="enabled: false"
-      embedded
-      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-    >
-      <a-nft
-        type="nft"
-        url="/ar/markers/{content_id}"
-        smooth="true"
-        smoothCount="10"
-        smoothTolerance="0.01"
-        smoothThreshold="5"
-      >
-        <a-video
-          id="video-content"
-          src="#myvideo"
-          width="1.5"
-          height="1"
-          position="0 0 0"
-          rotation="-90 0 0"
-        ></a-video>
-      </a-nft>
-      <a-assets>
-        <video
-          id="myvideo"
-          src="/ar/video/{content_id}"
-          preload="auto"
-          crossorigin="anonymous"
-          webkit-playsinline
-          playsinline
-          muted
-          loop="false"
-        ></video>
-      </a-assets>
-      <a-entity camera></a-entity>
-    </a-scene>
-    <script>
-      function startVideo() {{
-        const vid = document.getElementById('myvideo');
-        if (!vid) return;
-        const playPromise = vid.play();
-        if (playPromise && typeof playPromise.then === 'function') {{
-          playPromise.catch((error) => console.warn('Autoplay prevented:', error));
-        }}
-      }}
-      window.onload = function () {{
-        if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {{
-          startVideo();
-        }}
-      }};
-    </script>
-  </body>
-</html>
-    """
-    return HTMLResponse(content=html)
+# Удалено - дублированный эндпоинт выше уже обрабатывает это
 
 
 # Добавляем эндпоинт для получения статистики просмотров
 @app.get("/admin/content-stats", tags=["admin"])
 async def get_content_stats(username: str = Depends(require_admin)) -> List[Dict[str, Any]]:
-    """Получить статистику просмотров для всего контента"""
-    all_views = content_views.get_all_views()
+    """Получить статистику просмотров и кликов для всего контента"""
     content_list = database.list_ar_content()
     
     stats = []
     for content in content_list:
-        content_id = content["id"]
-        view_count = all_views.get(content_id, 0)
         stats.append({
-            "id": content_id,
-            "title": content_id,  # В реальном приложении можно добавить поле title
-            "views": view_count,
-            "created_at": content["created_at"]
+            "id": content["id"],
+            "title": content["id"],  # В реальном приложении можно добавить поле title
+            "views": content.get("view_count", 0),
+            "clicks": content.get("click_count", 0),
+            "created_at": content["created_at"],
+            "ar_url": content["ar_url"]
         })
     
     # Сортируем по количеству просмотров (по убыванию)
     stats.sort(key=lambda x: x["views"], reverse=True)
     return stats
+
+
+@app.post("/ar/{content_id}/click", tags=["ar"])
+async def track_click(content_id: str) -> Dict[str, Any]:
+    """Отследить клик по ссылке AR контента (публичный доступ)"""
+    content = database.get_ar_content(content_id)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    
+    database.increment_click_count(content_id)
+    return {"status": "success", "content_id": content_id}
+
+
+@app.delete("/ar/{content_id}", tags=["ar"])
+async def delete_ar_content(content_id: str, username: str = Depends(require_admin)) -> Dict[str, str]:
+    """Удалить AR контент (только для администраторов)"""
+    content = database.get_ar_content(content_id)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    
+    # Удаляем файлы из хранилища
+    try:
+        image_path = Path(content["image_path"])
+        if image_path.exists():
+            # Удаляем всю директорию с контентом
+            content_dir = image_path.parent
+            if content_dir.exists():
+                shutil.rmtree(content_dir)
+                logger.info(f"Удалена директория с контентом: {content_dir}")
+    except Exception as e:
+        logger.error(f"Ошибка при удалении файлов: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при удалении файлов: {str(e)}"
+        )
+    
+    # Удаляем запись из базы данных
+    if database.delete_ar_content(content_id):
+        logger.info(f"AR контент {content_id} успешно удален")
+        return {"status": "success", "message": f"AR content {content_id} deleted successfully"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось удалить контент из базы данных"
+        )
 
 
 if __name__ == "__main__":
