@@ -1,5 +1,6 @@
 import os
 import uuid
+from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 import logging
@@ -14,7 +15,9 @@ logger = logging.getLogger(__name__)
 class LocalStorage:
     def __init__(self):
         self.bucket_name = os.getenv("MINIO_BUCKET", "vertex-art-bucket")
-        self.storage_path = os.path.join(".", self.bucket_name)
+        # Use absolute path based on current file location
+        base_dir = Path(__file__).resolve().parent
+        self.storage_path = str(base_dir / self.bucket_name)
         
         # Создаем директорию для хранения файлов, если она не существует
         os.makedirs(self.storage_path, exist_ok=True)

@@ -162,104 +162,35 @@ class MinIOStorage:
 # Глобальный экземпляр для использования в приложении
 import os
 
+def _get_storage():
+    """Get or create storage instance"""
+    global storage
+    if 'storage' not in globals() or storage is None:
+        storage = MinIOStorage()
+    return storage
+
+# Initialize storage if not in test mode
 if os.getenv("RUNNING_TESTS") != "1":
     storage = MinIOStorage()
 else:
-    # For testing purposes, we'll create the instance when needed
     storage = None
-
-# Упрощенные функции для совместимости с существующим кодом
-def _get_client_and_bucket():
-    """Вспомогательная функция для получения клиента и бакета"""
-    if storage is not None:
-        return storage.client, storage.bucket_name
-    
-    # Создаем временный клиент для тестов
-    client = Minio(
-        MinIOStorage().minio_endpoint,
-        access_key=os.getenv("MINIO_ACCESS_KEY", "admin"),
-        secret_key=os.getenv("MINIO_SECRET_KEY", "password123"),
-        secure=False
-    )
-    bucket_name = os.getenv("MINIO_BUCKET", "vertex-art-bucket")
-    
-    # Проверяем существование бакета
-    try:
-        if not client.bucket_exists(bucket_name):
-            client.make_bucket(bucket_name)
-    except S3Error:
-        pass
-    
-    return client, bucket_name
 
 def upload_file(file_content: bytes, object_name: str, content_type: str = "application/octet-stream") -> Optional[str]:
     """Загружает содержимое файла в MinIO (обратная совместимость)"""
-    if storage is not None:
-        return storage.upload_file(file_content, object_name, content_type)
-    
-    client, bucket_name = _get_client_and_bucket()
-    try:
-        result = client.put_object(
-            bucket_name,
-            object_name,
-            data=bytes(file_content),
-            length=len(file_content),
-            content_type=content_type
-        )
-        return f"http://{MinIOStorage().minio_endpoint}/{bucket_name}/{result.object_name}"
-    except S3Error as e:
-        logger.error(f"Ошибка при загрузке файла: {e}")
-        return None
+    s = storage if storage is not None else _get_storage()
+    return s.upload_file(file_content, object_name, content_type)
 
 def get_file(object_name: str) -> Optional[bytes]:
     """Получает содержимое файла из MinIO (обратная совместимость)"""
-    if storage is not None:
-        return storage.download_file(object_name)
-    
-    client, bucket_name = _get_client_and_bucket()
-    try:
-        response = client.get_object(bucket_name, object_name)
-        try:
-            return response.read()
-        finally:
-            response.close()
-            response.release_conn()
-    except S3Error as e:
-        logger.error(f"Ошибка при получении файла: {e}")
-        return None
+    s = storage if storage is not None else _get_storage()
+    return s.download_file(object_name)
 
 def delete_file(object_name: str) -> bool:
     """Удаляет файл из MinIO (обратная совместимость)"""
-    if storage is not None:
-        return storage.delete_file(object_name)
-    
-    client, bucket_name = _get_client_and_bucket()
-    try:
-        client.remove_object(bucket_name, object_name)
-        return True
-    except S3Error as e:
-        logger.error(f"Ошибка при удалении файла: {e}")
-        return False
+    s = storage if storage is not None else _get_storage()
+    return s.delete_file(object_name)
 
 def get_nft_marker_urls(record_id: str) -> Dict[str, Optional[str]]:
     """Получает URL для NFT-маркеров из MinIO (обратная совместимость)"""
-    if storage is not None:
-        return storage.get_nft_marker_urls(record_id)
-    
-    client, bucket_name = _get_client_and_bucket()
-    try:
-        marker_extensions = ["iset", "fset", "fset3"]
-        marker_urls = {}
-        
-        for ext in marker_extensions:
-            file_name = f"nft-markers/{record_id}.{ext}"
-            try:
-                client.stat_object(bucket_name, file_name)
-                marker_urls[ext] = f"http://{MinIOStorage().minio_endpoint}/{bucket_name}/{file_name}"
-            except S3Error:
-                marker_urls[ext] = None
-        
-        return marker_urls
-    except Exception as e:
-        logger.error(f"Ошибка при получении URL NFT-маркеров: {e}")
-        return {"iset": None, "fset": None, "fset3": None}
+    s = storage if storage is not None else _get_storage()
+    return s.get_nft_marker_urls(record_id)
