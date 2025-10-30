@@ -82,16 +82,16 @@ class NFTMarkerGenerator:
             return False, "Image file does not exist"
         
         try:
-            img = Image.open(image_path)
-            width, height = img.size
-            
-            if width < 480 or height < 480:
-                return False, f"Image too small ({width}x{height}). Minimum 480x480px recommended"
-            
-            if width > 4096 or height > 4096:
-                return False, f"Image too large ({width}x{height}). Maximum 4096x4096px recommended"
-            
-            return True, "Image valid"
+            with Image.open(image_path) as img:
+                width, height = img.size
+                
+                if width < 480 or height < 480:
+                    return False, f"Image too small ({width}x{height}). Minimum 480x480px recommended"
+                
+                if width > 4096 or height > 4096:
+                    return False, f"Image too large ({width}x{height}). Maximum 4096x4096px recommended"
+                
+                return True, "Image valid"
             
         except Exception as e:
             return False, f"Failed to open image: {e}"
@@ -110,37 +110,38 @@ class NFTMarkerGenerator:
             return {"error": "PIL not available"}
         
         try:
-            img = Image.open(image_path)
-            img_gray = img.convert('L')
-            pixels = list(img_gray.getdata())
-            
-            # Calculate basic statistics
-            avg_brightness = sum(pixels) / len(pixels)
-            variance = sum((p - avg_brightness) ** 2 for p in pixels) / len(pixels)
-            contrast = variance ** 0.5
-            
-            # Determine tracking quality
-            if contrast < 30:
-                quality = "poor"
-                recommendation = "Image has low contrast. Add more details or choose a different image."
-            elif contrast < 60:
-                quality = "fair"
-                recommendation = "Image should work but may have tracking issues in poor lighting."
-            elif contrast < 90:
-                quality = "good"
-                recommendation = "Image should track well in most conditions."
-            else:
-                quality = "excellent"
-                recommendation = "Image has high contrast and should track very well."
-            
-            return {
-                "width": img.size[0],
-                "height": img.size[1],
-                "brightness": round(avg_brightness, 2),
-                "contrast": round(contrast, 2),
-                "quality": quality,
-                "recommendation": recommendation
-            }
+            with Image.open(image_path) as img:
+                img_gray = img.convert('L')
+                pixels = list(img_gray.getdata())
+                width, height = img.size
+                
+                # Calculate basic statistics
+                avg_brightness = sum(pixels) / len(pixels)
+                variance = sum((p - avg_brightness) ** 2 for p in pixels) / len(pixels)
+                contrast = variance ** 0.5
+                
+                # Determine tracking quality
+                if contrast < 30:
+                    quality = "poor"
+                    recommendation = "Image has low contrast. Add more details or choose a different image."
+                elif contrast < 60:
+                    quality = "fair"
+                    recommendation = "Image should work but may have tracking issues in poor lighting."
+                elif contrast < 90:
+                    quality = "good"
+                    recommendation = "Image should track well in most conditions."
+                else:
+                    quality = "excellent"
+                    recommendation = "Image has high contrast and should track very well."
+                
+                return {
+                    "width": width,
+                    "height": height,
+                    "brightness": round(avg_brightness, 2),
+                    "contrast": round(contrast, 2),
+                    "quality": quality,
+                    "recommendation": recommendation
+                }
             
         except Exception as e:
             return {"error": str(e)}
@@ -163,52 +164,52 @@ class NFTMarkerGenerator:
                 output_path.write_bytes(self._create_placeholder_fset(image_path))
                 return True
             
-            img = Image.open(image_path)
-            width, height = img.size
-            
-            # Create binary fset data
-            # Format: header + feature data
-            data = bytearray()
-            
-            # Header
-            data.extend(b"ARJS")  # Magic number
-            data.extend(struct.pack("<I", 1))  # Version
-            data.extend(struct.pack("<I", width))
-            data.extend(struct.pack("<I", height))
-            data.extend(struct.pack("<I", config.min_dpi))  # Use min_dpi instead of config.dpi
-            
-            # Feature density
-            density_map = {"low": 1, "medium": 2, "high": 3}
-            data.extend(struct.pack("<I", density_map[config.feature_density]))
-            
-            # Generate feature points (simplified version)
-            img_gray = img.convert('L')
-            pixels = img_gray.load()
-            
-            features = []
-            step = 20 if config.feature_density == "low" else 10 if config.feature_density == "medium" else 5
-            
-            for y in range(0, height - 8, step):
-                for x in range(0, width - 8, step):
-                    # Simple corner detection (Harris-like)
-                    dx = abs(pixels[x+1, y] - pixels[x, y]) if x+1 < width else 0
-                    dy = abs(pixels[x, y+1] - pixels[x, y]) if y+1 < height else 0
-                    score = dx * dy
-                    
-                    if score > 100:  # Threshold for corner detection
-                        features.append((x, y, score))
-            
-            # Write feature count
-            data.extend(struct.pack("<I", len(features)))
-            
-            # Write features
-            for x, y, score in features:
-                data.extend(struct.pack("<f", float(x)))
-                data.extend(struct.pack("<f", float(y)))
-                data.extend(struct.pack("<f", float(score)))
-            
-            output_path.write_bytes(data)
-            return True
+            with Image.open(image_path) as img:
+                width, height = img.size
+                
+                # Create binary fset data
+                # Format: header + feature data
+                data = bytearray()
+                
+                # Header
+                data.extend(b"ARJS")  # Magic number
+                data.extend(struct.pack("<I", 1))  # Version
+                data.extend(struct.pack("<I", width))
+                data.extend(struct.pack("<I", height))
+                data.extend(struct.pack("<I", config.min_dpi))  # Use min_dpi instead of config.dpi
+                
+                # Feature density
+                density_map = {"low": 1, "medium": 2, "high": 3}
+                data.extend(struct.pack("<I", density_map[config.feature_density]))
+                
+                # Generate feature points (simplified version)
+                img_gray = img.convert('L')
+                pixels = img_gray.load()
+                
+                features = []
+                step = 20 if config.feature_density == "low" else 10 if config.feature_density == "medium" else 5
+                
+                for y in range(0, height - 8, step):
+                    for x in range(0, width - 8, step):
+                        # Simple corner detection (Harris-like)
+                        dx = abs(pixels[x+1, y] - pixels[x, y]) if x+1 < width else 0
+                        dy = abs(pixels[x, y+1] - pixels[x, y]) if y+1 < height else 0
+                        score = dx * dy
+                        
+                        if score > 100:  # Threshold for corner detection
+                            features.append((x, y, score))
+                
+                # Write feature count
+                data.extend(struct.pack("<I", len(features)))
+                
+                # Write features
+                for x, y, score in features:
+                    data.extend(struct.pack("<f", float(x)))
+                    data.extend(struct.pack("<f", float(y)))
+                    data.extend(struct.pack("<f", float(score)))
+                
+                output_path.write_bytes(data)
+                return True
             
         except Exception as e:
             print(f"Error generating fset: {e}")
@@ -233,34 +234,34 @@ class NFTMarkerGenerator:
                 output_path.write_bytes(self._create_placeholder_fset3(image_path))
                 return True
             
-            img = Image.open(image_path)
-            width, height = img.size
-            
-            # Create binary fset3 data
-            data = bytearray()
-            
-            # Header
-            data.extend(b"AR3D")  # Magic number
-            data.extend(struct.pack("<I", 1))  # Version
-            data.extend(struct.pack("<I", width))
-            data.extend(struct.pack("<I", height))
-            data.extend(struct.pack("<I", config.levels))
-            
-            # 3D feature pyramid data
-            for level in range(config.levels):
-                scale = 2 ** level
-                level_width = width // scale
-                level_height = height // scale
+            with Image.open(image_path) as img:
+                width, height = img.size
                 
-                data.extend(struct.pack("<I", level_width))
-                data.extend(struct.pack("<I", level_height))
+                # Create binary fset3 data
+                data = bytearray()
                 
-                # Simplified 3D features
-                num_features = (level_width // 10) * (level_height // 10)
-                data.extend(struct.pack("<I", num_features))
-            
-            output_path.write_bytes(data)
-            return True
+                # Header
+                data.extend(b"AR3D")  # Magic number
+                data.extend(struct.pack("<I", 1))  # Version
+                data.extend(struct.pack("<I", width))
+                data.extend(struct.pack("<I", height))
+                data.extend(struct.pack("<I", config.levels))
+                
+                # 3D feature pyramid data
+                for level in range(config.levels):
+                    scale = 2 ** level
+                    level_width = width // scale
+                    level_height = height // scale
+                    
+                    data.extend(struct.pack("<I", level_width))
+                    data.extend(struct.pack("<I", level_height))
+                    
+                    # Simplified 3D features
+                    num_features = (level_width // 10) * (level_height // 10)
+                    data.extend(struct.pack("<I", num_features))
+                
+                output_path.write_bytes(data)
+                return True
             
         except Exception as e:
             print(f"Error generating fset3: {e}")
@@ -284,38 +285,38 @@ class NFTMarkerGenerator:
                 output_path.write_bytes(self._create_placeholder_iset(image_path))
                 return True
             
-            img = Image.open(image_path)
-            width, height = img.size
-            
-            # Create binary iset data
-            data = bytearray()
-            
-            # Header
-            data.extend(b"ARIS")  # Magic number
-            data.extend(struct.pack("<I", 1))  # Version
-            data.extend(struct.pack("<I", width))
-            data.extend(struct.pack("<I", height))
-            data.extend(struct.pack("<I", config.levels))
-            
-            # Image pyramid data
-            for level in range(config.levels):
-                scale = 2 ** level
-                scaled_img = img.resize(
-                    (width // scale, height // scale),
-                    Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
-                )
+            with Image.open(image_path) as img:
+                width, height = img.size
                 
-                level_width, level_height = scaled_img.size
-                data.extend(struct.pack("<I", level_width))
-                data.extend(struct.pack("<I", level_height))
+                # Create binary iset data
+                data = bytearray()
                 
-                # Convert to grayscale and write pixel data
-                gray_img = scaled_img.convert('L')
-                pixels = list(gray_img.getdata())
-                data.extend(bytes(pixels))
-            
-            output_path.write_bytes(data)
-            return True
+                # Header
+                data.extend(b"ARIS")  # Magic number
+                data.extend(struct.pack("<I", 1))  # Version
+                data.extend(struct.pack("<I", width))
+                data.extend(struct.pack("<I", height))
+                data.extend(struct.pack("<I", config.levels))
+                
+                # Image pyramid data
+                for level in range(config.levels):
+                    scale = 2 ** level
+                    scaled_img = img.resize(
+                        (width // scale, height // scale),
+                        Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                    )
+                    
+                    level_width, level_height = scaled_img.size
+                    data.extend(struct.pack("<I", level_width))
+                    data.extend(struct.pack("<I", level_height))
+                    
+                    # Convert to grayscale and write pixel data
+                    gray_img = scaled_img.convert('L')
+                    pixels = list(gray_img.getdata())
+                    data.extend(bytes(pixels))
+                
+                output_path.write_bytes(data)
+                return True
             
         except Exception as e:
             print(f"Error generating iset: {e}")
@@ -386,8 +387,8 @@ class NFTMarkerGenerator:
         
         # Get image dimensions
         if PIL_AVAILABLE:
-            img = Image.open(image_path)
-            width, height = img.size
+            with Image.open(image_path) as img:
+                width, height = img.size
         else:
             width, height = 1024, 768  # Default
         
