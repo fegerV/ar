@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Тестирование интеграции генератора NFT-маркеров из Stogram в Vertex Art AR
+Тестирование интеграции генератора NFT-маркеров из Stogram в Vertex AR
 """
 
 import os
@@ -136,7 +136,7 @@ def test_nft_marker_config():
 
 def main():
     """Основная функция тестирования"""
-    print("Начинаем тестирование интеграции NFT-генератора из Stogram в Vertex Art AR\n")
+    print("Начинаем тестирование интеграции NFT-генератора из Stogram в Vertex AR\n")
     
     tests = [
         test_nft_marker_generator,

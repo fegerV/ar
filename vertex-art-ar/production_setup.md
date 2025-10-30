@@ -1,6 +1,6 @@
-# Упрощенная настройка Production Environment для Vertex Art AR
+# Упрощенная настройка Production Environment для Vertex AR
 
-This document describes the simplified steps to set up the production environment for the Vertex Art AR application based on Stogram approach.
+This document describes the simplified steps to set up the production environment for the Vertex AR application based on Stogram approach.
 
 ## Отличия от оригинальной версии
 
@@ -291,7 +291,7 @@ docker compose ps
 
 ## Conclusion
 
-With these steps, you should have a fully functional production environment for the simplified Vertex Art AR application. Remember to:
+With these steps, you should have a fully functional production environment for the simplified Vertex AR application. Remember to:
 
 1. Regularly update the system and application
 2. Monitor logs for any issues

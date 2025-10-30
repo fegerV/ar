@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deployment script for Vertex Art AR application
+# Deployment script for Vertex AR application
 
 # Exit on any error
 set -e
@@ -335,7 +335,7 @@ setup_ssl() {
 
 # Main deployment function
 main() {
-    log "Starting deployment of Vertex Art AR application..."
+    log "Starting deployment of Vertex AR application..."
     
     check_root
     install_dependencies

@@ -1,6 +1,6 @@
-# Final Testing Plan for Vertex Art AR Application
+# Final Testing Plan for Vertex AR Application
 
-This document outlines the comprehensive testing plan to validate the functionality of the Vertex Art AR application before going live.
+This document outlines the comprehensive testing plan to validate the functionality of the Vertex AR application before going live.
 
 ## 1. Pre-Testing Checklist
 
