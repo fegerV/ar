@@ -986,56 +986,56 @@
             <div id="recordsList">
                 {% if records %}
                     {% for record in records %}
-                    <article class="record" data-id="{{ record.id }}" data-date="{{ record.created_at.isoformat() }}">
+                    <article class="record" data-id="{{ record.id }}" data-date="{{ record.created_at }}">
                         <div class="record-info">
                             <div class="record-info-item">
                                 <strong>ID</strong>
                                 <span>{{ record.id[:12] }}...</span>
                             </div>
                             <div class="record-info-item">
-                                <strong>Created</strong>
-                                <span>{{ record.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                                <strong>Создано</strong>
+                                <span>{{ record.created_at }}</span>
                             </div>
                             <div class="record-info-item">
-                                <strong>Image</strong>
-                                <span>{{ record.image_url.split('/')[-1][:20] if record.image_url else 'N/A' }}...</span>
+                                <strong>Просмотры</strong>
+                                <span>👁️ {{ record.view_count|default(0) }}</span>
                             </div>
                             <div class="record-info-item">
-                                <strong>Video</strong>
-                                <span>{{ record.video_url.split('/')[-1][:20] if record.video_url else 'N/A' }}...</span>
+                                <strong>Клики</strong>
+                                <span>🖱️ {{ record.click_count|default(0) }}</span>
                             </div>
                         </div>
                         <div class="preview-section">
                             <div class="preview-item">
-                                <strong>Image Preview</strong>
-                                {% if record.image_preview_url %}
+                                <strong>Превью изображения</strong>
+                                {% if record.image_preview_path %}
                                     <img 
-                                        src="/previews/{{ record.image_preview_url.split('/')[-1] }}" 
+                                        src="{{ record.image_preview_path.replace('vertex-ar/', '/') }}" 
                                         alt="Image preview for {{ record.id }}"
                                         loading="lazy"
                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                     >
-                                    <div style="display: none;">No preview</div>
+                                    <div style="display: none;">Превью недоступно</div>
                                 {% else %}
-                                    <div>No preview</div>
+                                    <div>Превью недоступно</div>
                                 {% endif %}
                             </div>
                             <div class="preview-item">
-                                <strong>Video Preview</strong>
-                                {% if record.video_preview_url %}
+                                <strong>Превью видео</strong>
+                                {% if record.video_preview_path %}
                                     <img 
-                                        src="/previews/{{ record.video_preview_url.split('/')[-1] }}" 
+                                        src="{{ record.video_preview_path.replace('vertex-ar/', '/') }}" 
                                         alt="Video preview for {{ record.id }}"
                                         loading="lazy"
                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                     >
-                                    <div style="display: none;">No preview</div>
+                                    <div style="display: none;">Превью недоступно</div>
                                 {% else %}
-                                    <div>No preview</div>
+                                    <div>Превью недоступно</div>
                                 {% endif %}
                             </div>
                             <div class="preview-item qr-code">
-                                <strong>QR Code</strong>
+                                <strong>QR-код</strong>
                                 <img src="data:image/png;base64,{{ record.qr_code }}" alt="QR Code for {{ record.id }}">
                             </div>
                         </div>
@@ -1258,13 +1258,21 @@
         
         // Delete record function
         async function deleteRecord(id) {
-            if (!confirm('Are you sure you want to permanently delete this record? This action cannot be undone.')) {
+            if (!confirm('Вы уверены, что хотите удалить этот контент? Это действие необратимо!')) {
                 return;
             }
             
             try {
-                const response = await fetch(`/admin/delete/${id}`, {
-                    method: 'DELETE'
+                // Получаем токен из localStorage (если используется)
+                const token = localStorage.getItem('auth_token');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch(`/ar/${id}`, {
+                    method: 'DELETE',
+                    headers: headers
                 });
                 
                 if (response.ok) {
@@ -1277,13 +1285,13 @@
                             updateStats();
                         }, 300);
                     }
-                    showToast('Record deleted successfully!', 'success');
+                    showToast('Контент успешно удалён!', 'success');
                 } else {
                     const error = await response.json();
-                    showToast(error.detail || 'Delete failed', 'error');
+                    showToast(error.detail || 'Ошибка при удалении', 'error');
                 }
             } catch (error) {
-                showToast('Network error: ' + error.message, 'error');
+                showToast('Ошибка сети: ' + error.message, 'error');
             }
         }
 
@@ -1472,7 +1480,7 @@
                 statItem.className = 'stat-item';
                 statItem.innerHTML = `
                     <div class="id">${stat.id.substring(0, 12)}...</div>
-                    <div class="views">${stat.views} views</div>
+                    <div class="views">${stat.views} просмотров | ${stat.clicks} кликов</div>
                 `;
                 statsList.appendChild(statItem);
             });
