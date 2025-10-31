@@ -48,7 +48,7 @@
 ### 🔧 Технические возможности
 - 🚀 Высокопроизводительный FastAPI backend
 - 💾 SQLite для надежного хранения данных
-- 📦 MinIO для масштабируемого хранилища
+- 📦 Масштабируемое хранилище (Local/MinIO/S3)
 - 🔐 Защищенная аутентификация
 - 📊 Детальная аналитика просмотров
 
@@ -176,13 +176,14 @@ curl -X POST http://localhost:8000/auth/login \
           ┌───────────────┴────────────────┐
           │                                │
 ┌─────────▼─────────┐          ┌──────────▼──────────┐
-│   SQLite Database │          │   MinIO Storage     │
-│  ┌──────────────┐ │          │  ┌───────────────┐ │
-│  │   Users      │ │          │  │   Images      │ │
-│  │   Content    │ │          │  │   Videos      │ │
-│  │   Stats      │ │          │  │   Markers     │ │
-│  └──────────────┘ │          │  └───────────────┘ │
-└───────────────────┘          └─────────────────────┘
+│   SQLite Database │          │ Storage Layer       │
+│  ┌──────────────┐ │          │ (Local/MinIO/S3)   │
+│  │   Users      │ │          │  ┌───────────────┐ │
+│  │   Content    │ │          │  │   Images      │ │
+│  │   Stats      │ │          │  │   Videos      │ │
+│  └──────────────┘ │          │  │   Markers     │ │
+└───────────────────┘          │  └───────────────┘ │
+                               └─────────────────────┘
 ```
 
 ---
@@ -295,6 +296,12 @@ vertex-ar/
 ## 📚 Документация
 
 ### 🇷🇺 Документация на русском языке
+
+#### 🚀 Масштабирование
+- 📦 [**Storage Scaling Overview**](./STORAGE_SCALING_README.md) - Quick overview (English)
+- 📖 [**Руководство по масштабированию хранилища**](./SCALING_STORAGE_GUIDE.md) - Подробное руководство
+- ⚡ [**Быстрый старт масштабирования**](./SCALING_QUICK_START_RU.md) - Быстрая настройка
+- 🐳 [**Docker Compose Examples**](./DOCKER_COMPOSE_EXAMPLES.md) - Deployment configurations
 
 #### Для пользователей
 - 🚀 **[QUICKSTART_RU.md](./QUICKSTART_RU.md)** - Быстрый старт за 5 минут

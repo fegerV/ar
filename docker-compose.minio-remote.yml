@@ -1,0 +1,69 @@
+# Docker Compose configuration for Vertex AR with remote MinIO storage
+# This example shows how to connect to an external MinIO server
+
+version: '3.8'
+
+services:
+  # Main Vertex AR application
+  vertex-ar:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: vertex-ar
+    ports:
+      - "8000:8000"
+    environment:
+      # Application settings
+      - BASE_URL=http://localhost:8000
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      
+      # Storage configuration - using remote MinIO
+      - STORAGE_TYPE=minio
+      
+      # Remote MinIO settings
+      # Replace these with your actual MinIO server details
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio.example.com:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-your-access-key}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-your-secret-key}
+      - MINIO_BUCKET=${MINIO_BUCKET:-vertex-ar}
+      - MINIO_SECURE=${MINIO_SECURE:-true}
+      
+      # Optional: Custom public URL (for CDN)
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-}
+      
+      # Logging
+      - LOG_LEVEL=INFO
+    volumes:
+      # Only database needs to be persisted locally
+      - ./vertex-ar/app_data.db:/app/app_data.db
+      - ./vertex-ar/templates:/app/templates
+      - ./vertex-ar/static:/app/static
+    restart: unless-stopped
+    networks:
+      - vertex-ar-network
+
+  # Optional: Local MinIO for development (comment out for production)
+  # Uncomment this section if you want to run MinIO locally
+  # minio-dev:
+  #   image: minio/minio:latest
+  #   container_name: minio-dev
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   environment:
+  #     - MINIO_ROOT_USER=minioadmin
+  #     - MINIO_ROOT_PASSWORD=minioadmin
+  #   command: server /data --console-address ":9001"
+  #   volumes:
+  #     - minio-data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - vertex-ar-network
+
+networks:
+  vertex-ar-network:
+    driver: bridge
+
+# volumes:
+#   minio-data:
+#     driver: local

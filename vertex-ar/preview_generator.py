@@ -3,7 +3,7 @@ import os
 import tempfile
 from io import BytesIO
 import mimetypes
-from storage_local import local_storage as storage
+from storage_adapter import get_storage
 import uuid
 import logging
 from typing import Optional
@@ -141,7 +141,7 @@ class PreviewGenerator:
 
 
 def generate_and_save_preview(file_content: bytes, file_type: str, record_id: str, preview_type: str = "thumbnail") -> Optional[str]:
-    """Генерирует и сохраняет превью в MinIO"""
+    """Генерирует и сохраняет превью в хранилище"""
     try:
         logger.info(f"Начинаем генерацию превью для {record_id}, тип: {file_type}, подтип: {preview_type}")
         
@@ -156,6 +156,7 @@ def generate_and_save_preview(file_content: bytes, file_type: str, record_id: st
             logger.info(f"Пытаемся сохранить превью с именем: {preview_filename}")
             
             # Загружаем превью в хранилище
+            storage = get_storage()
             result = storage.upload_file(preview_content, preview_filename, "image/jpeg")
             
             if result:
