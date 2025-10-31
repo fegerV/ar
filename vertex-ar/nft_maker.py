@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 import tempfile
 import shutil
-from storage_local import upload_file
+from storage_adapter import upload_file
 import logging
 from typing import Optional
 from dotenv import load_dotenv
