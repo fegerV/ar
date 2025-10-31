@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление Заказами - Vertex AR</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #f7fafc;
+        }
+
+        .panel {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input[type="file"] {
+            padding: 8px;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        tr:hover {
+            background: #f7fafc;
+        }
+
+        .client-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .client-card h3 {
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .client-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .portrait-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .portrait-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .portrait-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .video-list {
+            margin-top: 10px;
+        }
+
+        .video-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f7fafc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-item.active {
+            background: #c6f6d5;
+            border-left: 3px solid #48bb78;
+        }
+
+        .qr-code {
+            max-width: 200px;
+            margin: 10px 0;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.success {
+            background: #48bb78;
+        }
+
+        .notification.error {
+            background: #f56565;
+        }
+
+        .notification.info {
+            background: #4299e1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                width: 100%;
+            }
+
+            .portrait-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Управление Заказами - Vertex AR</h1>
+            <div class="header-actions">
+                <a href="/admin" class="btn btn-secondary">Старая админка</a>
+                <button class="btn btn-danger" onclick="logout()">Выход</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('orders')">📦 Создать Заказ</button>
+            <button class="tab" onclick="showTab('clients')">👥 Клиенты</button>
+            <button class="tab" onclick="showTab('portraits')">🖼️ Портреты</button>
+            <button class="tab" onclick="showTab('search')">🔍 Поиск</button>
+        </div>
+
+        <!-- Создание заказа -->
+        <div id="orders-panel" class="panel active">
+            <h2>Создать новый заказ</h2>
+            <form id="orderForm" onsubmit="createOrder(event)">
+                <div class="form-group">
+                    <label>Телефон клиента *</label>
+                    <input type="tel" name="phone" required placeholder="+7 (999) 123-45-67">
+                </div>
+                <div class="form-group">
+                    <label>Имя клиента *</label>
+                    <input type="text" name="name" required placeholder="Иван Иванов">
+                </div>
+                <div class="form-group">
+                    <label>Изображение портрета *</label>
+                    <input type="file" name="image" accept="image/*" required>
+                </div>
+                <div class="form-group">
+                    <label>Видео анимация *</label>
+                    <input type="file" name="video" accept="video/*" required>
+                </div>
+                <button type="submit" class="btn btn-success">Создать заказ</button>
+            </form>
+        </div>
+
+        <!-- Список клиентов -->
+        <div id="clients-panel" class="panel">
+            <h2>Список клиентов</h2>
+            <div id="clientsList"></div>
+        </div>
+
+        <!-- Список портретов -->
+        <div id="portraits-panel" class="panel">
+            <h2>Все портреты</h2>
+            <div id="portraitsList" class="portrait-list"></div>
+        </div>
+
+        <!-- Поиск -->
+        <div id="search-panel" class="panel">
+            <h2>Поиск по телефону</h2>
+            <div class="search-box">
+                <input type="text" id="searchPhone" placeholder="Введите номер телефона..." oninput="searchClients()">
+            </div>
+            <div id="searchResults"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let authToken = localStorage.getItem('authToken');
+
+        if (!authToken) {
+            window.location.href = '/admin';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+
+            if (tabName === 'clients') loadClients();
+            if (tabName === 'portraits') loadPortraits();
+        }
+
+        async function createOrder(event) {
+            event.preventDefault();
+            showLoading();
+
+            const formData = new FormData(event.target);
+            
+            try {
+                const response = await fetch(`${API_BASE}/orders/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Ошибка создания заказа');
+                }
+
+                const order = await response.json();
+                showNotification('Заказ успешно создан!', 'success');
+                
+                // Показываем QR код
+                const qrWindow = window.open('', '_blank', 'width=400,height=500');
+                qrWindow.document.write(`
+                    <html>
+                    <head><title>QR код для ${order.client.name}</title></head>
+                    <body style="text-align:center; padding:20px; font-family:Arial;">
+                        <h2>QR код создан!</h2>
+                        <p><strong>Клиент:</strong> ${order.client.name}</p>
+                        <p><strong>Телефон:</strong> ${order.client.phone}</p>
+                        <p><strong>Ссылка:</strong> <a href="${order.portrait.permanent_link}" target="_blank">${order.portrait.permanent_link}</a></p>
+                        <img src="data:image/png;base64,${order.portrait.qr_code_base64}" style="max-width:300px;">
+                        <br><br>
+                        <button onclick="window.print()">Печать</button>
+                    </body>
+                    </html>
+                `);
+
+                event.target.reset();
+            } catch (error) {
+                showNotification(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadClients() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/clients/list`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Ошибка загрузки клиентов');
+
+                const clients = await response.json();
+                displayClients(clients);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function displayClients(clients) {
+            const container = document.getElementById('clientsList');
+            if (clients.length === 0) {
+                container.innerHTML = '<p>Клиентов пока нет</p>';
+                return;
+            }
+
+            let html = '';
+            for (const client of clients) {
+                const portraits = await loadClientPortraits(client.id);
+                html += `
+                    <div class="client-card">
+                        <h3>${client.name}</h3>
+                        <div class="client-info">
+                            <div><strong>Телефон:</strong> ${client.phone}</div>
+                            <div><strong>Создан:</strong> ${new Date(client.created_at).toLocaleString('ru-RU')}</div>
+                            <div><strong>Портретов:</strong> ${portraits.length}</div>
+                        </div>
+                        <div id="portraits-${client.id}" class="portrait-list"></div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+
+            // Загружаем портреты для каждого клиента
+            for (const client of clients) {
+                const portraits = await loadClientPortraits(client.id);
+                displayClientPortraits(client.id, portraits);
+            }
+        }
+
+        async function loadClientPortraits(clientId) {
+            try {
+                const response = await fetch(`${API_BASE}/portraits/list?client_id=${clientId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                if (!response.ok) return [];
+                return await response.json();
+            } catch (error) {
+                return [];
+            }
+        }
+
+        async function displayClientPortraits(clientId, portraits) {
+            const container = document.getElementById(`portraits-${clientId}`);
+            if (!container || portraits.length === 0) return;
+
+            let html = '';
+            for (const portrait of portraits) {
+                const videos = await loadPortraitVideos(portrait.id);
+                html += `
+                    <div class="portrait-card">
+                        <img src="/${portrait.image_path}" alt="Portrait">
+                        <p><strong>ID:</strong> ${portrait.id.substring(0, 8)}...</p>
+                        <p><strong>Просмотров:</strong> ${portrait.view_count}</p>
+                        <a href="${portrait.permanent_link}" target="_blank" class="btn btn-primary btn-sm">Открыть</a>
+                        <button class="btn btn-secondary btn-sm" onclick="showQR('${portrait.qr_code_base64}')">QR код</button>
+                        <div class="video-list">
+                            <strong>Видео (${videos.length}):</strong>
+                            ${videos.map(v => `
+                                <div class="video-item ${v.is_active ? 'active' : ''}">
+                                    <span>${v.id.substring(0, 8)}... ${v.is_active ? '✓ Активно' : ''}</span>
+                                    <div>
+                                        ${!v.is_active ? `<button class="btn btn-success btn-sm" onclick="activateVideo('${v.id}')">Активировать</button>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="addVideo('${portrait.id}')">+ Добавить видео</button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        async function loadPortraits() {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/portraits/list`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Ошибка загрузки портретов');
+
+                const portraits = await response.json();
+                displayPortraits(portraits);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function displayPortraits(portraits) {
+            const container = document.getElementById('portraitsList');
+            if (portraits.length === 0) {
+                container.innerHTML = '<p>Портретов пока нет</p>';
+                return;
+            }
+
+            let html = '';
+            for (const portrait of portraits) {
+                const videos = await loadPortraitVideos(portrait.id);
+                html += `
+                    <div class="portrait-card">
+                        <img src="/${portrait.image_path}" alt="Portrait">
+                        <p><strong>ID:</strong> ${portrait.id.substring(0, 8)}...</p>
+                        <p><strong>Просмотров:</strong> ${portrait.view_count}</p>
+                        <a href="${portrait.permanent_link}" target="_blank" class="btn btn-primary">Открыть</a>
+                        <button class="btn btn-secondary" onclick="showQR('${portrait.qr_code_base64}')">QR код</button>
+                        <div class="video-list">
+                            <strong>Видео (${videos.length}):</strong>
+                            ${videos.map(v => `
+                                <div class="video-item ${v.is_active ? 'active' : ''}">
+                                    <span>${v.id.substring(0, 8)}... ${v.is_active ? '✓ Активно' : ''}</span>
+                                    ${!v.is_active ? `<button class="btn btn-success btn-sm" onclick="activateVideo('${v.id}')">Активировать</button>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-success" onclick="addVideo('${portrait.id}')">+ Добавить видео</button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        async function loadPortraitVideos(portraitId) {
+            try {
+                const response = await fetch(`${API_BASE}/videos/list/${portraitId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                if (!response.ok) return [];
+                return await response.json();
+            } catch (error) {
+                return [];
+            }
+        }
+
+        async function activateVideo(videoId) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE}/videos/${videoId}/activate`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Ошибка активации видео');
+
+                showNotification('Видео активировано!', 'success');
+                loadPortraits();
+                loadClients();
+            } catch (error) {
+                showNotification(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function addVideo(portraitId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                showLoading();
+                const formData = new FormData();
+                formData.append('portrait_id', portraitId);
+                formData.append('video', file);
+
+                try {
+                    const response = await fetch(`${API_BASE}/videos/add`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка добавления видео');
+
+                    showNotification('Видео добавлено!', 'success');
+                    loadPortraits();
+                    loadClients();
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            };
+            input.click();
+        }
+
+        function showQR(qrBase64) {
+            const qrWindow = window.open('', '_blank', 'width=400,height=400');
+            qrWindow.document.write(`
+                <html>
+                <head><title>QR код</title></head>
+                <body style="text-align:center; padding:20px;">
+                    <img src="data:image/png;base64,${qrBase64}" style="max-width:100%;">
+                    <br><br>
+                    <button onclick="window.print()">Печать</button>
+                </body>
+                </html>
+            `);
+        }
+
+        async function searchClients() {
+            const phone = document.getElementById('searchPhone').value;
+            if (phone.length < 3) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/clients/search?phone=${encodeURIComponent(phone)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Ошибка поиска');
+
+                const clients = await response.json();
+                displaySearchResults(clients);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        async function displaySearchResults(clients) {
+            const container = document.getElementById('searchResults');
+            if (clients.length === 0) {
+                container.innerHTML = '<p>Клиенты не найдены</p>';
+                return;
+            }
+
+            displayClients(clients);
+            container.innerHTML = document.getElementById('clientsList').innerHTML;
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = '/admin';
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
 sqlalchemy>=2.0.0
 asyncpg>=0.29.0
 minio>=7.2.0
@@ -15,3 +16,4 @@ passlib[bcrypt]>=1.7.4
 python-jose[cryptography]>=3.3.0
 jinja2>=3.1.0  # Required for templating
 httpx>=0.25.0  # Required for testing
+aiohttp>=3.9.0  # Required for Telegram notifications
