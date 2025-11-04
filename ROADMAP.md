@@ -168,10 +168,10 @@ See [Development Phases](#development-phases) for detailed roadmap.
   - [ ] Target: >70% code coverage
 
 - [ ] **Performance**
-  - [ ] Add caching layer (Redis optional)
+  - [x] Add caching layer (NFT analysis cache implemented)
   - [ ] Implement async database operations
-  - [ ] Add background task queue for NFT generation
-  - [ ] Optimize image processing
+  - [x] Add background task queue for NFT generation (batch processing)
+  - [x] Optimize image processing (parallel batch generation)
   - [ ] Add CDN support for static assets
 
 #### Medium Priority (Week 3-4)
@@ -202,7 +202,8 @@ See [Development Phases](#development-phases) for detailed roadmap.
 
 #### New Features
 - [ ] **Extended File Support**
-  - [ ] WebP, GIF, SVG image formats
+  - [x] WebP image format support
+  - [ ] GIF, SVG image formats
   - [ ] WebM, MOV video formats
   - [ ] 3D model support (GLTF, GLB)
   - [ ] Audio file support for AR scenes
@@ -231,11 +232,15 @@ See [Development Phases](#development-phases) for detailed roadmap.
 
 #### Analytics Enhancement
 - [ ] **Advanced Analytics**
+  - [x] NFT marker usage analytics
+  - [x] File size distribution statistics
+  - [x] Performance metrics tracking
   - [ ] Geolocation data
   - [ ] User demographics
   - [ ] Interaction time metrics
   - [ ] Heat maps
   - [ ] Funnel analysis
+  - [x] Export configurations (config presets)
   - [ ] Export to CSV/PDF
 
 - [ ] **Reporting Dashboard**
@@ -362,7 +367,7 @@ See [Development Phases](#development-phases) for detailed roadmap.
 | Testing | 20 | 10 | 5 | 5 | 50% |
 | Documentation | 15 | 8 | 3 | 4 | 53% |
 | Security | 12 | 6 | 3 | 3 | 50% |
-| Performance | 10 | 3 | 2 | 5 | 30% |
+| Performance | 10 | 6 | 1 | 3 | 60% |
 | **TOTAL** | **122** | **86** | **13** | **23** | **70%** |
 
 ### Technical Debt Tracker

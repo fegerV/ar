@@ -2214,6 +2214,484 @@ async def delete_ar_content(content_id: str, username: str = Depends(require_adm
         )
 
 
+# ========================================
+# NFT Marker Enhanced API Endpoints
+# ========================================
+
+class NFTBatchGenerateRequest(BaseModel):
+    """Request for batch NFT marker generation."""
+    images: List[Dict[str, str]]  # List of {image_path, marker_name}
+    config: Optional[Dict[str, Any]] = None
+    max_workers: int = Field(default=4, ge=1, le=8)
+
+
+class NFTBatchGenerateResponse(BaseModel):
+    """Response for batch generation."""
+    results: Dict[str, Any]
+    successful: int
+    failed: int
+    total_time: float
+
+
+@app.post("/api/nft-markers/batch-generate", response_model=NFTBatchGenerateResponse, tags=["nft-markers"])
+async def batch_generate_nft_markers(
+    request: NFTBatchGenerateRequest,
+    username: str = Depends(require_admin)
+) -> NFTBatchGenerateResponse:
+    """
+    Generate NFT markers for multiple images in parallel.
+    """
+    from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    # Convert image list
+    images = [(img['image_path'], img['marker_name']) for img in request.images]
+    
+    # Parse config if provided
+    config = None
+    if request.config:
+        config = NFTMarkerConfig.from_dict(request.config)
+    
+    # Generate markers
+    start_time = time.time()
+    results = nft_generator.generate_markers_batch(
+        images=images,
+        config=config,
+        max_workers=request.max_workers
+    )
+    elapsed = time.time() - start_time
+    
+    # Count successful/failed
+    successful = sum(1 for r in results.values() if not isinstance(r, Exception))
+    failed = len(results) - successful
+    
+    # Convert results for JSON
+    json_results = {}
+    for path, result in results.items():
+        if isinstance(result, Exception):
+            json_results[path] = {"error": str(result)}
+        else:
+            json_results[path] = {
+                "fset_path": result.fset_path,
+                "fset3_path": result.fset3_path,
+                "iset_path": result.iset_path,
+                "width": result.width,
+                "height": result.height
+            }
+    
+    return NFTBatchGenerateResponse(
+        results=json_results,
+        successful=successful,
+        failed=failed,
+        total_time=elapsed
+    )
+
+
+class NFTAnalysisResponse(BaseModel):
+    """Response for image analysis."""
+    valid: bool
+    message: str
+    width: Optional[int] = None
+    height: Optional[int] = None
+    brightness: Optional[float] = None
+    contrast: Optional[float] = None
+    quality: Optional[str] = None
+    recommendation: Optional[str] = None
+    cached: bool = False
+
+
+@app.get("/api/nft-markers/analyze", response_model=NFTAnalysisResponse, tags=["nft-markers"])
+async def analyze_image_for_nft(
+    image_path: str,
+    use_cache: bool = True,
+    username: str = Depends(require_admin)
+) -> NFTAnalysisResponse:
+    """
+    Analyze an image for NFT marker suitability with caching.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    # Check cache first
+    cached = False
+    if use_cache and nft_generator.cache:
+        from pathlib import Path
+        img_path = Path(image_path)
+        cached_result = nft_generator.cache.get(img_path)
+        if cached_result:
+            cached = True
+            result = cached_result
+        else:
+            result = nft_generator.analyze_image(image_path, use_cache=use_cache)
+    else:
+        result = nft_generator.analyze_image(image_path, use_cache=use_cache)
+    
+    return NFTAnalysisResponse(
+        **result,
+        cached=cached
+    )
+
+
+class NFTPreviewResponse(BaseModel):
+    """Response for feature preview."""
+    preview_path: str
+    analysis: Dict[str, Any]
+    feature_count: int
+
+
+@app.post("/api/nft-markers/preview", response_model=NFTPreviewResponse, tags=["nft-markers"])
+async def generate_nft_preview(
+    image_path: str,
+    username: str = Depends(require_admin)
+) -> NFTPreviewResponse:
+    """
+    Generate a preview image showing detected feature points.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    try:
+        preview_path, analysis = nft_generator.generate_feature_preview(image_path)
+        
+        return NFTPreviewResponse(
+            preview_path=str(preview_path),
+            analysis=analysis,
+            feature_count=analysis.get('feature_count', 0)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate preview: {str(e)}"
+        )
+
+
+class NFTMetricsResponse(BaseModel):
+    """Response for NFT generation metrics."""
+    total_generated: int
+    total_time: float
+    avg_time_per_marker: float
+    cache_hits: int
+    cache_misses: int
+    cache_hit_rate: Optional[float] = None
+
+
+@app.get("/api/nft-markers/metrics", response_model=NFTMetricsResponse, tags=["nft-markers"])
+async def get_nft_metrics(
+    username: str = Depends(require_admin)
+) -> NFTMetricsResponse:
+    """
+    Get NFT marker generation performance metrics.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    metrics = nft_generator.get_metrics()
+    
+    return NFTMetricsResponse(**metrics)
+
+
+class NFTCleanupRequest(BaseModel):
+    """Request for marker cleanup."""
+    dry_run: bool = True
+
+
+class NFTCleanupResponse(BaseModel):
+    """Response for cleanup operation."""
+    total_markers: int
+    used_markers: int
+    unused_markers: int
+    deleted_count: int
+    freed_bytes: int
+    dry_run: bool
+    errors: List[Dict[str, str]]
+
+
+@app.post("/api/nft-markers/cleanup", response_model=NFTCleanupResponse, tags=["nft-markers"])
+async def cleanup_nft_markers(
+    request: NFTCleanupRequest,
+    username: str = Depends(require_admin)
+) -> NFTCleanupResponse:
+    """
+    Clean up unused NFT markers.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    # Get list of used markers from database
+    all_content = database.list_ar_content()
+    used_markers = set()
+    
+    for content in all_content:
+        # Extract marker name from paths
+        marker_fset = content.get('marker_fset', '')
+        if marker_fset:
+            # Extract marker name from path like "storage/nft_markers/marker_name/marker_name.fset"
+            parts = marker_fset.split('/')
+            if len(parts) >= 3:
+                used_markers.add(parts[-2])
+    
+    result = nft_generator.cleanup_unused_markers(
+        used_marker_names=list(used_markers),
+        dry_run=request.dry_run
+    )
+    
+    return NFTCleanupResponse(**result)
+
+
+class NFTConfigPresetRequest(BaseModel):
+    """Request to save a config preset."""
+    preset_name: str
+    config: Dict[str, Any]
+
+
+class NFTConfigPresetResponse(BaseModel):
+    """Response for config preset operations."""
+    name: str
+    preset_path: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+
+
+@app.get("/api/nft-markers/config-presets", response_model=List[NFTConfigPresetResponse], tags=["nft-markers"])
+async def list_nft_config_presets(
+    username: str = Depends(require_admin)
+) -> List[NFTConfigPresetResponse]:
+    """
+    List all available NFT marker config presets.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    presets = nft_generator.list_presets()
+    
+    return [
+        NFTConfigPresetResponse(
+            name=preset['name'],
+            created_at=preset.get('created_at'),
+            preset_path=preset.get('file_path')
+        )
+        for preset in presets
+    ]
+
+
+@app.post("/api/nft-markers/config-presets", response_model=NFTConfigPresetResponse, tags=["nft-markers"])
+async def save_nft_config_preset(
+    request: NFTConfigPresetRequest,
+    username: str = Depends(require_admin)
+) -> NFTConfigPresetResponse:
+    """
+    Save a new NFT marker config preset.
+    """
+    from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    try:
+        config = NFTMarkerConfig.from_dict(request.config)
+        preset_path = nft_generator.export_config(config, request.preset_name)
+        
+        return NFTConfigPresetResponse(
+            name=request.preset_name,
+            preset_path=str(preset_path),
+            config=request.config
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save preset: {str(e)}"
+        )
+
+
+@app.get("/api/nft-markers/config-presets/{preset_name}", response_model=NFTConfigPresetResponse, tags=["nft-markers"])
+async def get_nft_config_preset(
+    preset_name: str,
+    username: str = Depends(require_admin)
+) -> NFTConfigPresetResponse:
+    """
+    Get a specific NFT marker config preset.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    try:
+        config = nft_generator.import_config(preset_name)
+        
+        return NFTConfigPresetResponse(
+            name=preset_name,
+            config=config.to_dict()
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Preset '{preset_name}' not found"
+        )
+
+
+@app.delete("/api/nft-markers/config-presets/{preset_name}", tags=["nft-markers"])
+async def delete_nft_config_preset(
+    preset_name: str,
+    username: str = Depends(require_admin)
+) -> Dict[str, str]:
+    """
+    Delete an NFT marker config preset.
+    """
+    from pathlib import Path
+    
+    presets_dir = STORAGE_ROOT / "nft_presets"
+    preset_path = presets_dir / f"{preset_name}.json"
+    
+    if not preset_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Preset '{preset_name}' not found"
+        )
+    
+    try:
+        preset_path.unlink()
+        return {"message": f"Preset '{preset_name}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete preset: {str(e)}"
+        )
+
+
+class NFTAnalyticsResponse(BaseModel):
+    """Response for NFT analytics."""
+    total_markers: int
+    quality_distribution: Dict[str, int]
+    avg_file_sizes: Dict[str, float]
+    total_storage_used: int
+
+
+@app.get("/api/nft-markers/analytics", response_model=NFTAnalyticsResponse, tags=["nft-markers"])
+async def get_nft_analytics(
+    username: str = Depends(require_admin)
+) -> NFTAnalyticsResponse:
+    """
+    Get NFT marker usage analytics.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    from pathlib import Path
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    markers_dir = nft_generator.markers_dir
+    
+    if not markers_dir.exists():
+        return NFTAnalyticsResponse(
+            total_markers=0,
+            quality_distribution={},
+            avg_file_sizes={},
+            total_storage_used=0
+        )
+    
+    # Analyze markers
+    total_markers = 0
+    fset_sizes = []
+    fset3_sizes = []
+    iset_sizes = []
+    total_storage = 0
+    
+    for marker_dir in markers_dir.iterdir():
+        if not marker_dir.is_dir():
+            continue
+        
+        total_markers += 1
+        
+        for file_path in marker_dir.rglob('*'):
+            if file_path.is_file():
+                size = file_path.stat().st_size
+                total_storage += size
+                
+                if file_path.suffix == '.fset':
+                    fset_sizes.append(size)
+                elif file_path.suffix == '.fset3':
+                    fset3_sizes.append(size)
+                elif file_path.suffix == '.iset':
+                    iset_sizes.append(size)
+    
+    # Calculate averages
+    avg_file_sizes = {
+        'fset': sum(fset_sizes) / len(fset_sizes) if fset_sizes else 0,
+        'fset3': sum(fset3_sizes) / len(fset3_sizes) if fset3_sizes else 0,
+        'iset': sum(iset_sizes) / len(iset_sizes) if iset_sizes else 0
+    }
+    
+    return NFTAnalyticsResponse(
+        total_markers=total_markers,
+        quality_distribution={},  # Could be enhanced with quality analysis
+        avg_file_sizes=avg_file_sizes,
+        total_storage_used=total_storage
+    )
+
+
+@app.post("/api/nft-markers/enhance-contrast", tags=["nft-markers"])
+async def enhance_image_contrast(
+    image_path: str,
+    factor: float = 1.5,
+    username: str = Depends(require_admin)
+) -> Dict[str, str]:
+    """
+    Enhance image contrast for better feature detection.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    try:
+        enhanced_path = nft_generator.enhance_contrast(
+            image_path=image_path,
+            factor=factor
+        )
+        
+        return {
+            "original_path": image_path,
+            "enhanced_path": str(enhanced_path),
+            "factor": str(factor)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enhance contrast: {str(e)}"
+        )
+
+
+@app.post("/api/nft-markers/clear-cache", tags=["nft-markers"])
+async def clear_nft_cache(
+    clear_all: bool = False,
+    username: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Clear NFT analysis cache.
+    """
+    from nft_marker_generator import NFTMarkerGenerator
+    
+    nft_generator = NFTMarkerGenerator(STORAGE_ROOT)
+    
+    if not nft_generator.cache:
+        return {"message": "Cache is not enabled", "cleared": 0}
+    
+    if clear_all:
+        cleared = nft_generator.cache.clear_all()
+    else:
+        cleared = nft_generator.cache.clear_expired()
+    
+    return {
+        "message": f"Cleared {cleared} cache entries",
+        "cleared": cleared,
+        "clear_all": clear_all
+    }
+
+
+# Add time import if not already present
+import time
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
