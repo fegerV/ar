@@ -5,12 +5,11 @@ from io import BytesIO
 import mimetypes
 from storage_adapter import get_storage
 import uuid
-import logging
 from typing import Optional
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class PreviewGenerator:

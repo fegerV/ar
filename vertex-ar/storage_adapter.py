@@ -3,16 +3,16 @@ Unified Storage Adapter for Vertex AR
 Supports local file storage and remote MinIO S3-compatible storage
 """
 import os
-import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict
 from pathlib import Path
 from dotenv import load_dotenv
 
+from logging_setup import get_logger
+
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageAdapter(ABC):

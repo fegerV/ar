@@ -3,14 +3,13 @@ import uuid
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-import logging
+
+from logging_setup import get_logger
 
 # Загружаем переменные окружения
 load_dotenv()
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class LocalStorage:
     def __init__(self):

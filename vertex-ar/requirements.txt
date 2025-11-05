@@ -17,3 +17,7 @@ python-jose[cryptography]>=3.3.0
 jinja2>=3.1.0  # Required for templating
 httpx>=0.25.0  # Required for testing
 aiohttp>=3.9.0  # Required for Telegram notifications
+prometheus-fastapi-instrumentator>=6.0.0
+slowapi>=0.1.9
+structlog>=23.1.0
+sentry-sdk>=1.31.0
