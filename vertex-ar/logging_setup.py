@@ -28,7 +28,7 @@ def _configure_logging() -> None:
     processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.add_timestamp("iso"),
+        structlog.processors.TimeStamper(fmt="iso"),
     ]
 
     if json_logs:

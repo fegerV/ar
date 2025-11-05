@@ -10,9 +10,15 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./app_data.db
       - STORAGE_ROOT=/app/storage
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=secret
-      - SECRET_KEY=your-super-secret-key-here
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+      - BASE_URL=${BASE_URL:-http://localhost:8000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8000}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - ./storage:/app/storage
       - ./app_data.db:/app/app_data.db
