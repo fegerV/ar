@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import shutil
+import structlog
 import struct
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -38,7 +38,7 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @dataclass

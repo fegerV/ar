@@ -2,10 +2,11 @@ import magic
 import imghdr
 from PIL import Image
 from io import BytesIO
-import logging
 from typing import Tuple
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 class FileValidator:
     """Класс для валидации файлов различных типов"""

@@ -1,8 +1,9 @@
 from notifications import send_notification as original_send_notification
 from typing import Optional
-import logging
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 class NotificationHandler:
     """Класс для унифицированной обработки уведомлений"""

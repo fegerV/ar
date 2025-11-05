@@ -4,49 +4,169 @@ Based on Stogram approach: No blockchain, no IPFS, no NFT - just image + video A
 """
 from __future__ import annotations
 
+import base64
+import json
+import logging
+import logging.config
+import os
 import secrets
+import string
 import shutil
 import sqlite3
 import threading
-from datetime import datetime
+import time
+import uuid
+from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pyotp
+import qrcode
+import sentry_sdk
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field
-from dotenv import load_dotenv
-import uuid
-import qrcode
-from io import BytesIO
-import base64
-import logging
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+import structlog
 
-# Добавляем импорт для новых функций
-from utils import get_disk_usage, get_storage_usage, format_bytes
+from utils import format_bytes, get_disk_usage, get_storage_usage
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+BASE_DIR = Path(__file__).resolve().parent
 
 load_dotenv()
 
-# Настройка логирования для всего приложения
-logging.getLogger("uvicorn").setLevel(logging.INFO)
-logging.getLogger("uvicorn.access").setLevel(logging.INFO)
-
-BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app_data.db"
 STORAGE_ROOT = BASE_DIR / "storage"
 STATIC_ROOT = BASE_DIR / "static"
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Get base URL from environment or use default
-import os
+
+def configure_logging() -> None:
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    timestamper = structlog.processors.TimeStamper(fmt="iso")
+    pre_chain = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        timestamper,
+    ]
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "json": {
+                    "()": structlog.stdlib.ProcessorFormatter,
+                    "processor": structlog.processors.JSONRenderer(),
+                    "foreign_pre_chain": pre_chain,
+                }
+            },
+            "handlers": {
+                "default": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "json",
+                },
+                "app_file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "formatter": "json",
+                    "filename": str(LOGS_DIR / "app.log"),
+                    "maxBytes": 10 * 1024 * 1024,
+                    "backupCount": 5,
+                },
+                "error_file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "formatter": "json",
+                    "filename": str(LOGS_DIR / "error.log"),
+                    "maxBytes": 5 * 1024 * 1024,
+                    "backupCount": 5,
+                    "level": "ERROR",
+                },
+                "audit_file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "formatter": "json",
+                    "filename": str(LOGS_DIR / "audit.log"),
+                    "maxBytes": 5 * 1024 * 1024,
+                    "backupCount": 5,
+                    "level": "INFO",
+                },
+            },
+            "loggers": {
+                "": {
+                    "handlers": ["default", "app_file", "error_file"],
+                    "level": log_level,
+                },
+                "vertex_ar.audit": {
+                    "handlers": ["audit_file"],
+                    "level": "INFO",
+                    "propagate": False,
+                },
+                "uvicorn": {
+                    "handlers": ["default", "app_file"],
+                    "level": log_level,
+                    "propagate": False,
+                },
+                "uvicorn.access": {
+                    "handlers": ["default"],
+                    "level": log_level,
+                    "propagate": False,
+                },
+            },
+        }
+    )
+    structlog.configure(
+        processors=pre_chain
+        + [
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
+configure_logging()
+
+try:
+    from colorama import just_fix_windows_console
+
+    just_fix_windows_console()
+except ImportError:
+    pass
+
+logger = structlog.get_logger("vertex_ar")
+audit_logger = structlog.get_logger("vertex_ar.audit")
+
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_environment = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+    traces_sample_rate = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=traces_sample_rate,
+        environment=sentry_environment,
+    )
+    logger.info(
+        "sentry_initialized",
+        environment=sentry_environment,
+        traces_sample_rate=traces_sample_rate,
+    )
+
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 VERSION_FILE = BASE_DIR / "VERSION"
@@ -54,6 +174,16 @@ try:
     VERSION = VERSION_FILE.read_text().strip()
 except FileNotFoundError:
     VERSION = "1.0.0"
+
+SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
+MAX_LOGIN_ATTEMPTS = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+LOCKOUT_DURATION_MINUTES = int(os.getenv("LOCKOUT_DURATION_MINUTES", "15"))
+FAILED_ATTEMPT_RESET_MINUTES = int(os.getenv("FAILED_ATTEMPT_RESET_MINUTES", "15"))
+GLOBAL_RATE_LIMIT = os.getenv("GLOBAL_RATE_LIMIT", "100/minute")
+AUTH_RATE_LIMIT = os.getenv("AUTH_RATE_LIMIT", "5/minute")
+UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "10/minute")
+BACKUP_CODE_COUNT = int(os.getenv("BACKUP_CODE_COUNT", "10"))
+BACKUP_CODE_LENGTH = int(os.getenv("BACKUP_CODE_LENGTH", "10"))
 
 
 class Database:
@@ -73,7 +203,10 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     hashed_password TEXT NOT NULL,
-                    is_admin INTEGER NOT NULL DEFAULT 0
+                    is_admin INTEGER NOT NULL DEFAULT 0,
+                    totp_secret TEXT,
+                    backup_codes TEXT,
+                    is_totp_enabled INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
@@ -157,6 +290,20 @@ class Database:
                 self._connection.execute("ALTER TABLE ar_content ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN backup_codes TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN is_totp_enabled INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass
             # Create index for phone search
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
@@ -169,11 +316,30 @@ class Database:
             self._connection.commit()
             return cursor
     
-    def create_user(self, username: str, hashed_password: str, is_admin: bool = False) -> None:
+    def create_user(
+        self,
+        username: str,
+        hashed_password: str,
+        is_admin: bool = False,
+        totp_secret: Optional[str] = None,
+        backup_codes: Optional[List[str]] = None,
+        is_totp_enabled: bool = False,
+    ) -> None:
         try:
             self._execute(
-                "INSERT INTO users (username, hashed_password, is_admin) VALUES (?, ?, ?)",
-                (username, hashed_password, int(is_admin)),
+                """
+                INSERT INTO users (
+                    username, hashed_password, is_admin, totp_secret, backup_codes, is_totp_enabled
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    username,
+                    hashed_password,
+                    int(is_admin),
+                    totp_secret,
+                    json.dumps(backup_codes or []),
+                    int(is_totp_enabled),
+                ),
             )
         except sqlite3.IntegrityError as exc:
             raise ValueError("user_already_exists") from exc
@@ -183,7 +349,41 @@ class Database:
         row = cursor.fetchone()
         if row is None:
             return None
-        return dict(row)
+        result = dict(row)
+        backup_codes_raw = result.get("backup_codes")
+        if backup_codes_raw:
+            try:
+                result["backup_codes"] = json.loads(backup_codes_raw)
+            except (TypeError, json.JSONDecodeError):
+                result["backup_codes"] = []
+        else:
+            result["backup_codes"] = []
+        result["is_admin"] = bool(result.get("is_admin"))
+        result["is_totp_enabled"] = bool(result.get("is_totp_enabled"))
+        return result
+    
+    def update_backup_codes(self, username: str, backup_codes: List[str]) -> None:
+        self._execute(
+            "UPDATE users SET backup_codes = ? WHERE username = ?",
+            (json.dumps(backup_codes), username),
+        )
+    
+    def consume_backup_code(self, username: str, code: str) -> bool:
+        user = self.get_user(username)
+        if not user:
+            return False
+        codes = list(user.get("backup_codes", []))
+        if code not in codes:
+            return False
+        codes.remove(code)
+        self.update_backup_codes(username, codes)
+        return True
+    
+    def update_totp_status(self, username: str, totp_secret: str, enabled: bool) -> None:
+        self._execute(
+            "UPDATE users SET totp_secret = ?, is_totp_enabled = ? WHERE username = ?",
+            (totp_secret, int(enabled), username),
+        )
     
     def create_ar_content(
         self,
@@ -460,25 +660,108 @@ def _verify_password(password: str, hashed: str) -> bool:
 
 
 class TokenManager:
-    """Simple token management."""
+    """Token management with session timeout support."""
     
-    def __init__(self) -> None:
-        self._tokens: Dict[str, str] = {}
+    def __init__(self, session_timeout_minutes: int) -> None:
+        self._tokens: Dict[str, Dict[str, Any]] = {}
+        self._user_tokens: Dict[str, set[str]] = {}
+        self._ttl = timedelta(minutes=session_timeout_minutes)
         self._lock = threading.Lock()
     
     def issue_token(self, username: str) -> str:
         token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + self._ttl
         with self._lock:
-            self._tokens[token] = username
+            self._tokens[token] = {"username": username, "expires_at": expires_at}
+            self._user_tokens.setdefault(username, set()).add(token)
+        audit_logger.info("token_issued", username=username, expires_at=expires_at.isoformat())
         return token
     
     def verify_token(self, token: str) -> Optional[str]:
         with self._lock:
-            return self._tokens.get(token)
+            payload = self._tokens.get(token)
+            if not payload:
+                return None
+            if payload["expires_at"] < datetime.utcnow():
+                self._revoke_token_locked(token, payload["username"])
+                audit_logger.warning("token_expired", username=payload["username"])
+                return None
+            return payload["username"]
     
     def revoke_token(self, token: str) -> None:
         with self._lock:
-            self._tokens.pop(token, None)
+            self._revoke_token_locked(token)
+    
+    def revoke_user_tokens(self, username: str) -> None:
+        with self._lock:
+            tokens = self._user_tokens.pop(username, set())
+            for tok in tokens:
+                self._tokens.pop(tok, None)
+    
+    def _revoke_token_locked(self, token: str, username: Optional[str] = None) -> None:
+        payload = self._tokens.pop(token, None)
+        target_user = username or (payload["username"] if payload else None)
+        if target_user is None:
+            return
+        user_tokens = self._user_tokens.get(target_user)
+        if user_tokens:
+            user_tokens.discard(token)
+            if not user_tokens:
+                self._user_tokens.pop(target_user, None)
+
+
+_failed_login_attempts: Dict[str, Dict[str, Any]] = {}
+_failed_login_lock = threading.Lock()
+
+
+def _reset_failed_logins_if_expired(username: str) -> None:
+    now = datetime.utcnow()
+    with _failed_login_lock:
+        record = _failed_login_attempts.get(username)
+        if not record:
+            return
+        locked_until = record.get("locked_until")
+        last_failed_at = record.get("last_failed_at")
+        if locked_until and locked_until <= now:
+            _failed_login_attempts.pop(username, None)
+        elif last_failed_at and now - last_failed_at > timedelta(minutes=FAILED_ATTEMPT_RESET_MINUTES):
+            _failed_login_attempts.pop(username, None)
+
+
+def _record_failed_login(username: str) -> Dict[str, Any]:
+    now = datetime.utcnow()
+    with _failed_login_lock:
+        record = _failed_login_attempts.get(username, {}).copy()
+        last_failed_at = record.get("last_failed_at")
+        locked_until = record.get("locked_until")
+        if locked_until and locked_until <= now:
+            locked_until = None
+        if last_failed_at and now - last_failed_at > timedelta(minutes=FAILED_ATTEMPT_RESET_MINUTES):
+            record = {}
+        attempts = record.get("count", 0) + 1
+        record["count"] = attempts
+        record["last_failed_at"] = now
+        if attempts >= MAX_LOGIN_ATTEMPTS:
+            locked_until = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        if locked_until:
+            record["locked_until"] = locked_until
+        else:
+            record.pop("locked_until", None)
+        _failed_login_attempts[username] = record
+        return dict(record)
+
+
+def _clear_failed_logins(username: str) -> None:
+    with _failed_login_lock:
+        _failed_login_attempts.pop(username, None)
+
+
+def _generate_backup_codes(count: int, length: int) -> List[str]:
+    alphabet = string.ascii_uppercase + string.digits
+    codes = set()
+    while len(codes) < count:
+        codes.add("".join(secrets.choice(alphabet) for _ in range(length)))
+    return sorted(codes)
 
 
 class UserCreate(BaseModel):
@@ -489,6 +772,8 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+    totp_code: Optional[str] = None
+    backup_code: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -551,11 +836,63 @@ class OrderResponse(BaseModel):
     video: VideoResponse
 
 
+limiter = Limiter(key_func=get_remote_address, default_limits=[GLOBAL_RATE_LIMIT])
+
+REQUEST_COUNT = Counter(
+    "vertex_ar_requests_total",
+    "Total HTTP requests processed by the Vertex AR API",
+    ["method", "endpoint", "http_status"],
+)
+REQUEST_LATENCY = Histogram(
+    "vertex_ar_request_duration_seconds",
+    "HTTP request latency for Vertex AR API",
+    ["method", "endpoint"],
+)
+REQUEST_ERRORS = Counter(
+    "vertex_ar_request_errors_total",
+    "Total HTTP request errors raised by Vertex AR API",
+    ["method", "endpoint"],
+)
+LOGIN_SUCCESS_COUNTER = Counter(
+    "vertex_ar_login_success_total",
+    "Number of successful login attempts",
+)
+LOGIN_FAILURE_COUNTER = Counter(
+    "vertex_ar_login_failure_total",
+    "Number of failed login attempts",
+    ["reason"],
+)
+UPLOAD_COUNTER = Counter(
+    "vertex_ar_upload_total",
+    "Number of AR content upload attempts",
+    ["result"],
+)
+STORAGE_USAGE_GAUGE = Gauge(
+    "vertex_ar_storage_usage_bytes",
+    "Total storage usage in bytes for AR assets",
+)
+DB_FILE_SIZE_GAUGE = Gauge(
+    "vertex_ar_database_size_bytes",
+    "Current SQLite database file size in bytes",
+)
+
+if STORAGE_ROOT.exists():
+    try:
+        initial_storage = get_storage_usage(str(STORAGE_ROOT))
+        STORAGE_USAGE_GAUGE.set(initial_storage["total_size"])
+    except Exception as exc:
+        logger.warning("initial_storage_metric_failed", error=str(exc))
+if DB_PATH.exists():
+    DB_FILE_SIZE_GAUGE.set(DB_PATH.stat().st_size)
+
+
 app = FastAPI(
     title="Vertex AR - Simplified",
     version=VERSION,
     description="A lightweight AR backend for creating augmented reality experiences from image + video pairs"
 )
+
+app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
@@ -564,16 +901,56 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SlowAPIMiddleware)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
 app.mount("/storage", StaticFiles(directory=str(STORAGE_ROOT)), name="storage")
 
 security = HTTPBearer()
 database = Database(DB_PATH)
-tokens = TokenManager()
+tokens = TokenManager(SESSION_TIMEOUT_MINUTES)
 
 # Монтируем шаблоны
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    client_ip = request.client.host if request.client else "unknown"
+    audit_logger.warning(
+        "rate_limit_exceeded",
+        path=request.url.path,
+        client_ip=client_ip,
+    )
+    headers = getattr(exc, "headers", None)
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": "Too many requests. Please try again later."},
+        headers=headers,
+    )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    if request.url.path == "/metrics":
+        return await call_next(request)
+    method = request.method
+    route = request.scope.get("route")
+    endpoint = getattr(route, "path", request.url.path)
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        duration = time.perf_counter() - start
+        REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(duration)
+        REQUEST_COUNT.labels(method=method, endpoint=endpoint, http_status=response.status_code).inc()
+        return response
+    except Exception:
+        duration = time.perf_counter() - start
+        REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(duration)
+        REQUEST_COUNT.labels(method=method, endpoint=endpoint, http_status=500).inc()
+        REQUEST_ERRORS.labels(method=method, endpoint=endpoint).inc()
+        logger.exception("request_failed", method=method, endpoint=endpoint)
+        raise
 
 
 async def get_current_user(
@@ -598,15 +975,64 @@ def read_root():
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> Dict[str, str]:
-    """Health check endpoint for Docker and load balancers"""
-    return {"status": "healthy", "version": VERSION}
+async def health_check() -> Dict[str, Any]:
+    """Health check endpoint for Docker and load balancers."""
+    disk_usage = get_disk_usage(str(BASE_DIR))
+    storage_usage = get_storage_usage(str(STORAGE_ROOT))
+    db_status = "ok"
+    db_size = 0
+    try:
+        database._execute("SELECT 1")
+    except sqlite3.Error as exc:
+        db_status = "error"
+        logger.error("database_health_check_failed", error=str(exc))
+    if DB_PATH.exists():
+        db_size = DB_PATH.stat().st_size
+        DB_FILE_SIZE_GAUGE.set(db_size)
+    STORAGE_USAGE_GAUGE.set(storage_usage["total_size"])
+    status_label = "healthy" if db_status == "ok" else "degraded"
+    return {
+        "status": status_label,
+        "version": VERSION,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "database": {
+            "status": db_status,
+            "size_bytes": db_size,
+            "size_formatted": format_bytes(db_size),
+        },
+        "storage": {
+            "files": storage_usage["file_count"],
+            "bytes": storage_usage["total_size"],
+            "formatted": storage_usage["formatted_size"],
+        },
+        "disk": {
+            "total": disk_usage["total"],
+            "total_formatted": format_bytes(disk_usage["total"]),
+            "used": disk_usage["used"],
+            "used_formatted": format_bytes(disk_usage["used"]),
+            "free": disk_usage["free"],
+            "free_formatted": format_bytes(disk_usage["free"]),
+            "used_percent": disk_usage["used_percent"],
+            "free_percent": disk_usage["free_percent"],
+        },
+        "rate_limits": {
+            "global": GLOBAL_RATE_LIMIT,
+            "auth": AUTH_RATE_LIMIT,
+            "upload": UPLOAD_RATE_LIMIT,
+        },
+    }
 
 
 @app.get("/version", tags=["health"])
 async def get_version() -> Dict[str, str]:
     """Get API version"""
     return {"version": VERSION}
+
+
+@app.get("/metrics", tags=["monitoring"])
+async def metrics_endpoint() -> Response:
+    """Expose Prometheus metrics."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/admin", response_class=HTMLResponse, tags=["admin"])
@@ -624,33 +1050,153 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
 
 
 @app.post("/auth/register", status_code=status.HTTP_201_CREATED, tags=["auth"])
-async def register_user(user: UserCreate) -> Dict[str, str]:
+@limiter.limit(AUTH_RATE_LIMIT)
+async def register_user(user: UserCreate) -> Dict[str, Any]:
     existing = database.get_user(user.username)
     if existing is not None:
+        audit_logger.warning("user_registration_conflict", username=user.username)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
+    totp_secret = pyotp.random_base32()
+    backup_codes = _generate_backup_codes(BACKUP_CODE_COUNT, BACKUP_CODE_LENGTH)
     try:
-        database.create_user(user.username, _hash_password(user.password), is_admin=True)  # Создаем администратора
+        database.create_user(
+            user.username,
+            _hash_password(user.password),
+            is_admin=True,
+            totp_secret=totp_secret,
+            backup_codes=backup_codes,
+            is_totp_enabled=True,
+        )
     except ValueError:
+        audit_logger.warning("user_registration_conflict", username=user.username)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
-    return {"username": user.username}
+    otpauth_url = pyotp.TOTP(totp_secret).provisioning_uri(name=user.username, issuer_name="Vertex AR")
+    audit_logger.info("user_registered", username=user.username, totp_enabled=True)
+    return {
+        "username": user.username,
+        "totp_secret": totp_secret,
+        "otpauth_url": otpauth_url,
+        "backup_codes": backup_codes,
+    }
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
-async def login_user(credentials: UserLogin) -> TokenResponse:
+@limiter.limit(AUTH_RATE_LIMIT)
+async def login_user(credentials: UserLogin, request: Request) -> TokenResponse:
+    client_ip = request.client.host if request.client else "unknown"
+    _reset_failed_logins_if_expired(credentials.username)
+    now = datetime.utcnow()
+    with _failed_login_lock:
+        lock_record = _failed_login_attempts.get(credentials.username)
+        if lock_record:
+            locked_until = lock_record.get("locked_until")
+            if locked_until and locked_until > now:
+                LOGIN_FAILURE_COUNTER.labels(reason="locked").inc()
+                audit_logger.warning(
+                    "account_locked",
+                    username=credentials.username,
+                    locked_until=locked_until.isoformat(),
+                    client_ip=client_ip,
+                )
+                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account locked. Try again later.")
     user = database.get_user(credentials.username)
     if user is None or not _verify_password(credentials.password, user["hashed_password"]):
+        record = _record_failed_login(credentials.username)
+        locked_until = record.get("locked_until")
+        LOGIN_FAILURE_COUNTER.labels(reason="invalid_credentials").inc()
+        audit_logger.warning(
+            "login_failed",
+            username=credentials.username,
+            reason="invalid_credentials",
+            attempts=record.get("count"),
+            locked_until=locked_until.isoformat() if locked_until else None,
+            client_ip=client_ip,
+        )
+        if locked_until and locked_until > datetime.utcnow():
+            raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account locked. Try again later.")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    used_backup_code = False
+    if user.get("is_totp_enabled"):
+        totp_secret = user.get("totp_secret")
+        if not credentials.totp_code and not credentials.backup_code:
+            record = _record_failed_login(credentials.username)
+            locked_until = record.get("locked_until")
+            LOGIN_FAILURE_COUNTER.labels(reason="missing_2fa").inc()
+            audit_logger.warning(
+                "login_failed",
+                username=credentials.username,
+                reason="missing_2fa",
+                attempts=record.get("count"),
+                locked_until=locked_until.isoformat() if locked_until else None,
+                client_ip=client_ip,
+            )
+            if locked_until and locked_until > datetime.utcnow():
+                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account locked. Try again later.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Two-factor authentication code required")
+        totp_verified = False
+        if credentials.totp_code and totp_secret:
+            totp = pyotp.TOTP(totp_secret)
+            totp_verified = totp.verify(credentials.totp_code, valid_window=1)
+        if not totp_verified and credentials.backup_code:
+            if database.consume_backup_code(credentials.username, credentials.backup_code):
+                totp_verified = True
+                used_backup_code = True
+                audit_logger.info("backup_code_consumed", username=credentials.username)
+            else:
+                record = _record_failed_login(credentials.username)
+                locked_until = record.get("locked_until")
+                LOGIN_FAILURE_COUNTER.labels(reason="invalid_backup_code").inc()
+                audit_logger.warning(
+                    "login_failed",
+                    username=credentials.username,
+                    reason="invalid_backup_code",
+                    attempts=record.get("count"),
+                    locked_until=locked_until.isoformat() if locked_until else None,
+                    client_ip=client_ip,
+                )
+                if locked_until and locked_until > datetime.utcnow():
+                    raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account locked. Try again later.")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid backup code")
+        if not totp_verified:
+            record = _record_failed_login(credentials.username)
+            locked_until = record.get("locked_until")
+            LOGIN_FAILURE_COUNTER.labels(reason="invalid_2fa").inc()
+            audit_logger.warning(
+                "login_failed",
+                username=credentials.username,
+                reason="invalid_2fa",
+                attempts=record.get("count"),
+                locked_until=locked_until.isoformat() if locked_until else None,
+                client_ip=client_ip,
+            )
+            if locked_until and locked_until > datetime.utcnow():
+                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account locked. Try again later.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid two-factor authentication code")
+    _clear_failed_logins(credentials.username)
     token = tokens.issue_token(credentials.username)
+    LOGIN_SUCCESS_COUNTER.inc()
+    audit_logger.info(
+        "user_logged_in",
+        username=credentials.username,
+        client_ip=client_ip,
+        used_backup_code=used_backup_code,
+    )
     return TokenResponse(access_token=token)
 
 
 @app.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
-async def logout_user(username: str = Depends(get_current_user)) -> Response:
-    tokens.revoke_token(username)
+@limiter.limit(AUTH_RATE_LIMIT)
+async def logout_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    username: str = Depends(get_current_user),
+) -> Response:
+    tokens.revoke_token(credentials.credentials)
+    audit_logger.info("user_logged_out", username=username)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/ar/upload", response_model=ARContentResponse, tags=["ar"])
+@limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_ar_content(
     image: UploadFile = File(...),
     video: UploadFile = File(...),
@@ -660,10 +1206,18 @@ async def upload_ar_content(
     Upload image and video to create AR content.
     Only admins can upload.
     """
+    logger.info(
+        "upload_ar_request",
+        username=username,
+        image_filename=image.filename,
+        video_filename=video.filename,
+    )
     if not image.content_type or not image.content_type.startswith("image/"):
+        UPLOAD_COUNTER.labels(result="invalid_image").inc()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
     
     if not video.content_type or not video.content_type.startswith("video/"):
+        UPLOAD_COUNTER.labels(result="invalid_video").inc()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
     
     # Генерируем UUID для файлов
@@ -745,6 +1299,15 @@ async def upload_ar_content(
         ar_url=ar_url,
         qr_code=qr_base64,
     )
+    UPLOAD_COUNTER.labels(result="success").inc()
+    audit_logger.info("ar_content_uploaded", content_id=content_id, username=username)
+    try:
+        storage_usage = get_storage_usage(str(STORAGE_ROOT))
+        STORAGE_USAGE_GAUGE.set(storage_usage["total_size"])
+    except Exception as exc:
+        logger.warning("storage_usage_update_failed", error=str(exc))
+    if DB_PATH.exists():
+        DB_FILE_SIZE_GAUGE.set(DB_PATH.stat().st_size)
     
     return ARContentResponse(
         id=content_id,
