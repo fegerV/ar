@@ -4,40 +4,50 @@ Based on Stogram approach: No blockchain, no IPFS, no NFT - just image + video A
 """
 from __future__ import annotations
 
+import base64
+import os
 import secrets
 import shutil
 import sqlite3
 import threading
-from datetime import datetime
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import qrcode
+import sentry_sdk
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
-from dotenv import load_dotenv
-import uuid
-import qrcode
-from io import BytesIO
-import base64
-import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
-# Добавляем импорт для новых функций
-from utils import get_disk_usage, get_storage_usage, format_bytes
-
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from logging_setup import get_logger
+from utils import format_bytes, get_disk_usage, get_storage_usage
 
 load_dotenv()
 
-# Настройка логирования для всего приложения
-logging.getLogger("uvicorn").setLevel(logging.INFO)
-logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logger = get_logger(__name__)
+
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        environment=os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development")),
+    )
+    logger.info("Sentry initialized", environment=os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development")))
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app_data.db"
@@ -46,8 +56,27 @@ STATIC_ROOT = BASE_DIR / "static"
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 
 # Get base URL from environment or use default
-import os
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
+AUTH_MAX_ATTEMPTS = int(os.getenv("AUTH_MAX_ATTEMPTS", "5"))
+AUTH_LOCKOUT_MINUTES = int(os.getenv("AUTH_LOCKOUT_MINUTES", "15"))
+RUNNING_TESTS = os.getenv("RUNNING_TESTS") == "1" or "PYTEST_CURRENT_TEST" in os.environ
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true" and not RUNNING_TESTS
+GLOBAL_RATE_LIMIT = os.getenv("GLOBAL_RATE_LIMIT", "100/minute")
+AUTH_RATE_LIMIT = os.getenv("AUTH_RATE_LIMIT", "5/minute")
+UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "10/minute")
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[],
+    headers_enabled=True,
+    enabled=RATE_LIMIT_ENABLED,
+)
+
+@limiter.limit(GLOBAL_RATE_LIMIT)
+def global_rate_limit_dependency(request: Request) -> None:
+    """Global rate limit dependency applied to every request."""
+    return None
 
 VERSION_FILE = BASE_DIR / "VERSION"
 try:
@@ -459,26 +488,107 @@ def _verify_password(password: str, hashed: str) -> bool:
     return _hash_password(password) == hashed
 
 
+@dataclass
+class SessionData:
+    username: str
+    issued_at: datetime
+    last_seen: datetime
+
+
 class TokenManager:
-    """Simple token management."""
-    
-    def __init__(self) -> None:
-        self._tokens: Dict[str, str] = {}
+    """Manage issued access tokens with session timeouts."""
+
+    def __init__(self, session_timeout_minutes: int = SESSION_TIMEOUT_MINUTES) -> None:
+        self._tokens: Dict[str, SessionData] = {}
         self._lock = threading.Lock()
-    
+        self._session_timeout = timedelta(minutes=session_timeout_minutes)
+
     def issue_token(self, username: str) -> str:
         token = secrets.token_urlsafe(32)
+        session = SessionData(
+            username=username,
+            issued_at=datetime.utcnow(),
+            last_seen=datetime.utcnow(),
+        )
         with self._lock:
-            self._tokens[token] = username
+            self._tokens[token] = session
         return token
-    
+
     def verify_token(self, token: str) -> Optional[str]:
         with self._lock:
-            return self._tokens.get(token)
-    
+            session = self._tokens.get(token)
+            if session is None:
+                return None
+
+            if self._session_timeout.total_seconds() > 0:
+                now = datetime.utcnow()
+                if now - session.last_seen > self._session_timeout:
+                    self._tokens.pop(token, None)
+                    logger.info("Session expired", username=session.username)
+                    return None
+                session.last_seen = now
+
+            return session.username
+
     def revoke_token(self, token: str) -> None:
         with self._lock:
             self._tokens.pop(token, None)
+
+    def revoke_user(self, username: str) -> None:
+        with self._lock:
+            tokens_to_remove = [token for token, session in self._tokens.items() if session.username == username]
+            for token in tokens_to_remove:
+                self._tokens.pop(token, None)
+
+
+class AuthSecurityManager:
+    """Track authentication attempts and enforce temporary lockouts."""
+
+    def __init__(self, max_attempts: int = AUTH_MAX_ATTEMPTS, lockout_minutes: int = AUTH_LOCKOUT_MINUTES) -> None:
+        self._max_attempts = max_attempts
+        self._lockout_duration = timedelta(minutes=lockout_minutes)
+        self._failed_attempts: Dict[str, int] = {}
+        self._lockouts: Dict[str, datetime] = {}
+        self._lock = threading.Lock()
+
+    def is_locked(self, username: str) -> Optional[datetime]:
+        with self._lock:
+            locked_until = self._lockouts.get(username)
+            if locked_until and locked_until > datetime.utcnow():
+                return locked_until
+            if locked_until:
+                # Lock has expired, clean up state
+                self._lockouts.pop(username, None)
+            return None
+
+    def register_failure(self, username: str) -> Optional[datetime]:
+        with self._lock:
+            now = datetime.utcnow()
+            locked_until = self._lockouts.get(username)
+            if locked_until and locked_until > now:
+                return locked_until
+            if locked_until:
+                self._lockouts.pop(username, None)
+
+            attempts = self._failed_attempts.get(username, 0) + 1
+            if attempts >= self._max_attempts:
+                locked_until = now + self._lockout_duration
+                self._lockouts[username] = locked_until
+                self._failed_attempts[username] = 0
+                logger.warning(
+                    "User locked due to repeated failed login attempts",
+                    username=username,
+                    locked_until=locked_until.isoformat(),
+                )
+                return locked_until
+
+            self._failed_attempts[username] = attempts
+            return None
+
+    def reset(self, username: str) -> None:
+        with self._lock:
+            self._failed_attempts.pop(username, None)
+            self._lockouts.pop(username, None)
 
 
 class UserCreate(BaseModel):
@@ -554,8 +664,15 @@ class OrderResponse(BaseModel):
 app = FastAPI(
     title="Vertex AR - Simplified",
     version=VERSION,
-    description="A lightweight AR backend for creating augmented reality experiences from image + video pairs"
+    description="A lightweight AR backend for creating augmented reality experiences from image + video pairs",
+    dependencies=[Depends(global_rate_limit_dependency)],
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -570,7 +687,8 @@ app.mount("/storage", StaticFiles(directory=str(STORAGE_ROOT)), name="storage")
 
 security = HTTPBearer()
 database = Database(DB_PATH)
-tokens = TokenManager()
+tokens = TokenManager(session_timeout_minutes=SESSION_TIMEOUT_MINUTES)
+auth_security = AuthSecurityManager(max_attempts=AUTH_MAX_ATTEMPTS, lockout_minutes=AUTH_LOCKOUT_MINUTES)
 
 # Монтируем шаблоны
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -581,7 +699,7 @@ async def get_current_user(
 ) -> str:
     username = tokens.verify_token(credentials.credentials)
     if username is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
     return username
 
 
@@ -624,34 +742,69 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
 
 
 @app.post("/auth/register", status_code=status.HTTP_201_CREATED, tags=["auth"])
-async def register_user(user: UserCreate) -> Dict[str, str]:
+@limiter.limit(AUTH_RATE_LIMIT)
+async def register_user(request: Request, user: UserCreate) -> Dict[str, str]:
     existing = database.get_user(user.username)
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
     try:
         database.create_user(user.username, _hash_password(user.password), is_admin=True)  # Создаем администратора
+        logger.info("Admin user registered", username=user.username)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
     return {"username": user.username}
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
-async def login_user(credentials: UserLogin) -> TokenResponse:
+@limiter.limit(AUTH_RATE_LIMIT)
+async def login_user(request: Request, credentials: UserLogin) -> TokenResponse:
+    locked_until = auth_security.is_locked(credentials.username)
+    if locked_until:
+        logger.warning(
+            "Attempt to access locked account",
+            username=credentials.username,
+            locked_until=locked_until.isoformat(),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail=f"Account locked until {locked_until.isoformat()}",
+        )
+
     user = database.get_user(credentials.username)
     if user is None or not _verify_password(credentials.password, user["hashed_password"]):
+        locked_until = auth_security.register_failure(credentials.username)
+        if locked_until:
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail="Account locked due to multiple failed attempts",
+            )
+        logger.warning("Invalid login attempt", username=credentials.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    auth_security.reset(credentials.username)
     token = tokens.issue_token(credentials.username)
+    logger.info("User authenticated", username=credentials.username)
     return TokenResponse(access_token=token)
 
 
 @app.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
-async def logout_user(username: str = Depends(get_current_user)) -> Response:
-    tokens.revoke_token(username)
+@limiter.limit(AUTH_RATE_LIMIT)
+async def logout_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Response:
+    username = tokens.verify_token(credentials.credentials)
+    if username is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
+    tokens.revoke_token(credentials.credentials)
+    logger.info("User logged out", username=username)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/ar/upload", response_model=ARContentResponse, tags=["ar"])
+@limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_ar_content(
+    request: Request,
     image: UploadFile = File(...),
     video: UploadFile = File(...),
     username: str = Depends(require_admin),

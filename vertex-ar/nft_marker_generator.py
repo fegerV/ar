@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import shutil
 import struct
 import time
@@ -32,13 +31,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from logging_setup import get_logger
+
 try:
     from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

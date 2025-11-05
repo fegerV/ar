@@ -2,13 +2,12 @@ from minio import Minio
 from minio.error import S3Error
 import os
 from dotenv import load_dotenv
-import logging
 from typing import Optional, Dict, Any
 from contextlib import contextmanager
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 load_dotenv()
 

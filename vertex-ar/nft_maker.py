@@ -11,16 +11,15 @@ from pathlib import Path
 import tempfile
 import shutil
 from storage_adapter import upload_file
-import logging
 from typing import Optional
 from dotenv import load_dotenv
+
+from logging_setup import get_logger
 
 # Импортируем новый генератор маркеров из Stogram
 from nft_marker_generator import NFTMarkerGenerator, NFTMarkerConfig
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
