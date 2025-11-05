@@ -24,7 +24,7 @@ Development: http://localhost:8000
 ```
 
 ### API Version
-Current version: `1.0.0`
+Current version: `1.1.0`
 
 ### Content Types
 - `application/json` - Most requests

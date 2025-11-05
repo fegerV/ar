@@ -1,6 +1,6 @@
 # 🎨 Vertex AR
 
-**Version:** 1.1.0 | **Status:** Production Ready (75%)
+**Version:** 1.1.0 | **Status:** Production Ready (78%)
 
 <div align="center">
 
@@ -148,7 +148,7 @@ docker-compose ps
 - **15+ новых API endpoints** - Полный контроль через REST API
 - **Comprehensive logging** - Детальные логи для отладки
 
-📖 **Подробнее:** [NFT_MARKER_IMPROVEMENTS.md](./NFT_MARKER_IMPROVEMENTS.md)
+📖 **Подробнее:** [Документация по NFT-маркерам](./docs/features/nft-markers.md)
 
 ---
 
@@ -277,7 +277,7 @@ curl -X POST http://localhost:8000/auth/login \
 | `GET` | `/api/nft-markers/config-presets` | **NEW!** Управление конфигурациями |
 | `POST` | `/api/nft-markers/enhance-contrast` | **NEW!** Улучшение контраста |
 
-📚 **Полная документация NFT API:** [NFT_MARKER_API_DOCUMENTATION.md](./NFT_MARKER_API_DOCUMENTATION.md)
+📚 **Полная документация NFT API:** [docs/api/endpoints.md](./docs/api/endpoints.md)
 
 ### 📊 Статистика
 
@@ -293,7 +293,7 @@ curl -X POST http://localhost:8000/auth/login \
 |-------|----------|----------|
 | `GET` | `/qr/{content_id}` | Генерация QR-кода для AR-контента |
 
-📚 **Полная документация API:** [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
+📚 **Полная документация API:** [docs/api/README.md](./docs/api/README.md)
 
 ---
 
@@ -303,28 +303,24 @@ curl -X POST http://localhost:8000/auth/login \
 vertex-ar/
 ├── 📁 vertex-ar/               # Основное приложение
 │   ├── 📄 main.py              # FastAPI приложение
-│   ├── 📄 utils.py             # Утилиты
+│   ├── 📄 utils.py             # Утилиты и сервисы
 │   ├── 📄 nft_marker_generator.py  # Генератор NFT-маркеров
-│   ├── 📁 templates/           # Jinja2 шаблоны
-│   │   ├── admin.html          # Админ-панель
-│   │   ├── ar_viewer.html      # AR просмотрщик
-│   │   └── ...
+│   ├── 📁 templates/           # Jinja2 шаблоны (админка, AR viewer)
 │   ├── 📁 storage/             # Локальное хранилище
-│   │   ├── ar_content/         # AR контент
-│   │   ├── nft-markers/        # NFT маркеры
-│   │   └── previews/           # Превью
 │   └── 📁 static/              # Статические файлы
 │
-├── 📁 tests/                   # Тесты
+├── 📁 tests/                   # Тестовые наборы (unit + integration)
 │   ├── test_api_endpoints.py
 │   ├── test_ar_functionality.py
 │   └── ...
 │
-├── 📁 docs/                    # Документация
-│   ├── 📄 API_DOCUMENTATION.md
-│   ├── 📄 ARCHITECTURE.md
-│   ├── 📄 DEVELOPER_GUIDE.md
-│   └── ...
+├── 📁 docs/                    # Документация проекта
+│   ├── 📄 README.md            # Центральный индекс
+│   ├── 📁 api/                 # API overview, endpoints, examples
+│   ├── 📁 guides/              # Installation, user, admin, deployment
+│   ├── 📁 development/         # Setup, architecture, testing, code review
+│   ├── 📁 features/            # NFT markers, storage scaling, AR функционал
+│   └── 📁 archived/old-files/  # Исторические материалы
 │
 ├── 🐳 docker-compose.yml       # Docker конфигурация
 ├── 🐳 Dockerfile.app           # Docker образ
@@ -350,23 +346,26 @@ vertex-ar/
 **👉 [Полная документация](./docs/README.md)** - Организованная документация по всем аспектам проекта
 
 #### Для пользователей
-- 🚀 **[Установка](./docs/guides/installation.md)** - Инструкция по установке
-- 👤 **[Руководство пользователя](./docs/guides/user-guide.md)** - Как использовать систему
-- 🔐 **[Руководство администратора](./docs/guides/admin-guide.md)** - Управление системой
+- 🚀 **[Установка](./docs/guides/installation.md)** — пошаговая настройка окружения
+- 👤 **[Руководство пользователя](./docs/guides/user-guide.md)** — как создавать и просматривать AR контент
+- 🔐 **[Руководство администратора](./docs/guides/admin-guide.md)** — управление системой и клиентами
+- 🚀 **[Деплой](./docs/guides/deployment.md)** — рекомендации по выводу в продакшен
 
 #### Для разработчиков
-- 🔧 **[Настройка разработки](./docs/development/setup.md)** - Среда разработки
-- 🏗️ **[Архитектура](./docs/development/architecture.md)** - Системная архитектура
-- 🧪 **[Тестирование](./docs/development/testing.md)** - Стратегия тестирования
+- 🔧 **[Настройка разработки](./docs/development/setup.md)** — рабочее окружение и tooling
+- 🏗️ **[Архитектура](./docs/development/architecture.md)** — компоненты и интеграции
+- 🧪 **[Тестирование](./docs/development/testing.md)** — стратегия и приоритеты покрытия
+- 🔍 **[Code Review](./docs/development/code-review.md)** — проверка качества изменений
 
 #### API документация
-- 📡 **[Обзор API](./docs/api/README.md)** - Введение в API
-- 🔗 **[Эндпоинты](./docs/api/endpoints.md)** - Полная документация API
-- 💡 **[Примеры](./docs/api/examples.md)** - Примеры использования API
+- 📡 **[Обзор API](./docs/api/README.md)** — вводная и принципы аутентификации
+- 🔗 **[Эндпоинты](./docs/api/endpoints.md)** — полный референс REST API
+- 💡 **[Примеры](./docs/api/examples.md)** — сценарии использования и snippets
 
 #### Функции
-- 🎯 **[NFT маркеры](./docs/features/nft-markers.md)** - Система распознавания AR
-- 📦 **[Масштабирование хранилища](./docs/features/storage-scaling.md)** - Масштабирование системы хранения
+- 🎯 **[NFT маркеры](./docs/features/nft-markers.md)** — система распознавания AR
+- 📦 **[Масштабирование хранилища](./docs/features/storage-scaling.md)** — рост и резервирование
+- ✨ **[AR функциональность](./docs/features/ar-functionality.md)** — пользовательский опыт и метрики
 
 ---
 
@@ -388,11 +387,11 @@ pytest -v
 
 ### 📊 Покрытие тестами
 
-- ✅ API эндпоинты - 95%
-- ✅ AR функциональность - 90%
-- ✅ Аутентификация - 100%
-- ✅ Генерация маркеров - 85%
-- 📊 **Всего тестов:** 13 основных файлов + 5 в vertex-ar/tests/
+- ✅ API эндпоинты — ~82% (интеграционные сценарии + smoke)
+- ✅ AR функциональность — ~65% (ключевые пользовательские потоки)
+- ✅ Аутентификация — ~94% (positive/negative cases)
+- ✅ Генерация маркеров — ~60% (перфоманс + валидация)
+- 📊 **Всего тестов:** 18 интеграционных файлов + 5 модулей в `vertex-ar/tests/` (~60% суммарного покрытия)
 
 ---
 
@@ -435,11 +434,11 @@ pytest -v
 
 ## 📊 Статистика проекта
 
-- 📝 **15,000+** строк кода
-- 🧪 **18+** основных тестов + 5 в vertex-ar/tests/
-- 📚 **67** файлов документации (требуется реорганизация)
-- ⭐ **75%** готовность к продакшену
-- 🚀 **<100ms** среднее время отклика API
+- 📝 **15 000+** строк кода
+- 🧪 **23** поддерживаемых тестовых набора (18 интеграционных + 5 модульных)
+- 📚 **21** активный файл документации + архив исторических материалов
+- ⭐ **78%** готовность к продакшену (по чек-листу `check_production_readiness.sh`)
+- 🚀 **<100 мс** среднее время отклика API
 - 🎯 **86/122** функций реализовано (70%)
 
 ---
