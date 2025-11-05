@@ -6,9 +6,10 @@ from pydantic import BaseModel
 from typing import Optional, List, Generator
 import os
 from dotenv import load_dotenv
-import logging
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 load_dotenv()
 
