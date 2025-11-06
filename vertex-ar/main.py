@@ -28,10 +28,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
+# Removed SlowAPI imports due to compatibility issues
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.errors import RateLimitExceeded
+# from slowapi.middleware import SlowAPIMiddleware
+# from slowapi.util import get_remote_address
 
 from logging_setup import get_logger
 from utils import format_bytes, get_disk_usage, get_storage_usage
@@ -66,17 +67,82 @@ GLOBAL_RATE_LIMIT = os.getenv("GLOBAL_RATE_LIMIT", "100/minute")
 AUTH_RATE_LIMIT = os.getenv("AUTH_RATE_LIMIT", "5/minute")
 UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "10/minute")
 
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=[],
-    headers_enabled=True,
-    enabled=RATE_LIMIT_ENABLED,
-)
+# SlowAPI rate limiting disabled due to compatibility issues
+# Using custom rate limiting implementation instead
+# limiter = Limiter(
+#     key_func=get_remote_address,
+#     default_limits=[],
+#     headers_enabled=True,
+#     enabled=RATE_LIMIT_ENABLED,
+# )
 
-@limiter.limit(GLOBAL_RATE_LIMIT)
-def global_rate_limit_dependency(request: Request) -> None:
-    """Global rate limit dependency applied to every request."""
-    return None
+# Simple in-memory rate limiter to replace SlowAPI
+from collections import defaultdict, deque
+from threading import Lock
+
+class SimpleRateLimiter:
+    def __init__(self):
+        self._requests = defaultdict(deque)
+        self._lock = Lock()
+    
+    def is_allowed(self, key: str, limit: int, window: int) -> bool:
+        """Check if request is allowed based on rate limit."""
+        with self._lock:
+            now = datetime.utcnow().timestamp()
+            requests = self._requests[key]
+            
+            # Remove old requests outside the window
+            while requests and requests[0] < now - window:
+                requests.popleft()
+            
+            # Check if under limit
+            if len(requests) < limit:
+                requests.append(now)
+                return True
+            return False
+
+simple_rate_limiter = SimpleRateLimiter()
+
+def rate_limit(limit: str):
+    """Simple rate limiting decorator."""
+    def decorator(func):
+        # Parse limit string like "5/minute" -> (5, 60)
+        limit_count, period = limit.split('/')
+        period_seconds = {'second': 1, 'minute': 60, 'hour': 3600, 'day': 86400}[period]
+        limit_count = int(limit_count)
+        
+        async def wrapper(request: Request, *args, **kwargs):
+            key = f"{request.client.host}:{request.url.path}"
+            if not simple_rate_limiter.is_allowed(key, limit_count, period_seconds):
+                raise HTTPException(
+                    status_code=429,
+                    detail="Rate limit exceeded",
+                    headers={"Retry-After": str(period_seconds)}
+                )
+            return await func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+# Alternative approach: apply rate limiting as a dependency
+async def rate_limit_dependency(request: Request, limit: str = "100/minute") -> None:
+    """Rate limiting dependency."""
+    limit_count, period = limit.split('/')
+    period_seconds = {'second': 1, 'minute': 60, 'hour': 3600, 'day': 86400}[period]
+    limit_count = int(limit_count)
+    
+    key = f"{request.client.host}:{request.url.path}"
+    if not simple_rate_limiter.is_allowed(key, limit_count, period_seconds):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(period_seconds)}
+        )
+
+def create_rate_limit_dependency(limit: str):
+    """Create a rate limiting dependency with a specific limit."""
+    async def dependency(request: Request) -> None:
+        await rate_limit_dependency(request, limit)
+    return dependency
 
 VERSION_FILE = BASE_DIR / "VERSION"
 try:
@@ -665,12 +731,17 @@ app = FastAPI(
     title="Vertex AR - Simplified",
     version=VERSION,
     description="A lightweight AR backend for creating augmented reality experiences from image + video pairs",
-    dependencies=[Depends(global_rate_limit_dependency)],
+    # SlowAPI global rate limit disabled due to compatibility issues
+    # dependencies=[Depends(global_rate_limit_dependency)],
 )
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+# SlowAPI configuration removed - using custom rate limiting
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Fix SlowAPI middleware compatibility issue
+# Instead of using SlowAPIMiddleware which has compatibility issues,
+# we'll handle rate limiting through dependencies only
+# app.add_middleware(SlowAPIMiddleware)
 
 Instrumentator().instrument(app).expose(app)
 
@@ -746,8 +817,11 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
 
 
 @app.post("/auth/register", status_code=status.HTTP_201_CREATED, tags=["auth"])
-@limiter.limit(AUTH_RATE_LIMIT)
-async def register_user(request: Request, user: UserCreate) -> Dict[str, str]:
+async def register_user(
+    request: Request, 
+    user: UserCreate,
+    _: None = Depends(create_rate_limit_dependency(AUTH_RATE_LIMIT))
+) -> Dict[str, str]:
     existing = database.get_user(user.username)
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
@@ -760,8 +834,11 @@ async def register_user(request: Request, user: UserCreate) -> Dict[str, str]:
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
-@limiter.limit(AUTH_RATE_LIMIT)
-async def login_user(request: Request, credentials: UserLogin) -> TokenResponse:
+async def login_user(
+    request: Request, 
+    credentials: UserLogin,
+    _: None = Depends(create_rate_limit_dependency(AUTH_RATE_LIMIT))
+) -> TokenResponse:
     locked_until = auth_security.is_locked(credentials.username)
     if locked_until:
         logger.warning(
@@ -792,10 +869,10 @@ async def login_user(request: Request, credentials: UserLogin) -> TokenResponse:
 
 
 @app.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
-@limiter.limit(AUTH_RATE_LIMIT)
 async def logout_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    _: None = Depends(create_rate_limit_dependency(AUTH_RATE_LIMIT))
 ) -> Response:
     username = tokens.verify_token(credentials.credentials)
     if username is None:
@@ -806,12 +883,12 @@ async def logout_user(
 
 
 @app.post("/ar/upload", response_model=ARContentResponse, tags=["ar"])
-@limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_ar_content(
     request: Request,
     image: UploadFile = File(...),
     video: UploadFile = File(...),
     username: str = Depends(require_admin),
+    _: None = Depends(create_rate_limit_dependency(UPLOAD_RATE_LIMIT))
 ) -> ARContentResponse:
     """
     Upload image and video to create AR content.
