@@ -1,300 +1,231 @@
-# Упрощенная настройка Production Environment для Vertex AR
+# Настройка продакшена Vertex AR
 
-This document describes the simplified steps to set up the production environment for the Vertex AR application based on Stogram approach.
+**Версия:** 1.3.0  
+**Дата обновления:** 7 ноября 2024
 
-## Отличия от оригинальной версии
+Документ описывает развёртывание приложения `vertex-ar` на отдельном сервере Linux. Инструкции ориентированы на Ubuntu 22.04, но могут быть адаптированы под другие дистрибутивы.
 
-- Использование SQLite вместо PostgreSQL
-- Локальное файловое хранилище вместо MinIO
-- Упрощенная аутентификация
-- Меньше зависимостей и внешних сервисов
+---
 
-## Prerequisites
-
-- Ubuntu 22.04 LTS server
-- Domain name pointing to the server
-- Firewall configured to allow HTTP (80), HTTPS (443), and SSH (22) ports
-
-## 1. Initial Server Setup
-
-### Update System Packages
+## 1. Подготовка сервера
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-```
-
-### Create Application User
-
-```bash
-sudo adduser --system --group --shell /bin/bash vertexart
-```
-
-### Configure Firewall
-
-```bash
-# Allow SSH, HTTP, and HTTPS
+sudo apt install -y python3 python3-venv python3-pip git nginx supervisor curl unzip
 sudo ufw allow ssh
 sudo ufw allow http
 sudo ufw allow https
 sudo ufw enable
 ```
 
-## 2. Application Deployment
-
-### Install Python and Dependencies
-
+Создайте системного пользователя:
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git nginx supervisor curl wget
+sudo adduser --system --group --home /opt/vertex-ar vertexar
+sudo mkdir -p /opt/vertex-ar
+sudo chown vertexar:vertexar /opt/vertex-ar
 ```
 
-### Clone Repository
+---
+
+## 2. Получение кода
 
 ```bash
-# Switch to application user
-sudo su - vertexart
-
-# Clone repository
-git clone https://github.com/your-username/vertex-ar.git /opt/vertex-ar
-cd /opt/vertex-ar
+sudo -u vertexar -H bash -c '
+  cd /opt/vertex-ar && \
+  git clone https://github.com/your-org/vertex-ar.git src && \
+  cd src && \
+  git checkout main
+'
 ```
 
-### Set Up Python Environment
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install simplified dependencies
-pip install --upgrade pip
-pip install -r requirements-simple.txt
+Структура:
+```
+/opt/vertex-ar
+└── src/          # Репозиторий
 ```
 
-### Configure Environment Variables
+---
 
-Create a `.env` file in the project directory:
+## 3. Виртуальное окружение и зависимости
 
 ```bash
-cat > .env <<EOF
-DATABASE_URL=sqlite:///./app_data.db
-STORAGE_ROOT=/opt/vertex-ar/storage
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=secret
-SECRET_KEY=your-very-secure-secret-key-here
-EOF
+sudo -u vertexar -H bash -c '
+  cd /opt/vertex-ar/src/vertex-ar && \
+  python3 -m venv ../venv && \
+  source ../venv/bin/activate && \
+  pip install --upgrade pip && \
+  pip install -r requirements.txt && \
+  pip install -r requirements-dev.txt
+'
 ```
 
-## 3. Storage Setup (Local File System)
+Если используется генерация маркеров через OpenCV или дополнительные библиотеки — установите их заранее (см. `docs/guides/installation.md`).
 
-### Create Storage Directories
+---
+
+## 4. Конфигурация окружения
 
 ```bash
-# Create storage directories
-sudo mkdir -p /opt/vertex-ar/storage/ar_content
-sudo mkdir -p /opt/vertex-ar/storage/nft-markers
-sudo mkdir -p /opt/vertex-ar/storage/previews
-
-# Set proper ownership
-sudo chown -R vertexart:vertexart /opt/vertex-ar/storage
+sudo -u vertexar -H bash -c '
+  cd /opt/vertex-ar/src/vertex-ar && \
+  cp .env.production.example .env
+'
 ```
 
-## 4. Web Server Configuration (Nginx)
+Обязательные параметры `.env`:
+- `BASE_URL=https://ar.example.com`
+- `STORAGE_TYPE=minio` или `local`
+- `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`
+- `SESSION_TIMEOUT_MINUTES=30`, `AUTH_MAX_ATTEMPTS=5`, `AUTH_LOCKOUT_MINUTES=15`
+- `CORS_ORIGINS=https://ar.example.com`
+- `SENTRY_DSN` (опционально)
 
-### Configure Nginx Site
-
-Create a new site configuration:
-
+Создайте каталоги хранения:
 ```bash
-sudo tee /etc/nginx/sites-available/vertex-ar > /dev/null <<EOF
+sudo -u vertexar -H bash -c '
+  mkdir -p /opt/vertex-ar/data/storage/ar_content \
+           /opt/vertex-ar/data/storage/nft-markers \
+           /opt/vertex-ar/data/storage/qr-codes \
+           /opt/vertex-ar/data/logs
+'
+```
+
+Добавьте в `.env`:
+```
+STORAGE_ROOT=/opt/vertex-ar/data/storage
+LOGS_ROOT=/opt/vertex-ar/data/logs
+```
+
+---
+
+## 5. Gunicorn + Uvicorn workers
+
+Создайте файл `/etc/systemd/system/vertex-ar.service`:
+```ini
+[Unit]
+Description=Vertex AR API
+After=network.target
+
+[Service]
+User=vertexar
+Group=vertexar
+WorkingDirectory=/opt/vertex-ar/src/vertex-ar
+Environment="PATH=/opt/vertex-ar/venv/bin"
+ExecStart=/opt/vertex-ar/venv/bin/gunicorn app.main:app \
+  --workers 4 --worker-class uvicorn.workers.UvicornWorker \
+  --bind 127.0.0.1:9000 --timeout 120
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Активируйте службу:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable vertex-ar.service
+sudo systemctl start vertex-ar.service
+sudo systemctl status vertex-ar.service
+```
+
+---
+
+## 6. Nginx
+
+Создайте `/etc/nginx/sites-available/vertex-ar.conf`:
+```nginx
 server {
     listen 80;
-    server_name your-domain.com; # Change to your domain
-    
-    # Proxy to FastAPI application
+    server_name ar.example.com;
+
+    access_log /opt/vertex-ar/data/logs/nginx_access.log;
+    error_log  /opt/vertex-ar/data/logs/nginx_error.log;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
     location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_pass         http://127.0.0.1:9000;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
     }
-    
-    # Serve static files
+
     location /static/ {
-        alias /opt/vertex-ar/static/;
-        expires 1y;
-        add_header Cache-Control "public";
-    }
-    
-    # Serve uploaded content
-    location /storage/ {
-        alias /opt/vertex-ar/storage/;
-        expires 1d;
-        add_header Cache-Control "public";
+        alias /opt/vertex-ar/src/vertex-ar/static/;
+        add_header Cache-Control "public, max-age=3600";
     }
 }
-EOF
+```
 
-# Enable site
-sudo ln -sf /etc/nginx/sites-available/vertex-ar /etc/nginx/sites-enabled/
-
-# Remove default site
-sudo rm -f /etc/nginx/sites-enabled/default
-
-# Test configuration
+Активируйте сайт:
+```bash
+sudo ln -s /etc/nginx/sites-available/vertex-ar.conf /etc/nginx/sites-enabled/
 sudo nginx -t
-
-# Restart Nginx
 sudo systemctl restart nginx
 ```
 
-## 5. Process Management (Supervisor)
+> Для HTTPS используйте Certbot: `sudo certbot --nginx -d ar.example.com`.
 
-### Configure Supervisor
+---
 
-Create a supervisor configuration for the application:
+## 7. Плановое обслуживание
 
-```bash
-sudo tee /etc/supervisor/conf.d/vertex-ar.conf > /dev/null <<EOF
-[program:vertex-ar]
-command=/opt/vertex-ar/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
-directory=/opt/vertex-ar
-user=vertexart
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/vertex-ar.log
-environment=DATABASE_URL="sqlite:////opt/vertex-ar/app_data.db",STORAGE_ROOT="/opt/vertex-ar/storage"
-EOF
+| Задача | Команда |
+| --- | --- |
+| Резервное копирование хранилища | `tar czf backup-$(date +%F).tar.gz /opt/vertex-ar/data/storage` |
+| Обновление зависимостей | `pip install -r requirements.txt --upgrade` |
+| Проверка готовности | `/opt/vertex-ar/src/check_production_readiness.sh` |
+| Нагрузочные тесты | `/opt/vertex-ar/src/run_performance_tests.sh` |
+| Очистка маркеров | `curl -X POST https://ar.example.com/api/nft-markers/cleanup -H "Authorization: Bearer <token>"` |
 
-# Reload supervisor configuration
-sudo supervisorctl reread
-sudo supervisorctl update
-sudo supervisorctl start vertex-ar
-```
+Рекомендуется раз в неделю анализировать логи `/opt/vertex-ar/data/logs/*.log`.
 
-## 6. SSL Certificate (Let's Encrypt)
+---
 
-### Install Certbot
+## 8. Мониторинг и алерты
 
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-```
+- Интегрируйте Sentry (DSN в `.env`).  
+- Отправляйте логи в ELK/Datadog (JSON-формат совместим).  
+- Используйте Prometheus-экспортер или систему метрик `metrics` (roadmap v1.4).  
+- Настройте системные метрики (CPU/RAM/Disk) через Netdata или Grafana Agent.
 
-### Obtain SSL Certificate
+---
+
+## 9. Обновления приложения
 
 ```bash
-# Replace 'your-domain.com' with your actual domain
-sudo certbot --nginx -d your-domain.com
+sudo systemctl stop vertex-ar.service
+sudo -u vertexar -H bash -c '
+  cd /opt/vertex-ar/src && git fetch && git checkout main && git pull
+  source ../venv/bin/activate
+  pip install -r vertex-ar/requirements.txt
+  pip install -r vertex-ar/requirements-dev.txt
+'
+sudo systemctl start vertex-ar.service
 ```
 
-## 7. Final Steps
-
-### Set Proper Permissions
-
+После обновления запустите автотесты вручную или в CI:
 ```bash
-# Set ownership of application files
-sudo chown -R vertexart:vertexart /opt/vertex-ar
-
-# Create database file with proper permissions
-sudo touch /opt/vertex-ar/app_data.db
-sudo chown vertexart:vertexart /opt/vertex-ar/app_data.db
+cd /opt/vertex-ar/src
+source ../venv/bin/activate
+pytest --maxfail=1
 ```
 
-### Test Application
+---
 
-```bash
-# Check if services are running
-sudo systemctl status nginx
-sudo supervisorctl status
+## 10. Контрольный список перед запуском
 
-# Test application accessibility
-curl -I http://your-domain.com
-```
+- [ ] Настроен `.env`, секреты сохранены в менеджере секретов
+- [ ] Работает HTTPS (сертификаты обновляются автоматически)
+- [ ] Созданы резервные копии хранилища и `.env`
+- [ ] Прошли `pytest` и `check_production_readiness.sh`
+- [ ] Логи и директории имеют права пользователя `vertexar`
+- [ ] Добавлено наблюдение за доступностью `/health`
 
-## 8. Monitoring and Maintenance
+---
 
-### Log Files
-
-- Application logs: `/var/log/vertex-ar.log`
-- Nginx logs: `/var/log/nginx/`
-
-### Regular Maintenance Tasks
-
-1. Update system packages regularly:
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
-
-2. Monitor disk space usage:
-   ```bash
-   df -h
-   ```
-
-3. Check application health:
-   ```bash
-   sudo supervisorctl status vertex-ar
-   ```
-
-4. Backup database regularly:
-   ```bash
-   cp /opt/vertex-ar/app_data.db backup_$(date +%Y%m%d).db
-   ```
-
-5. Backup storage directory:
-   ```bash
-   tar -czf storage_backup_$(date +%Y%m%d).tar.gz /opt/vertex-ar/storage
-   ```
-
-## 9. Docker Production Setup (Alternative)
-
-Instead of manual installation, you can use Docker for simplified deployment:
-
-### Install Docker
-
-```bash
-# Install Docker
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg lsb-release
-
-# Add Docker's official GPG key
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
-# Set up the repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install Docker Engine
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# Add current user to docker group
-sudo usermod -aG docker $USER
-```
-
-### Deploy with Docker Compose
-
-```bash
-# Clone repository
-git clone https://github.com/your-username/vertex-ar.git /opt/vertex-ar
-cd /opt/vertex-ar
-
-# Build and start services
-docker compose up -d
-
-# Check status
-docker compose ps
-```
-
-## Conclusion
-
-With these steps, you should have a fully functional production environment for the simplified Vertex AR application. Remember to:
-
-1. Regularly update the system and application
-2. Monitor logs for any issues
-3. Maintain backups of important data
-4. Keep all credentials secure and rotate them periodically
-5. The simplified version requires fewer resources and dependencies than the original version
+При возникновении вопросов обратитесь к `../docs/guides/installation.md`, `../SECURITY.md` или команде DevOps: devops@vertex-ar.example.com.

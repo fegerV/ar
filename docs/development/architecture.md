@@ -1,720 +1,168 @@
-# Vertex AR - Architecture Documentation
+# Архитектура Vertex AR
 
-## Оглавление
+**Версия:** 1.3.0  
+**Дата обновления:** 7 ноября 2024
 
-1. [Введение](#введение)
-2. [Общая архитектура](#общая-архитектура)
-3. [Компоненты системы](#компоненты-системы)
-4. [Схема базы данных](#схема-базы-данных)
-5. [Поток данных](#поток-данных)
-6. [Модули и их взаимодействие](#модули-и-их-взаимодействие)
-7. [Технологический стек](#технологический-стек)
-8. [Безопасность](#безопасность)
-9. [Масштабируемость](#масштабируемость)
-10. [Развертывание](#развертывание)
+Документ описывает архитектурные решения системы Vertex AR, ключевые компоненты и потоки данных.
 
 ---
 
-## Введение
+## 1. Обзор
 
-Vertex AR - это веб-приложение для создания дополненной реальности (AR) из статичных портретов. Архитектура построена на принципах простоты, модульности и эффективности.
+Vertex AR — веб-приложение на FastAPI, которое позволяет загружать портреты, привязывать к ним мультимедиа и воспроизводить сцены дополненной реальности. Система состоит из следующих слоёв:
 
-### Ключевые принципы
-
-- **Простота**: Минимум зависимостей, понятная структура
-- **Модульность**: Четкое разделение ответственности
-- **Производительность**: Оптимизированная обработка файлов
-- **Безопасность**: Token-based аутентификация, валидация входных данных
-
----
-
-## Общая архитектура
-
-### High-Level Architecture
-
-```
-┌─────────────────┐
-│   Web Browser   │ (User Interface)
-│  (A-Frame + AR) │
-└────────┬────────┘
-         │
-         │ HTTP/HTTPS
-         ▼
-┌─────────────────────────────────────┐
-│         FastAPI Application         │
-│  ┌─────────────────────────────┐   │
-│  │   API Endpoints             │   │
-│  │  • Auth                     │   │
-│  │  • AR Upload/View           │   │
-│  │  • Admin Panel              │   │
-│  └──────────┬──────────────────┘   │
-│             │                       │
-│  ┌──────────┴──────────────────┐   │
-│  │   Business Logic Modules    │   │
-│  │  • NFT Marker Generator     │   │
-│  │  • File Validator           │   │
-│  │  • Preview Generator        │   │
-│  │  • Notification Handler     │   │
-│  └──────────┬──────────────────┘   │
-│             │                       │
-│  ┌──────────┴──────────────────┐   │
-│  │   Data Access Layer         │   │
-│  │  • Database (SQLite)        │   │
-│  │  • Storage (Local/MinIO)    │   │
-│  └─────────────────────────────┘   │
-└─────────────────────────────────────┘
-         │                  │
-         │                  │
-         ▼                  ▼
-┌────────────┐      ┌──────────────┐
-│   SQLite   │      │ File Storage │
-│  Database  │      │   (Local)    │
-└────────────┘      └──────────────┘
-```
+1. **Веб-интерфейс:** админ-панель и AR-viewer (A-Frame + AR.js).  
+2. **Backend:** REST API, бизнес-логика, генератор NFT-маркеров.  
+3. **Хранилище:** локальная файловая система или MinIO/S3.  
+4. **База данных:** SQLite (планируется переход на PostgreSQL).  
+5. **Служебные компоненты:** валидация, логирование, мониторинг, автоматические скрипты.
 
 ---
 
-## Компоненты системы
+## 2. Стек технологий
 
-### 1. Frontend Components
+- **Backend:** FastAPI, Python 3.10, SQLAlchemy, Pydantic v2
+- **AR и фронтенд:** A-Frame, AR.js, Anime.js, Jinja2
+- **Хранилище:** локальный диск / MinIO / S3 (через единый адаптер)
+- **Инфраструктура:** Docker, Docker Compose, Nginx, Supervisor
+- **Логирование:** structlog, JSON-формат, request ID
 
-#### AR Viewer (A-Frame + AR.js)
-- **Назначение**: Отображение AR контента в браузере
-- **Технологии**: A-Frame, AR.js, Anime.js
-- **Функции**:
-  - Распознавание NFT маркеров
-  - Наложение видео на изображение
-  - Анимации (моргание, улыбка, поворот головы)
-  - Адаптивный дизайн для мобильных устройств
+---
 
-#### Admin Panel
-- **Назначение**: Управление контентом и пользователями
-- **Технологии**: HTML, Jinja2 Templates, JavaScript
-- **Функции**:
-  - Загрузка изображений и видео
-  - Просмотр списка AR контента
-  - Статистика и аналитика
-  - Управление пользователями
+## 3. Компоненты
 
-### 2. Backend Components
+### 3.1 Слои приложения
 
-#### Main Application (main.py)
-- **Назначение**: Основное FastAPI приложение
-- **Ответственность**:
-  - Routing и обработка HTTP запросов
-  - Middleware (CORS, authentication)
-  - Статические файлы и шаблоны
-  - Координация между модулями
-
-**Основные классы:**
-
-```python
-class Database:
-    """Управление SQLite базой данных"""
-    - create_user()
-    - get_user()
-    - create_ar_content()
-    - get_ar_content()
-    - list_ar_content()
-
-class TokenManager:
-    """Управление токенами аутентификации"""
-    - issue_token()
-    - verify_token()
-    - revoke_token()
+```
+┌────────────────────────────────────────────────────┐
+│                 Веб-клиенты и устройства           │
+│  ├─ Админ-панель (Jinja2 + Alpine.js)              │
+│  ├─ AR Viewer (A-Frame + AR.js)                    │
+│  └─ Интеграции (curl/SDK)                          │
+└───────────────────┬────────────────────────────────┘
+                    │ HTTP(S)
+┌───────────────────┴────────────────────────────────┐
+│                    FastAPI backend                 │
+│  ├─ app/api/auth.py                                │
+│  ├─ app/api/clients.py                             │
+│  ├─ app/api/portraits.py                           │
+│  ├─ app/api/videos.py                              │
+│  ├─ app/api/nft_markers.py                         │
+│  └─ app/api/users.py                               │
+│        │                    │                     │
+│  ┌─────▼─────┐      ┌───────▼─────────┐     ┌─────▼─────┐
+│  Validators  │      │ Storage adapter │     │  Services │
+│  (Pydantic)  │      │ (local / MinIO) │     │  (QR, NFT)│
+└──────┬───────┘      └────────┬────────┘     └─────┬─────┘
+       │                       │                     │
+┌──────▼──────┐        ┌───────▼──────┐     ┌────────▼────────┐
+│ SQLite /    │        │ File system  │     │ Асинхронные      │
+│ PostgreSQL* │        │ или MinIO    │     │ задачи (план)    │
+└─────────────┘        └──────────────┘     └─────────────────┘
 ```
 
-#### Authentication Module (auth.py)
-- **Назначение**: Аутентификация и авторизация
-- **Функции**:
-  - Хеширование паролей (bcrypt)
-  - Генерация JWT токенов
-  - Валидация токенов
-  - Проверка прав доступа
+"+" *Подготовка к миграции на PostgreSQL ведётся в релизе 1.4.*
 
-#### NFT Marker Generator (nft_marker_generator.py)
-- **Назначение**: Генерация AR маркеров из изображений
-- **Процесс**:
-  1. Загрузка изображения
-  2. Извлечение feature points (SIFT/ORB)
-  3. Генерация .fset, .fset3, .iset файлов
-  4. Оптимизация для AR.js
+### 3.2 Основные модули
 
-**Конфигурация:**
-```python
-class NFTMarkerConfig:
-    feature_density: str  # "low", "medium", "high"
-    levels: int          # Number of pyramid levels (1-3)
-    dpi: int            # Target DPI (72-300)
-```
+| Модуль | Назначение |
+| --- | --- |
+| `app/main.py` | Инициализация FastAPI, middleware, маршрутизация |
+| `app/api/*` | REST-эндпоинты (auth, users, clients, portraits, videos, nft_markers) |
+| `app/models.py` | Pydantic-схемы и валидаторы (email, телефон, пароль, имя, UUID, файлы) |
+| `app/validators.py` | Централизованная валидация и нормализация данных |
+| `app/middleware.py` | Request/Response logging, error logging, validation logging |
+| `app/storage.py` | Адаптеры хранилища (локально, MinIO/S3), управление файлами |
+| `nft_marker_generator.py` | Генерация NFT-маркеров, batch-пайплайн, аналитика |
+| `templates/` | Админ-панель, viewer, email-шаблоны |
 
-#### File Validator (file_validator.py)
-- **Назначение**: Валидация загружаемых файлов
-- **Проверки**:
-  - Тип файла (MIME type)
-  - Размер файла
-  - Формат и структура
-  - Безопасность (magic bytes)
+---
 
-#### Storage Module (storage.py, storage_local.py)
-- **Назначение**: Абстракция для работы с файловым хранилищем
-- **Поддержка**:
-  - Локальное хранилище
-  - MinIO (S3-compatible)
-- **Операции**:
-  - Сохранение файлов
-  - Получение файлов
-  - Удаление файлов
-  - Генерация URL
+## 4. Потоки данных
 
-#### Preview Generator (preview_generator.py)
-- **Назначение**: Генерация превью для изображений и видео
-- **Функции**:
-  - Создание thumbnail изображений
-  - Извлечение frame из видео
-  - Оптимизация размеров
+### 4.1 Загрузка портрета
 
-#### Notification Handler (notification_handler.py)
-- **Назначение**: Система уведомлений
-- **Типы уведомлений**:
-  - Email уведомления
-  - Webhook callbacks
-  - Internal events
+1. Администратор загружает файл через `/api/portraits` или админ-панель.  
+2. Файл проходит валидацию (размер, MIME, разрешение).  
+3. Данные сохраняются в БД, изображение — в хранилище (`storage/ar_content`).  
+4. Генерируется NFT-маркер (файлы `.fset`, `.fset3`, `.iset`).  
+5. Создаётся QR-код и постоянная ссылка `/portrait/{uuid}`.
 
-### 3. Data Layer
+### 4.2 Просмотр сцены
 
-#### Database (SQLite)
-- **Назначение**: Хранение структурированных данных
-- **Особенности**:
-  - Встроенная база данных (no server)
-  - Thread-safe операции
-  - Простое развертывание
-  - Поддержка миграций
+1. Пользователь открывает ссылку или сканирует QR.  
+2. AR-viewer загружает маркеры и видео.  
+3. A-Frame и AR.js отображают сцену через камеру устройства.  
+4. Статистика просмотров фиксируется и логируется.
 
-#### File Storage
-- **Назначение**: Хранение медиа файлов
-- **Структура**:
+---
+
+## 5. Хранилище и файлы
+
+- **Локальный режим:** директория `storage/` внутри проекта.  
+- **MinIO/S3:** используется при установке `STORAGE_TYPE=minio`.  
+- **Валидация:** проверка magic bytes, MIME, размеров, поддерживаемых расширений.  
+- **Очистка:** `api/nft-markers/cleanup` удаляет неактивные маркеры, скрипты обслуживания чистят временные файлы.
+
+Структура хранения:
 ```
 storage/
 ├── ar_content/
-│   └── {username}/
-│       └── {content_id}/
-│           ├── {content_id}.jpg    # Original image
-│           ├── {content_id}.mp4    # Original video
-│           └── preview.jpg         # Thumbnail
+│   ├── images/
+│   └── videos/
 ├── nft-markers/
-│   └── {content_id}/
-│       ├── marker.fset             # Feature set
-│       ├── marker.fset3            # Feature set 3 levels
-│       └── marker.iset             # Image set
-└── qr-codes/
-    └── {content_id}.png            # QR code
+├── qr-codes/
+└── previews/
 ```
 
 ---
 
-## Схема базы данных
+## 6. Безопасность
 
-### Entity-Relationship Diagram
-
-```
-┌──────────────────┐
-│      users       │
-├──────────────────┤
-│ username (PK)    │───┐
-│ hashed_password  │   │
-│ is_admin         │   │
-└──────────────────┘   │
-                       │ 1:N
-                       │
-                       ▼
-             ┌──────────────────┐
-             │   ar_content     │
-             ├──────────────────┤
-             │ id (PK)          │
-             │ username (FK)    │
-             │ image_path       │
-             │ video_path       │
-             │ marker_fset      │
-             │ marker_fset3     │
-             │ marker_iset      │
-             │ ar_url           │
-             │ qr_code          │
-             │ created_at       │
-             └──────────────────┘
-```
-
-### Таблица: users
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| username | TEXT | PRIMARY KEY, NOT NULL | Уникальное имя пользователя |
-| hashed_password | TEXT | NOT NULL | Хешированный пароль (bcrypt) |
-| is_admin | INTEGER | NOT NULL, DEFAULT 0 | Флаг администратора (0/1) |
-
-**Индексы:**
-- PRIMARY KEY on `username`
-
-### Таблица: ar_content
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | TEXT | PRIMARY KEY, NOT NULL | UUID контента |
-| username | TEXT | NOT NULL, FOREIGN KEY | Владелец контента |
-| image_path | TEXT | NOT NULL | Путь к изображению |
-| video_path | TEXT | NOT NULL | Путь к видео |
-| marker_fset | TEXT | NOT NULL | Путь к .fset файлу |
-| marker_fset3 | TEXT | NOT NULL | Путь к .fset3 файлу |
-| marker_iset | TEXT | NOT NULL | Путь к .iset файлу |
-| ar_url | TEXT | NOT NULL | URL для просмотра AR |
-| qr_code | TEXT | NULLABLE | QR-код (base64) |
-| created_at | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Дата создания |
-
-**Индексы:**
-- PRIMARY KEY on `id`
-- FOREIGN KEY on `username` references `users(username)`
-- INDEX on `created_at` для сортировки
+- JWT-токены с настройкой TTL и блокировками
+- Rate limiting (`slowapi`) на уровне глобальных и авторизационных эндпоинтов
+- Централизованная валидация данных (`validators.py`)
+- Логирование ошибок 4xx/5xx, валидаций, request ID и IP-адресов
+- Конфигурация CORS через `.env`
+- Подготовка к 2FA/OAuth2 в релизе 1.5
 
 ---
 
-## Поток данных
+## 7. Логирование и наблюдаемость
 
-### 1. Загрузка AR контента
-
-```
-User → [Upload Form] → FastAPI → [File Validation]
-                                         │
-                                         ▼
-                                  [Save to Storage]
-                                         │
-                                         ▼
-                              [NFT Marker Generation]
-                                         │
-                                         ▼
-                                  [QR Code Generation]
-                                         │
-                                         ▼
-                                [Database Insert]
-                                         │
-                                         ▼
-                                    [Response]
-```
-
-**Детальные шаги:**
-
-1. **Прием файлов** (FastAPI)
-   - Проверка аутентификации
-   - Проверка прав (admin only)
-   - Валидация Content-Type
-
-2. **Валидация файлов** (file_validator.py)
-   - Проверка MIME type
-   - Проверка размера файла
-   - Проверка формата
-
-3. **Сохранение файлов** (storage.py)
-   - Генерация UUID
-   - Создание директорий
-   - Сохранение image и video
-
-4. **Генерация NFT маркеров** (nft_marker_generator.py)
-   - Обработка изображения
-   - Извлечение features
-   - Создание .fset, .fset3, .iset
-
-5. **Генерация QR-кода** (qrcode library)
-   - Создание QR с AR URL
-   - Конвертация в base64
-
-6. **Сохранение в БД** (database.py)
-   - Создание записи ar_content
-   - Commit транзакции
-
-7. **Возврат ответа**
-   - ARContentResponse с metadata
-
-### 2. Просмотр AR контента
-
-```
-User → [Scan QR/Click Link] → FastAPI → [Get AR Content]
-                                             │
-                                             ▼
-                                      [Load Template]
-                                             │
-                                             ▼
-                                    [Render HTML + AR.js]
-                                             │
-                                             ▼
-                                        [Browser]
-                                             │
-                                             ▼
-                                   [AR.js Load Markers]
-                                             │
-                                             ▼
-                                    [Camera Detection]
-                                             │
-                                             ▼
-                                     [Play Video]
-```
-
-### 3. Аутентификация
-
-```
-User → [Login Form] → FastAPI → [Verify Credentials]
-                                       │
-                                       ▼
-                                [Hash Password]
-                                       │
-                                       ▼
-                                [Compare Hashes]
-                                       │
-                                       ▼
-                                [Generate Token]
-                                       │
-                                       ▼
-                               [Store in TokenManager]
-                                       │
-                                       ▼
-                                 [Return Token]
-```
+- `RequestLoggingMiddleware` — метод, путь, статус, длительность, request ID
+- `ErrorLoggingMiddleware` — ошибки 4xx/5xx со стек-трейсами
+- `ValidationLoggingMiddleware` — информация о 422-ответах и полях
+- Логи в JSON-формате, совместимы с ELK / Loki / Datadog
+- Скрипты `run_performance_tests.sh` и `check_production_readiness.sh`
 
 ---
 
-## Модули и их взаимодействие
+## 8. Развёртывание
 
-### Dependency Graph
-
-```
-main.py
-├── auth.py
-│   └── passlib (bcrypt)
-├── database.py
-│   └── sqlite3
-├── file_validator.py
-│   ├── python-magic
-│   └── pathlib
-├── nft_marker_generator.py
-│   ├── opencv-python
-│   ├── numpy
-│   └── pillow
-├── storage.py / storage_local.py
-│   └── minio (optional)
-├── preview_generator.py
-│   ├── pillow
-│   └── opencv-python
-├── notification_handler.py
-│   └── requests
-└── utils.py
-```
-
-### Module Communication
-
-```
-┌─────────────┐
-│   main.py   │
-└──────┬──────┘
-       │
-       ├──────────────┐
-       │              │
-       ▼              ▼
-┌──────────┐   ┌──────────────┐
-│ auth.py  │   │ database.py  │
-└──────────┘   └──────────────┘
-       │              ▲
-       │              │
-       ▼              │
-┌─────────────────────┴────┐
-│ nft_marker_generator.py  │
-└──────────┬───────────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   storage.py        │
-└─────────────────────┘
-```
+- **Docker Compose:** основной способ локального и продакшен-развертывания
+- **Nginx:** обратный прокси, HTTPS, сжатие, кэширование статических файлов
+- **Supervisor/Systemd:** управление процессами в продакшене (опционально)
+- **CI/CD (план):** линтеры, pytest, pytest-cov, публикация отчётов (релиз 1.4)
 
 ---
 
-## Технологический стек
+## 9. Масштабирование и планы (v1.4–v1.5)
 
-### Backend
-
-| Компонент | Технология | Версия | Назначение |
-|-----------|-----------|--------|------------|
-| Web Framework | FastAPI | 0.104+ | REST API, routing |
-| Web Server | Uvicorn | 0.24+ | ASGI server |
-| Database | SQLite | 3.x | Data persistence |
-| ORM | SQLAlchemy | 2.x | Database abstraction |
-| Authentication | python-jose | 3.x | JWT tokens |
-| Password Hashing | passlib (bcrypt) | 1.7+ | Secure password storage |
-| File Storage | MinIO | 7.x | S3-compatible storage |
-| Image Processing | Pillow | 10.x | Image manipulation |
-| Computer Vision | OpenCV | 4.x | Feature extraction |
-| QR Codes | qrcode | 7.x | QR code generation |
-
-### Frontend
-
-| Компонент | Технология | Версия | Назначение |
-|-----------|-----------|--------|------------|
-| AR Framework | A-Frame | 1.4+ | WebXR/WebVR |
-| AR Tracking | AR.js | 3.4+ | Marker tracking |
-| Animation | Anime.js | 3.2+ | Smooth animations |
-| Templates | Jinja2 | 3.x | Server-side rendering |
-
-### Development Tools
-
-| Tool | Назначение |
-|------|------------|
-| pytest | Unit testing |
-| flake8 | Code linting |
-| mypy | Type checking |
-| black | Code formatting |
-| Docker | Containerization |
+- Перевод БД на PostgreSQL, миграции Alembic
+- Очередь фоновых задач (RQ/Celery) для генерации маркеров
+- Поддержка CDN и кэширования
+- Расширенные дашборды и алерты (Prometheus/Grafana)
+- Мобильные приложения и 3D-контент (в перспективе v2.0)
 
 ---
 
-## Безопасность
+## 10. Ссылки
 
-### Authentication & Authorization
+- Основной README: `../../README.md`
+- Руководство по установке: `../guides/installation.md`
+- API: `../api/README.md`, `../api/endpoints.md`
+- Политика безопасности: `../../SECURITY.md`
+- Roadmap: `../../ROADMAP.md`
 
-#### Token-Based Authentication
-- **Механизм**: Bearer tokens (in-memory)
-- **Генерация**: Secure random tokens (secrets.token_urlsafe)
-- **Хранение**: In-memory dictionary (не персистентные)
-- **Lifetime**: До logout или restart
-
-#### Password Security
-- **Хеширование**: bcrypt (passlib)
-- **Salt**: Автоматический (bcrypt)
-- **Rounds**: 12 (default)
-
-### Input Validation
-
-```python
-# File type validation
-def validate_file_type(file: UploadFile):
-    allowed_types = {
-        "image": ["image/jpeg", "image/png"],
-        "video": ["video/mp4", "video/webm"]
-    }
-    # Check MIME type
-    # Check magic bytes
-    # Check file extension
-```
-
-### File Upload Security
-
-1. **MIME Type Validation**: Проверка Content-Type
-2. **Magic Bytes**: Проверка реальной сигнатуры файла
-3. **Size Limits**: 
-   - Images: 10 MB
-   - Videos: 50 MB
-4. **Extension Whitelist**: Только разрешенные расширения
-5. **Path Sanitization**: Предотвращение path traversal
-
-### SQL Injection Prevention
-- **Parameterized Queries**: Все SQL запросы используют параметры
-- **SQLAlchemy ORM**: Автоматическое escaping
-
-### XSS Prevention
-- **Template Escaping**: Jinja2 автоматический escaping
-- **Content-Type Headers**: Правильные MIME types
-
----
-
-## Масштабируемость
-
-### Current Architecture
-
-**Ограничения:**
-- SQLite (single-file database)
-- In-memory tokens (не распределенные)
-- Local file storage
-
-**Подходит для:**
-- Малые и средние нагрузки (< 1000 users)
-- Одиночный сервер
-- Proof of concept, MVP
-
-### Scaling Strategies
-
-#### Horizontal Scaling
-
-**Необходимые изменения:**
-
-1. **Database Migration**
-   - SQLite → PostgreSQL
-   - Поддержка concurrent connections
-   - Connection pooling
-
-2. **Token Storage**
-   - In-memory → Redis
-   - Distributed token management
-   - Session sharing across instances
-
-3. **File Storage**
-   - Local → S3/MinIO cluster
-   - CDN для статики
-   - Distributed uploads
-
-4. **Load Balancing**
-   ```
-   [Load Balancer (nginx)]
-            │
-            ├─── [FastAPI Instance 1]
-            ├─── [FastAPI Instance 2]
-            └─── [FastAPI Instance N]
-            │
-            ├─── [PostgreSQL]
-            ├─── [Redis]
-            └─── [S3/MinIO]
-   ```
-
-#### Vertical Scaling
-
-- Увеличение CPU для NFT marker generation
-- Больше RAM для caching
-- Faster storage (SSD/NVMe)
-
-#### Caching Strategy
-
-```python
-# Redis caching
-cache_layers = {
-    "ar_content": "1 hour",
-    "nft_markers": "24 hours",
-    "user_sessions": "30 minutes"
-}
-```
-
-#### Background Jobs
-
-```python
-# Celery для async tasks
-tasks = {
-    "nft_marker_generation": "async",
-    "video_transcoding": "async",
-    "preview_generation": "async",
-    "notification_sending": "async"
-}
-```
-
----
-
-## Развертывание
-
-### Development Environment
-
-```bash
-# Local setup
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python vertex-ar/main.py
-```
-
-### Production Deployment (Docker)
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./storage:/app/storage
-    environment:
-      - DATABASE_URL=sqlite:///app_data.db
-      
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-```
-
-### Deployment Checklist
-
-- [ ] Обновить requirements.txt
-- [ ] Настроить переменные окружения (.env)
-- [ ] Настроить SSL/TLS сертификаты
-- [ ] Настроить backup базы данных
-- [ ] Настроить логирование
-- [ ] Настроить мониторинг
-- [ ] Провести нагрузочное тестирование
-- [ ] Настроить CI/CD pipeline
-
----
-
-## Мониторинг и Логирование
-
-### Logging
-
-```python
-import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
-```
-
-### Metrics
-
-**Ключевые метрики:**
-- Request rate (req/sec)
-- Response time (ms)
-- Error rate (%)
-- File upload size/time
-- NFT generation time
-- Database query time
-
-### Health Checks
-
-```python
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "version": VERSION,
-        "database": check_database(),
-        "storage": check_storage()
-    }
-```
-
----
-
-## Будущие улучшения
-
-### Short-term (1-3 months)
-- [ ] Миграция на PostgreSQL
-- [ ] Redis для token storage
-- [ ] Background job processing (Celery)
-- [ ] Advanced caching
-- [ ] Rate limiting
-
-### Mid-term (3-6 months)
-- [ ] Microservices architecture
-- [ ] GraphQL API
-- [ ] WebSocket support (real-time updates)
-- [ ] Advanced analytics
-- [ ] Mobile app (React Native/Flutter)
-
-### Long-term (6-12 months)
-- [ ] AI-powered features
-- [ ] Multi-tenant support
-- [ ] White-label solution
-- [ ] Enterprise features
-- [ ] Global CDN
-
----
-
-**Версия документации:** 1.0.0  
-**Последнее обновление:** 2024-01-15
+Документ актуален для релиза 1.3.0. Предложения по улучшению архитектуры обсуждаются в GitHub Discussions.
