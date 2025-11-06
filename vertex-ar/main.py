@@ -35,6 +35,15 @@ from slowapi.util import get_remote_address
 
 from logging_setup import get_logger
 from utils import format_bytes, get_disk_usage, get_storage_usage
+from validation_utils import EnhancedValidator, ValidationError, validate_and_log
+from enhanced_models import (
+    EnhancedUserCreate, EnhancedUserLogin, EnhancedUserUpdate, EnhancedPasswordChange,
+    EnhancedClientCreate, EnhancedClientUpdate, EnhancedOrderCreate, EnhancedUserSearch,
+    EnhancedPortraitCreate, EnhancedVideoUpload, EnhancedARContentCreate
+)
+from audit_logging import AuditLogger, SecurityLogger, OperationLogger, audit_action, log_operation
+from enhanced_file_validator import EnhancedFileValidator, SecureFileStorage, FileValidationError
+from validation_middleware import ValidationLoggingMiddleware, InputValidationMiddleware, RateLimitLoggingMiddleware
 
 load_dotenv()
 
@@ -686,6 +695,11 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+# Enhanced validation and logging middleware
+app.add_middleware(ValidationLoggingMiddleware)
+app.add_middleware(InputValidationMiddleware)
+app.add_middleware(RateLimitLoggingMiddleware)
+
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
 app.mount("/storage", StaticFiles(directory=str(STORAGE_ROOT)), name="storage")
 
@@ -747,27 +761,58 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
 
 @app.post("/auth/register", status_code=status.HTTP_201_CREATED, tags=["auth"])
 @limiter.limit(AUTH_RATE_LIMIT)
-async def register_user(request: Request, user: UserCreate) -> Dict[str, str]:
+@audit_action("create_user", "user")
+async def register_user(request: Request, user: EnhancedUserCreate) -> Dict[str, str]:
+    """Register new user with enhanced validation."""
     existing = database.get_user(user.username)
     if existing is not None:
+        SecurityLogger.log_suspicious_activity(
+            description="Registration attempt with existing username",
+            user=user.username,
+            details={"username": user.username}
+        )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
+    
     try:
-        database.create_user(user.username, _hash_password(user.password), is_admin=True)  # Создаем администратора
-        logger.info("Admin user registered", username=user.username)
+        database.create_user(user.username, _hash_password(user.password), is_admin=True)
+        logger.info("Admin user registered", username=user.username, email=user.email)
+        
+        # Log successful registration
+        SecurityLogger.log_login_attempt(
+            username=user.username,
+            success=True,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+        
     except ValueError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
+    
     return {"username": user.username}
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
 @limiter.limit(AUTH_RATE_LIMIT)
-async def login_user(request: Request, credentials: UserLogin) -> TokenResponse:
+@log_operation("user_login")
+async def login_user(request: Request, credentials: EnhancedUserLogin) -> TokenResponse:
+    """Enhanced user login with comprehensive logging."""
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    
     locked_until = auth_security.is_locked(credentials.username)
     if locked_until:
         logger.warning(
             "Attempt to access locked account",
             username=credentials.username,
             locked_until=locked_until.isoformat(),
+            client_ip=client_ip
+        )
+        SecurityLogger.log_login_attempt(
+            username=credentials.username,
+            success=False,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            error_message="Account locked"
         )
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
@@ -777,17 +822,42 @@ async def login_user(request: Request, credentials: UserLogin) -> TokenResponse:
     user = database.get_user(credentials.username)
     if user is None or not _verify_password(credentials.password, user["hashed_password"]):
         locked_until = auth_security.register_failure(credentials.username)
+        
+        SecurityLogger.log_login_attempt(
+            username=credentials.username,
+            success=False,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            error_message="Invalid credentials"
+        )
+        
         if locked_until:
+            SecurityLogger.log_suspicious_activity(
+                description="Account locked due to multiple failed attempts",
+                user=credentials.username,
+                ip_address=client_ip,
+                details={"locked_until": locked_until.isoformat()}
+            )
             raise HTTPException(
                 status_code=status.HTTP_423_LOCKED,
                 detail="Account locked due to multiple failed attempts",
             )
-        logger.warning("Invalid login attempt", username=credentials.username)
+        
+        logger.warning("Invalid login attempt", username=credentials.username, client_ip=client_ip)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     auth_security.reset(credentials.username)
     token = tokens.issue_token(credentials.username)
-    logger.info("User authenticated", username=credentials.username)
+    
+    # Log successful login
+    logger.info("User authenticated", username=credentials.username, client_ip=client_ip)
+    SecurityLogger.log_login_attempt(
+        username=credentials.username,
+        success=True,
+        ip_address=client_ip,
+        user_agent=user_agent
+    )
+    
     return TokenResponse(access_token=token)
 
 
@@ -807,73 +877,138 @@ async def logout_user(
 
 @app.post("/ar/upload", response_model=ARContentResponse, tags=["ar"])
 @limiter.limit(UPLOAD_RATE_LIMIT)
+@audit_action("upload_ar_content", "ar_content")
+@log_operation("upload_ar_content")
 async def upload_ar_content(
     request: Request,
     image: UploadFile = File(...),
     video: UploadFile = File(...),
     username: str = Depends(require_admin),
+    ar_data: EnhancedARContentCreate = None,
 ) -> ARContentResponse:
     """
-    Upload image and video to create AR content.
+    Enhanced AR content upload with comprehensive validation.
     Only admins can upload.
     """
-    if not image.content_type or not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
+    client_ip = request.client.host if request.client else None
     
-    if not video.content_type or not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
+    # Initialize enhanced file validator and secure storage
+    file_validator = EnhancedFileValidator()
+    secure_storage = SecureFileStorage(STORAGE_ROOT / "ar_content" / username)
     
-    # Генерируем UUID для файлов
-    content_id = str(uuid.uuid4())
+    try:
+        # Validate and store image
+        image_content, image_metadata = await file_validator.validate_upload_file(
+            image, file_type="image", user=username, client_ip=client_ip
+        )
+        
+        # Validate and store video
+        video_content, video_metadata = await file_validator.validate_upload_file(
+            video, file_type="video", user=username, client_ip=client_ip
+        )
+        
+        # Generate UUID for content
+        content_id = str(uuid.uuid4())
+        
+        # Store files securely
+        image_path, _ = await secure_storage.store_file(
+            image,
+            subdirectory=username,
+            custom_filename=f"{content_id}.jpg",
+            user=username,
+            client_ip=client_ip
+        )
+        
+        video_path, _ = await secure_storage.store_file(
+            video,
+            subdirectory=username,
+            custom_filename=f"{content_id}.mp4",
+            user=username,
+            client_ip=client_ip
+        )
+        
+        logger.info(
+            "Files stored successfully",
+            content_id=content_id,
+            user=username,
+            image_path=str(image_path),
+            video_path=str(video_path),
+            image_size=image_metadata.size_bytes,
+            video_size=video_metadata.size_bytes
+        )
+        
+    except FileValidationError as e:
+        logger.warning(
+            "File validation failed",
+            user=username,
+            error=e.message,
+            field=e.field,
+            client_ip=client_ip
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
+    except Exception as e:
+        logger.error(
+            "File upload failed",
+            user=username,
+            error=str(e),
+            client_ip=client_ip
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="File upload failed"
+        )
     
-    # Создаем директории для хранения файлов
-    user_storage = STORAGE_ROOT / "ar_content" / username
-    user_storage.mkdir(parents=True, exist_ok=True)
-    content_dir = user_storage / content_id
-    content_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Читаем содержимое файлов для генерации превью
-    image.file.seek(0)
-    image_content = await image.read()
-    video.file.seek(0)
-    video_content = await video.read()
-    
-    # Сохраняем изображение
-    image_path = content_dir / f"{content_id}.jpg"
-    with open(image_path, "wb") as f:
-        f.write(image_content)
-    
-    # Сохраняем видео
-    video_path = content_dir / f"{content_id}.mp4"
-    with open(video_path, "wb") as f:
-        f.write(video_content)
-    
-    # Генерируем превью
+    # Generate previews with enhanced logging
     from preview_generator import PreviewGenerator
     image_preview_path = None
     video_preview_path = None
     
     try:
-        # Генерируем превью изображения
+        # Generate image preview
         image_preview = PreviewGenerator.generate_image_preview(image_content)
         if image_preview:
-            image_preview_path = content_dir / f"{content_id}_preview.jpg"
+            image_preview_path = image_path.parent / f"{content_id}_preview.jpg"
             with open(image_preview_path, "wb") as f:
                 f.write(image_preview)
-            logger.info(f"Превью изображения создано: {image_preview_path}")
+            
+            logger.info(
+                "Image preview created",
+                content_id=content_id,
+                user=username,
+                preview_path=str(image_preview_path)
+            )
     except Exception as e:
-        logger.error(f"Ошибка при генерации превью изображения: {e}")
+        logger.error(
+            "Error generating image preview",
+            content_id=content_id,
+            user=username,
+            error=str(e)
+        )
     
     try:
-        # Генерируем превью видео
+        # Generate video preview
         video_preview = PreviewGenerator.generate_video_preview(video_content)
         if video_preview:
-            video_preview_path = content_dir / f"{content_id}_video_preview.jpg"
+            video_preview_path = video_path.parent / f"{content_id}_video_preview.jpg"
             with open(video_preview_path, "wb") as f:
                 f.write(video_preview)
-            logger.info(f"Превью видео создано: {video_preview_path}")
+            
+            logger.info(
+                "Video preview created",
+                content_id=content_id,
+                user=username,
+                preview_path=str(video_preview_path)
+            )
     except Exception as e:
-        logger.error(f"Ошибка при генерации превью видео: {e}")
+        logger.error(
+            "Error generating video preview",
+            content_id=content_id,
+            user=username,
+            error=str(e)
+        )
     
     # Генерируем QR-код
     ar_url = f"{BASE_URL}/ar/{content_id}"
@@ -1660,54 +1795,140 @@ async def list_nft_markers(
 # Orders API - создание и управление заказами
 
 @app.post("/orders/create", response_model=OrderResponse, tags=["orders"])
+@audit_action("create_order", "order")
+@log_operation("create_order")
 async def create_order(
+    request: Request,
     phone: str = Form(...),
     name: str = Form(...),
     image: UploadFile = File(...),
     video: UploadFile = File(...),
+    notes: Optional[str] = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """
-    Создать новый заказ: клиент + портрет + видео.
-    Генерируется постоянная ссылка для портрета.
+    Enhanced order creation with comprehensive validation.
+    Creates client + portrait + video with permanent link.
     """
-    if not image.content_type or not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
+    client_ip = request.client.host if request.client else None
     
-    if not video.content_type or not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
+    try:
+        # Validate input data using enhanced models
+        order_data = EnhancedOrderCreate(
+            phone=phone,
+            name=name,
+            notes=notes
+        )
+        
+        logger.info(
+            "Order data validated",
+            user=username,
+            phone=order_data.phone,
+            name=order_data.name,
+            client_ip=client_ip
+        )
+        
+    except ValidationError as e:
+        logger.warning(
+            "Order validation failed",
+            user=username,
+            error=e.message,
+            field=e.field,
+            client_ip=client_ip
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
     
-    # Проверяем существование клиента по телефону
-    client = database.get_client_by_phone(phone)
+    # Initialize enhanced file validator and secure storage
+    file_validator = EnhancedFileValidator()
+    
+    try:
+        # Validate image
+        image_content, image_metadata = await file_validator.validate_upload_file(
+            image, file_type="image", user=username, client_ip=client_ip
+        )
+        
+        # Validate video
+        video_content, video_metadata = await file_validator.validate_upload_file(
+            video, file_type="video", user=username, client_ip=client_ip
+        )
+        
+    except FileValidationError as e:
+        logger.warning(
+            "File validation failed in order creation",
+            user=username,
+            error=e.message,
+            field=e.field,
+            client_ip=client_ip
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
+    
+    # Check if client exists, create if not
+    client = database.get_client_by_phone(order_data.phone)
     if not client:
-        # Создаем нового клиента
         client_id = str(uuid.uuid4())
-        client = database.create_client(client_id, phone, name)
+        client = database.create_client(client_id, order_data.phone, order_data.name)
+        
+        logger.info(
+            "New client created",
+            client_id=client_id,
+            phone=order_data.phone,
+            name=order_data.name,
+            user=username
+        )
+    else:
+        logger.info(
+            "Existing client found",
+            client_id=client["id"],
+            phone=client["phone"],
+            name=client["name"],
+            user=username
+        )
     
-    # Генерируем ID для портрета и видео
+    # Generate IDs for portrait and video
     portrait_id = str(uuid.uuid4())
     video_id = str(uuid.uuid4())
     
-    # Создаем директорию для хранения файлов
+    # Create secure storage directory
     client_storage = STORAGE_ROOT / "clients" / client["id"]
     portrait_dir = client_storage / portrait_id
     portrait_dir.mkdir(parents=True, exist_ok=True)
     
-    # Читаем содержимое файлов
-    image.file.seek(0)
-    image_content = await image.read()
-    video.file.seek(0)
-    video_content = await video.read()
-    
-    # Сохраняем изображение
-    image_path = portrait_dir / f"{portrait_id}.jpg"
-    with open(image_path, "wb") as f:
-        f.write(image_content)
-    
-    # Сохраняем видео
-    video_path = portrait_dir / f"{video_id}.mp4"
-    with open(video_path, "wb") as f:
-        f.write(video_content)
+    # Store files securely
+    try:
+        image_path = portrait_dir / f"{portrait_id}.jpg"
+        with open(image_path, "wb") as f:
+            f.write(image_content)
+        
+        video_path = portrait_dir / f"{video_id}.mp4"
+        with open(video_path, "wb") as f:
+            f.write(video_content)
+        
+        logger.info(
+            "Order files stored",
+            portrait_id=portrait_id,
+            video_id=video_id,
+            user=username,
+            image_path=str(image_path),
+            video_path=str(video_path)
+        )
+        
+    except Exception as e:
+        logger.error(
+            "Failed to store order files",
+            user=username,
+            error=str(e),
+            client_ip=client_ip
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to store files"
+        )
     
     # Генерируем превью
     from preview_generator import PreviewGenerator
