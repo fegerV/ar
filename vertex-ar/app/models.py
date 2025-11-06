@@ -4,7 +4,15 @@ Contains request/response models for API endpoints.
 """
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.validators import (
+    validate_email,
+    validate_phone,
+    validate_username,
+    validate_password_strength,
+    validate_name,
+)
 
 
 # Authentication models
@@ -13,6 +21,30 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=256)
     email: Optional[str] = Field(None, max_length=255)
     full_name: Optional[str] = Field(None, max_length=150)
+    
+    @field_validator('username')
+    @classmethod
+    def validate_username_field(cls, v: str) -> str:
+        return validate_username(v)
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password_field(cls, v: str) -> str:
+        return validate_password_strength(v)
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_email(v)
+        return v
+    
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
 
 
 class UserLogin(BaseModel):
@@ -31,6 +63,20 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=150)
     is_admin: Optional[bool] = None
     is_active: Optional[bool] = None
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_email(v)
+        return v
+    
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
 
 
 class UserResponse(BaseModel):
@@ -61,6 +107,11 @@ class UserStats(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=256)
+    
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password_field(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class UserSearch(BaseModel):
@@ -85,11 +136,35 @@ class ARContentResponse(BaseModel):
 class ClientCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
 
 
 class ClientUpdate(BaseModel):
     phone: Optional[str] = Field(None, min_length=1, max_length=20)
     name: Optional[str] = Field(None, min_length=1, max_length=150)
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_phone(v)
+        return v
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
 
 
 class ClientResponse(BaseModel):
@@ -103,6 +178,16 @@ class ClientResponse(BaseModel):
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
 
 
 # Portrait models

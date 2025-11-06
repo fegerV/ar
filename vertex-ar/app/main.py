@@ -10,6 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
 from app.rate_limiter import create_rate_limit_dependency, rate_limit_dependency
+from app.middleware import RequestLoggingMiddleware, ErrorLoggingMiddleware, ValidationErrorLoggingMiddleware
 from logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -49,6 +50,12 @@ def create_app() -> FastAPI:
     
     # Configure Prometheus metrics
     Instrumentator().instrument(app).expose(app)
+    
+    # Add logging middleware
+    logger.info("Logging middleware configured")
+    app.add_middleware(ValidationErrorLoggingMiddleware)
+    app.add_middleware(ErrorLoggingMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
     
     # Configure CORS
     logger.info("CORS configured", origins=settings.CORS_ORIGINS)
