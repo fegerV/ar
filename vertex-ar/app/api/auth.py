@@ -70,8 +70,21 @@ async def register_user(
 ) -> dict:
     """Register a new user (creates admin user for initial setup)."""
     database = get_database()
+    
+    logger.info(
+        "user_registration_attempt",
+        username=user.username,
+        email=user.email,
+        client_host=request.client.host if request.client else None,
+    )
+    
     existing = database.get_user(user.username)
     if existing is not None:
+        logger.warning(
+            "user_registration_failed_duplicate",
+            username=user.username,
+            reason="user_already_exists",
+        )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
     
     # Check if this is the first user (make them admin)
@@ -87,12 +100,19 @@ async def register_user(
             full_name=user.full_name
         )
         logger.info(
-            "User registered", 
+            "user_registered_successfully", 
             username=user.username,
             is_admin=is_first_user,
-            email=user.email
+            email=user.email,
+            client_host=request.client.host if request.client else None,
         )
-    except ValueError:
+    except ValueError as e:
+        logger.error(
+            "user_registration_failed",
+            username=user.username,
+            error=str(e),
+            exc_info=True,
+        )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
     
     return {
@@ -112,12 +132,19 @@ async def login_user(
     auth_security = get_auth_security()
     tokens = get_token_manager()
     
+    logger.info(
+        "login_attempt",
+        username=credentials.username,
+        client_host=request.client.host if request.client else None,
+    )
+    
     locked_until = auth_security.is_locked(credentials.username)
     if locked_until:
         logger.warning(
-            "Attempt to access locked account",
+            "login_failed_account_locked",
             username=credentials.username,
             locked_until=locked_until.isoformat(),
+            client_host=request.client.host if request.client else None,
         )
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
@@ -128,11 +155,20 @@ async def login_user(
     if user is None or not _verify_password(credentials.password, user["hashed_password"]):
         locked_until = auth_security.register_failure(credentials.username)
         if locked_until:
+            logger.warning(
+                "login_failed_account_locked_multiple_attempts",
+                username=credentials.username,
+                client_host=request.client.host if request.client else None,
+            )
             raise HTTPException(
                 status_code=status.HTTP_423_LOCKED,
                 detail="Account locked due to multiple failed attempts",
             )
-        logger.warning("Invalid login attempt", username=credentials.username)
+        logger.warning(
+            "login_failed_invalid_credentials",
+            username=credentials.username,
+            client_host=request.client.host if request.client else None,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     auth_security.reset(credentials.username)
@@ -141,7 +177,11 @@ async def login_user(
     database.update_last_login(credentials.username)
     
     token = tokens.issue_token(credentials.username)
-    logger.info("User authenticated", username=credentials.username)
+    logger.info(
+        "login_successful",
+        username=credentials.username,
+        client_host=request.client.host if request.client else None,
+    )
     return TokenResponse(access_token=token)
 
 
@@ -154,6 +194,14 @@ async def logout_user(
     tokens = get_token_manager()
     username = tokens.verify_token(credentials.credentials)
     if username is None:
+        logger.warning(
+            "logout_failed_invalid_token",
+            client_host=request.client.host if request.client else None,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
     tokens.revoke_token(credentials.credentials)
-    logger.info("User logged out", username=username)
+    logger.info(
+        "logout_successful",
+        username=username,
+        client_host=request.client.host if request.client else None,
+    )

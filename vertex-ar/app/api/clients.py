@@ -9,6 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.auth import get_current_user
 from app.database import Database
 from app.models import ClientCreate, ClientResponse, ClientUpdate
+from logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -34,9 +37,21 @@ async def create_client(
     """Create a new client."""
     database = get_database()
     
+    logger.info(
+        "client_creation_attempt",
+        phone=client.phone,
+        name=client.name,
+        username=username,
+    )
+    
     # Check if client with this phone already exists
     existing_client = database.get_client_by_phone(client.phone)
     if existing_client:
+        logger.warning(
+            "client_creation_failed_duplicate_phone",
+            phone=client.phone,
+            username=username,
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Client with this phone number already exists"
@@ -44,6 +59,14 @@ async def create_client(
     
     client_id = str(uuid.uuid4())
     db_client = database.create_client(client_id, client.phone, client.name)
+    
+    logger.info(
+        "client_created_successfully",
+        client_id=client_id,
+        phone=client.phone,
+        name=client.name,
+        username=username,
+    )
     
     return ClientResponse(
         id=db_client["id"],
@@ -57,7 +80,12 @@ async def create_client(
 async def list_clients(username: str = Depends(get_current_user)) -> List[ClientResponse]:
     """Get list of all clients."""
     database = get_database()
+    
+    logger.info("clients_list_request", username=username)
+    
     clients = database.list_clients()
+    
+    logger.info("clients_list_retrieved", count=len(clients), username=username)
     
     return [
         ClientResponse(
@@ -77,13 +105,19 @@ async def get_client(
 ) -> ClientResponse:
     """Get client by ID."""
     database = get_database()
+    
+    logger.info("client_fetch_attempt", client_id=client_id, username=username)
+    
     client = database.get_client(client_id)
     
     if not client:
+        logger.warning("client_fetch_failed_not_found", client_id=client_id, username=username)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
+    
+    logger.info("client_fetched_successfully", client_id=client_id, username=username)
     
     return ClientResponse(
         id=client["id"],
@@ -145,9 +179,12 @@ async def update_client(
     """Update client data."""
     database = get_database()
     
+    logger.info("client_update_attempt", client_id=client_id, username=username)
+    
     # Check if client exists
     existing_client = database.get_client(client_id)
     if not existing_client:
+        logger.warning("client_update_failed_not_found", client_id=client_id, username=username)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
@@ -157,6 +194,12 @@ async def update_client(
     if client_update.phone:
         phone_client = database.get_client_by_phone(client_update.phone)
         if phone_client and phone_client["id"] != client_id:
+            logger.warning(
+                "client_update_failed_duplicate_phone",
+                client_id=client_id,
+                phone=client_update.phone,
+                username=username,
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Client with this phone number already exists"
@@ -170,6 +213,7 @@ async def update_client(
     )
     
     if not updated:
+        logger.warning("client_update_failed_no_fields", client_id=client_id, username=username)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No valid fields to update"
@@ -177,6 +221,13 @@ async def update_client(
     
     # Return updated client
     updated_client = database.get_client(client_id)
+    
+    logger.info(
+        "client_updated_successfully",
+        client_id=client_id,
+        username=username,
+    )
+    
     return ClientResponse(
         id=updated_client["id"],
         phone=updated_client["phone"],
@@ -193,9 +244,12 @@ async def delete_client(
     """Delete client."""
     database = get_database()
     
+    logger.info("client_deletion_attempt", client_id=client_id, username=username)
+    
     # Check if client exists
     existing_client = database.get_client(client_id)
     if not existing_client:
+        logger.warning("client_deletion_failed_not_found", client_id=client_id, username=username)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
@@ -204,7 +258,10 @@ async def delete_client(
     # Delete client
     deleted = database.delete_client(client_id)
     if not deleted:
+        logger.error("client_deletion_failed_database_error", client_id=client_id, username=username)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete client"
         )
+    
+    logger.info("client_deleted_successfully", client_id=client_id, username=username)
