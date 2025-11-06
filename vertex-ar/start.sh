@@ -26,4 +26,4 @@ mkdir -p storage/nft-markers
 
 # Start the server
 echo "Starting server on http://localhost:8000"
-uvicorn main:app --host 0.0.0.0 --port 800 --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
