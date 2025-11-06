@@ -2000,7 +2000,7 @@ async def view_portrait(portrait_id: str) -> HTMLResponse:
         
         <a-nft
             type="nft"
-            url="/storage/nft-markers/{portrait_id}/{portrait_id}"
+            url="/storage/nft_markers/{portrait_id}/{portrait_id}"
             smooth="true"
             smoothCount="10"
             smoothTolerance=".01"
@@ -2037,6 +2037,51 @@ async def view_portrait(portrait_id: str) -> HTMLResponse:
 </html>
 """
     return HTMLResponse(content=html)
+
+
+@app.get("/portraits/{portrait_id}/details", response_model=Dict[str, Any], tags=["portraits"])
+async def get_portrait_details(
+    portrait_id: str,
+    username: str = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Получить детальную информацию о портрете с клиентом и видео."""
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portrait not found")
+    
+    client = database.get_client(portrait["client_id"])
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    
+    videos = database.list_videos(portrait_id)
+    
+    return {
+        "portrait": PortraitResponse(
+            id=portrait["id"],
+            client_id=portrait["client_id"],
+            permanent_link=portrait["permanent_link"],
+            qr_code_base64=portrait["qr_code"],
+            image_path=portrait["image_path"],
+            view_count=portrait["view_count"],
+            created_at=portrait["created_at"],
+        ),
+        "client": ClientResponse(
+            id=client["id"],
+            phone=client["phone"],
+            name=client["name"],
+            created_at=client["created_at"],
+        ),
+        "videos": [
+            VideoResponse(
+                id=v["id"],
+                portrait_id=v["portrait_id"],
+                video_path=v["video_path"],
+                is_active=bool(v["is_active"]),
+                created_at=v["created_at"],
+            )
+            for v in videos
+        ]
+    }
 
 
 @app.delete("/portraits/{portrait_id}", tags=["portraits"])
