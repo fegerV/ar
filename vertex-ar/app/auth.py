@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 def _hash_password(password: str) -> str:
-    """Simple password hashing (use proper hashing in production)."""
+    """Hash password using SHA-256 (consider using bcrypt in production)."""
     return hashlib.sha256(password.encode()).hexdigest()
 
 

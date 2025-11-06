@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 
 # Authentication models
 class UserCreate(BaseModel):
-    username: str = Field(..., min_length=1, max_length=150)
-    password: str = Field(..., min_length=1, max_length=256)
+    username: str = Field(..., min_length=3, max_length=150)
+    password: str = Field(..., min_length=8, max_length=256)
+    email: Optional[str] = Field(None, max_length=255)
+    full_name: Optional[str] = Field(None, max_length=150)
 
 
 class UserLogin(BaseModel):
@@ -21,6 +23,52 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+# User management models
+class UserUpdate(BaseModel):
+    email: Optional[str] = Field(None, max_length=255)
+    full_name: Optional[str] = Field(None, max_length=150)
+    is_admin: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class UserResponse(BaseModel):
+    username: str
+    email: Optional[str]
+    full_name: Optional[str]
+    is_admin: bool
+    is_active: bool
+    created_at: str
+    last_login: Optional[str]
+
+
+class UserProfile(BaseModel):
+    username: str
+    email: Optional[str]
+    full_name: Optional[str]
+    created_at: str
+    last_login: Optional[str]
+
+
+class UserStats(BaseModel):
+    total_users: int
+    active_users: int
+    admin_users: int
+    recent_logins: int
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=256)
+
+
+class UserSearch(BaseModel):
+    query: Optional[str] = None
+    is_admin: Optional[bool] = None
+    is_active: Optional[bool] = None
+    limit: int = Field(50, ge=1, le=100)
+    offset: int = Field(0, ge=0)
 
 
 # AR Content models
