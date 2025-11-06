@@ -9,7 +9,10 @@ import tempfile
 # Set test mode before importing storage
 os.environ["RUNNING_TESTS"] = "1"
 
-from vertex-ar.storage_adapter import (
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from storage_adapter import (
     StorageAdapter,
     LocalStorageAdapter,
     MinIOStorageAdapter,
@@ -125,7 +128,7 @@ class TestBackwardCompatibility:
     
     def test_upload_file_function(self, setup_storage):
         """Test backward compatible upload_file function"""
-        from vertex-ar.storage_adapter import upload_file
+        from storage_adapter import upload_file
         
         content = b"test content"
         result = upload_file(content, "test.txt", "text/plain")
@@ -134,7 +137,7 @@ class TestBackwardCompatibility:
     
     def test_get_file_function(self, setup_storage):
         """Test backward compatible get_file function"""
-        from vertex-ar.storage_adapter import upload_file, get_file
+        from storage_adapter import upload_file, get_file
         
         content = b"test content"
         upload_file(content, "test.txt", "text/plain")
@@ -144,7 +147,7 @@ class TestBackwardCompatibility:
     
     def test_delete_file_function(self, setup_storage):
         """Test backward compatible delete_file function"""
-        from vertex-ar.storage_adapter import upload_file, delete_file, file_exists
+        from storage_adapter import upload_file, delete_file, file_exists
         
         content = b"test content"
         upload_file(content, "test.txt", "text/plain")
@@ -154,7 +157,7 @@ class TestBackwardCompatibility:
     
     def test_get_nft_marker_urls(self, setup_storage):
         """Test backward compatible get_nft_marker_urls function"""
-        from vertex-ar.storage_adapter import upload_file, get_nft_marker_urls
+        from storage_adapter import upload_file, get_nft_marker_urls
         
         # Upload test marker files
         for ext in ["iset", "fset", "fset3"]:
