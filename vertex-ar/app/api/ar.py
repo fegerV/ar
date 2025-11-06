@@ -8,42 +8,28 @@ from pathlib import Path
 
 import qrcode
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from slowapi import Limiter
 
 from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import ARContentResponse
 from app.main import get_current_app
+from app.rate_limiter import create_rate_limit_dependency
 
 router = APIRouter()
 
 
 def get_database() -> Database:
     """Get database instance."""
-    from app.main import get_current_app
     app = get_current_app()
-    if not hasattr(app.state, 'database'):
-        from pathlib import Path
-        BASE_DIR = app.state.config["BASE_DIR"]
-        DB_PATH = BASE_DIR / "app_data.db"
-        from app.database import Database
-        app.state.database = Database(DB_PATH)
     return app.state.database
 
 
-def get_limiter() -> Limiter:
-    """Get rate limiter instance."""
-    from app.main import get_current_app
-    return get_current_app().state.limiter
-
-
-@router.post("/upload", response_model=ARContentResponse)
+@router.post("/upload", response_model=ARContentResponse, dependencies=[Depends(create_rate_limit_dependency("10/minute"))])
 async def upload_ar_content(
     request: Request,
     image: UploadFile = File(...),
     video: UploadFile = File(...),
-    username: str = Depends(require_admin),
-    limiter: Limiter = Depends(get_limiter)
+    username: str = Depends(require_admin)
 ) -> ARContentResponse:
     """
     Upload image and video to create AR content.

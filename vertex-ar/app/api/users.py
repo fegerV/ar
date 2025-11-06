@@ -2,9 +2,8 @@
 User management endpoints for Vertex AR API.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from slowapi import Limiter
 
-from app.auth import _hash_password, _verify_password
+from app.auth import _hash_password, _verify_password, TokenManager
 from app.database import Database
 from app.models import (
     UserCreate, UserUpdate, UserResponse, UserProfile, UserStats,
@@ -20,30 +19,13 @@ router = APIRouter()
 
 def get_database() -> Database:
     """Get database instance."""
-    from app.main import get_current_app
     app = get_current_app()
-    if not hasattr(app.state, 'database'):
-        from pathlib import Path
-        BASE_DIR = app.state.config["BASE_DIR"]
-        DB_PATH = BASE_DIR / "app_data.db"
-        app.state.database = Database(DB_PATH)
     return app.state.database
-
-
-def get_limiter() -> Limiter:
-    """Get rate limiter instance."""
-    from app.main import get_current_app
-    return get_current_app().state.limiter
 
 
 def get_token_manager():
     """Get token manager instance."""
-    from app.main import get_current_app
     app = get_current_app()
-    if not hasattr(app.state, 'tokens'):
-        session_timeout = app.state.config["SESSION_TIMEOUT_MINUTES"]
-        from app.auth import TokenManager
-        app.state.tokens = TokenManager(session_timeout_minutes=session_timeout)
     return app.state.tokens
 
 
