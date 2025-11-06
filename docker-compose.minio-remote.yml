@@ -16,10 +16,10 @@ services:
       # Application settings
       - BASE_URL=http://localhost:8000
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
-      
+
       # Storage configuration - using remote MinIO
       - STORAGE_TYPE=minio
-      
+
       # Remote MinIO settings
       # Replace these with your actual MinIO server details
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio.example.com:9000}
@@ -27,10 +27,10 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-your-secret-key}
       - MINIO_BUCKET=${MINIO_BUCKET:-vertex-ar}
       - MINIO_SECURE=${MINIO_SECURE:-true}
-      
+
       # Optional: Custom public URL (for CDN)
       - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-}
-      
+
       # Logging
       - LOG_LEVEL=INFO
     volumes:

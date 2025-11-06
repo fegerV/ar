@@ -811,7 +811,7 @@
             .notifications-container {
                 display: none !important;
             }
-            
+
             body {
                 background: white;
                 color: black;
@@ -827,20 +827,20 @@
                 <a href="/admin/orders" class="btn" style="background-color: var(--success-color); color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: var(--border-radius); font-size: 0.9rem;">
                     📦 Управление Заказами
                 </a>
-                <button 
-                    class="theme-toggle" 
-                    id="themeToggle" 
+                <button
+                    class="theme-toggle"
+                    id="themeToggle"
                     aria-label="Toggle dark mode"
                     title="Toggle dark/light theme"
                 >
                     <span id="themeIcon">🌙</span>
                 </button>
-                <div 
-                    id="notificationBell" 
-                    class="bell-icon" 
+                <div
+                    id="notificationBell"
+                    class="bell-icon"
                     role="button"
                     tabindex="0"
-                    aria-label="Notifications" 
+                    aria-label="Notifications"
                     title="Notifications"
                 >
                     🔔
@@ -930,11 +930,11 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="image">Image (JPG/PNG, min 1024px, max 10MB)</label>
-                        <input 
-                            type="file" 
-                            id="image" 
-                            name="image" 
-                            accept="image/jpeg,image/png" 
+                        <input
+                            type="file"
+                            id="image"
+                            name="image"
+                            accept="image/jpeg,image/png"
                             required
                             aria-describedby="imageHelp"
                         >
@@ -947,11 +947,11 @@
                     </div>
                     <div class="form-group">
                         <label for="video">Video (MP4, max 10MB)</label>
-                        <input 
-                            type="file" 
-                            id="video" 
-                            name="video" 
-                            accept="video/mp4" 
+                        <input
+                            type="file"
+                            id="video"
+                            name="video"
+                            accept="video/mp4"
                             required
                             aria-describedby="videoHelp"
                         >
@@ -972,10 +972,10 @@
         <section class="records-section" aria-label="Content Records">
             <h2>Content Records</h2>
             <div class="search-filter">
-                <input 
-                    type="text" 
-                    class="search-box" 
-                    id="searchInput" 
+                <input
+                    type="text"
+                    class="search-box"
+                    id="searchInput"
                     placeholder="Search by ID or date..."
                     aria-label="Search records"
                 >
@@ -1012,8 +1012,8 @@
                             <div class="preview-item">
                                 <strong>Превью изображения</strong>
                                 {% if record.image_preview_path %}
-                                    <img 
-                                        src="{{ record.image_preview_path.replace('vertex-ar/', '/') }}" 
+                                    <img
+                                        src="{{ record.image_preview_path.replace('vertex-ar/', '/') }}"
                                         alt="Image preview for {{ record.id }}"
                                         loading="lazy"
                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
@@ -1026,8 +1026,8 @@
                             <div class="preview-item">
                                 <strong>Превью видео</strong>
                                 {% if record.video_preview_path %}
-                                    <img 
-                                        src="{{ record.video_preview_path.replace('vertex-ar/', '/') }}" 
+                                    <img
+                                        src="{{ record.video_preview_path.replace('vertex-ar/', '/') }}"
                                         alt="Video preview for {{ record.id }}"
                                         loading="lazy"
                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
@@ -1072,20 +1072,20 @@
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-        
+
         function setTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
             localStorage.setItem('theme', theme);
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             setTheme(currentTheme === 'dark' ? 'light' : 'dark');
         }
-        
+
         themeToggle.addEventListener('click', toggleTheme);
-        
+
         // Initialize theme
         const savedTheme = localStorage.getItem('theme') || (prefersDarkScheme.matches ? 'dark' : 'light');
         setTheme(savedTheme);
@@ -1118,10 +1118,10 @@
                     imagePreview.classList.remove('active');
                     return;
                 }
-                
+
                 imageInfo.textContent = `✓ ${file.name} (${formatFileSize(file.size)})`;
                 imageInfo.style.color = 'var(--success-color)';
-                
+
                 // Show preview
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -1141,7 +1141,7 @@
                     videoInput.value = '';
                     return;
                 }
-                
+
                 videoInfo.textContent = `✓ ${file.name} (${formatFileSize(file.size)})`;
                 videoInfo.style.color = 'var(--success-color)';
             }
@@ -1151,10 +1151,10 @@
         function updateStats() {
             const records = document.querySelectorAll('.record');
             document.getElementById('totalRecords').textContent = records.length;
-            
+
             let storageUsed = (records.length * 5).toFixed(1);
             document.getElementById('storageUsed').textContent = storageUsed + ' MB';
-            
+
             if (records.length > 0) {
                 const firstRecord = records[0];
                 const dateSpan = firstRecord.querySelector('.record-info-item:nth-child(2) span');
@@ -1165,7 +1165,7 @@
             } else {
                 document.getElementById('lastUpload').textContent = 'Never';
             }
-            
+
             document.getElementById('activeContent').textContent = records.length;
         }
 
@@ -1180,9 +1180,9 @@
                 </div>
                 <div class="notification-message">${message}</div>
             `;
-            
+
             document.getElementById('notificationsContainer').appendChild(notification);
-            
+
             if (type !== 'error') {
                 setTimeout(() => {
                     if (notification.parentNode) {
@@ -1195,29 +1195,29 @@
         // Handle form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const uploadBtn = document.getElementById('uploadBtn');
             const btnText = document.getElementById('uploadBtnText');
             const loadingSpinner = document.getElementById('uploadLoading');
             const progressBar = document.getElementById('uploadProgress');
             const progressFill = document.getElementById('uploadProgressFill');
-            
+
             // Validate files
             if (!imageInput.files[0] || !videoInput.files[0]) {
                 showToast('Please select both image and video files', 'error');
                 return;
             }
-            
+
             // Show loading state
             btnText.textContent = 'Uploading...';
             loadingSpinner.style.display = 'inline-block';
             uploadBtn.disabled = true;
             progressBar.classList.add('active');
-            
+
             const formData = new FormData();
             formData.append('image', imageInput.files[0]);
             formData.append('video', videoInput.files[0]);
-            
+
             try {
                 // Simulate progress (real progress tracking requires XMLHttpRequest)
                 let progress = 0;
@@ -1228,16 +1228,16 @@
                         progressBar.setAttribute('aria-valuenow', progress);
                     }
                 }, 200);
-                
+
                 const response = await fetch('/admin/upload', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 clearInterval(progressInterval);
                 progressFill.style.width = '100%';
                 progressBar.setAttribute('aria-valuenow', 100);
-                
+
                 if (response.ok) {
                     showToast('Files uploaded and NFT created successfully!', 'success');
                     setTimeout(() => location.reload(), 1500);
@@ -1258,13 +1258,13 @@
                 }, 1000);
             }
         });
-        
+
         // Delete record function
         async function deleteRecord(id) {
             if (!confirm('Вы уверены, что хотите удалить этот контент? Это действие необратимо!')) {
                 return;
             }
-            
+
             try {
                 // Получаем токен из localStorage (если используется)
                 const token = localStorage.getItem('auth_token');
@@ -1272,12 +1272,12 @@
                 if (token) {
                     headers['Authorization'] = `Bearer ${token}`;
                 }
-                
+
                 const response = await fetch(`/ar/${id}`, {
                     method: 'DELETE',
                     headers: headers
                 });
-                
+
                 if (response.ok) {
                     const recordElement = document.querySelector(`.record[data-id="${id}"]`);
                     if (recordElement) {
@@ -1303,11 +1303,11 @@
             const searchTerm = this.value.toLowerCase();
             const records = document.querySelectorAll('.record');
             let visibleCount = 0;
-            
+
             records.forEach(record => {
                 const recordId = record.getAttribute('data-id').toLowerCase();
                 const recordDate = record.getAttribute('data-date').toLowerCase();
-                
+
                 if (recordId.includes(searchTerm) || recordDate.includes(searchTerm)) {
                     record.style.display = 'flex';
                     visibleCount++;
@@ -1315,7 +1315,7 @@
                     record.style.display = 'none';
                 }
             });
-            
+
             if (visibleCount === 0 && searchTerm) {
                 showSearchEmptyState();
             } else {
@@ -1349,17 +1349,17 @@
         document.getElementById('filterSelect').addEventListener('change', function() {
             const filterValue = this.value;
             const records = document.querySelectorAll('.record');
-            
+
             records.forEach(record => {
                 if (filterValue === 'all') {
                     record.style.display = 'flex';
                     return;
                 }
-                
+
                 const recordDate = new Date(record.getAttribute('data-date'));
                 const now = new Date();
                 let showRecord = false;
-                
+
                 if (filterValue === 'today') {
                     const today = new Date();
                     showRecord = recordDate.getDate() === today.getDate() &&
@@ -1374,7 +1374,7 @@
                     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
                     showRecord = recordDate >= oneMonthAgo;
                 }
-                
+
                 record.style.display = showRecord ? 'flex' : 'none';
             });
         });
@@ -1410,7 +1410,7 @@
 
         async function markAllAsRead() {
             if (unreadCount === 0) return;
-            
+
             try {
                 await fetch('/notifications/mark-all-read', {
                     method: 'PUT'
@@ -1436,7 +1436,7 @@
                 console.error('Error loading system info:', error);
             }
         }
-        
+
         function updateSystemInfo(data) {
             document.getElementById('diskTotal').textContent = data.disk_info.total;
             document.getElementById('diskUsed').textContent = data.disk_info.used;
@@ -1445,10 +1445,10 @@
             document.getElementById('diskUsedPercent').textContent = diskPercent + '%';
             document.getElementById('diskUsageBar').style.width = diskPercent + '%';
             document.getElementById('diskUsageBar').parentElement.setAttribute('aria-valuenow', diskPercent);
-            
+
             document.getElementById('storageSize').textContent = data.storage_info.total_size;
         }
-        
+
         // Content stats
         async function loadContentStats() {
             try {
@@ -1461,11 +1461,11 @@
                 console.error('Error loading content stats:', error);
             }
         }
-        
+
         function updateContentStats(data) {
             const statsList = document.getElementById('statsList');
             statsList.innerHTML = '';
-            
+
             if (data.length === 0) {
                 statsList.innerHTML = `
                     <div class="empty-state">
@@ -1476,7 +1476,7 @@
                 `;
                 return;
             }
-            
+
             const topStats = data.slice(0, 10);
             topStats.forEach(stat => {
                 const statItem = document.createElement('div');
@@ -1488,14 +1488,14 @@
                 statsList.appendChild(statItem);
             });
         }
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             updateStats();
             loadSystemInfo();
             loadContentStats();
             loadNotifications();
-            
+
             // Periodic updates
             setInterval(loadSystemInfo, 60000);
             setInterval(loadContentStats, 30000);

@@ -449,7 +449,7 @@
         function showTab(tabName) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
-            
+
             event.target.classList.add('active');
             document.getElementById(`${tabName}-panel`).classList.add('active');
 
@@ -462,7 +462,7 @@
             showLoading();
 
             const formData = new FormData(event.target);
-            
+
             try {
                 const response = await fetch(`${API_BASE}/orders/create`, {
                     method: 'POST',
@@ -479,7 +479,7 @@
 
                 const order = await response.json();
                 showNotification('Заказ успешно создан!', 'success');
-                
+
                 // Показываем QR код
                 const qrWindow = window.open('', '_blank', 'width=400,height=500');
                 qrWindow.document.write(`

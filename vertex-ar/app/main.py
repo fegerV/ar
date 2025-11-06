@@ -2,16 +2,16 @@
 Main application factory for Vertex AR.
 Creates and configures the FastAPI application.
 """
+
 import sentry_sdk
-from fastapi import FastAPI, Request, Depends
+from app.config import settings
+from app.middleware import ErrorLoggingMiddleware, RequestLoggingMiddleware, ValidationErrorLoggingMiddleware
+from app.rate_limiter import create_rate_limit_dependency, rate_limit_dependency
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from prometheus_fastapi_instrumentator import Instrumentator
-
-from app.config import settings
-from app.rate_limiter import create_rate_limit_dependency, rate_limit_dependency
-from app.middleware import RequestLoggingMiddleware, ErrorLoggingMiddleware, ValidationErrorLoggingMiddleware
 from logging_setup import get_logger
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,7 @@ def get_current_app() -> FastAPI:
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
     global _app_instance
-    
+
     # Initialize Sentry
     if settings.SENTRY_DSN:
         sentry_sdk.init(
@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
             environment=settings.SENTRY_ENVIRONMENT,
         )
         logger.info("Sentry initialized", environment=settings.SENTRY_ENVIRONMENT)
-    
+
     # Create FastAPI app
     app = FastAPI(
         title="Vertex AR - Simplified",
@@ -47,19 +47,19 @@ def create_app() -> FastAPI:
         description="A lightweight AR backend for creating augmented reality experiences from image + video pairs",
         dependencies=[Depends(create_rate_limit_dependency(settings.GLOBAL_RATE_LIMIT))],
     )
-    
+
     # Configure Prometheus metrics
     Instrumentator().instrument(app).expose(app)
-    
+
     # Add logging middleware
     logger.info("Logging middleware configured")
     app.add_middleware(ValidationErrorLoggingMiddleware)
     app.add_middleware(ErrorLoggingMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
-    
+
     # Configure CORS
     logger.info("CORS configured", origins=settings.CORS_ORIGINS)
-    
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -67,11 +67,11 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
-    
+
     # Mount static files
     app.mount("/static", StaticFiles(directory=str(settings.STATIC_ROOT)), name="static")
     app.mount("/storage", StaticFiles(directory=str(settings.STORAGE_ROOT)), name="storage")
-    
+
     # Store configuration in app state
     app.state.config = {
         "BASE_DIR": settings.BASE_DIR,
@@ -92,38 +92,40 @@ def create_app() -> FastAPI:
         "ALLOWED_IMAGE_TYPES": settings.ALLOWED_IMAGE_TYPES,
         "ALLOWED_VIDEO_TYPES": settings.ALLOWED_VIDEO_TYPES,
     }
-    
+
     # Initialize database
     from app.database import Database
+
     app.state.database = Database(settings.DB_PATH)
-    
+
     # Initialize auth components
     from app.auth import AuthSecurityManager, TokenManager
+
     app.state.auth_security = AuthSecurityManager(
-        max_attempts=settings.AUTH_MAX_ATTEMPTS,
-        lockout_minutes=settings.AUTH_LOCKOUT_MINUTES
+        max_attempts=settings.AUTH_MAX_ATTEMPTS, lockout_minutes=settings.AUTH_LOCKOUT_MINUTES
     )
-    app.state.tokens = TokenManager(
-        session_timeout_minutes=settings.SESSION_TIMEOUT_MINUTES
-    )
-    
+    app.state.tokens = TokenManager(session_timeout_minutes=settings.SESSION_TIMEOUT_MINUTES)
+
     # Initialize storage adapter
     from app.storage import StorageAdapter
+
     if settings.STORAGE_TYPE == "minio":
         from app.storage_minio import MinioStorageAdapter
+
         app.state.storage = MinioStorageAdapter(
             endpoint=settings.MINIO_ENDPOINT,
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
-            bucket=settings.MINIO_BUCKET
+            bucket=settings.MINIO_BUCKET,
         )
     else:
         from app.storage_local import LocalStorageAdapter
+
         app.state.storage = LocalStorageAdapter(settings.STORAGE_ROOT)
-    
+
     # Register API routes
-    from app.api import auth, ar, admin, clients, portraits, videos, health, users
-    
+    from app.api import admin, ar, auth, clients, health, portraits, users, videos
+
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(ar.router, prefix="/ar", tags=["ar"])
@@ -132,13 +134,13 @@ def create_app() -> FastAPI:
     app.include_router(portraits.router, prefix="/portraits", tags=["portraits"])
     app.include_router(videos.router, prefix="/videos", tags=["videos"])
     app.include_router(health.router, tags=["health"])
-    
+
     # Root endpoint
     @app.get("/")
     def read_root():
         return {"Hello": "Vertex AR (Simplified)", "version": settings.VERSION}
-    
+
     # Store global app instance
     _app_instance = app
-    
+
     return app

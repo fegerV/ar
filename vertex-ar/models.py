@@ -1,12 +1,13 @@
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+import os
 import uuid
-from sqlalchemy import create_engine, Column, String, DateTime
+from datetime import datetime
+from typing import Optional
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from sqlalchemy import Column, DateTime, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -33,6 +34,7 @@ class NFTRecord(Base):
 
 class AREntryBase(BaseModel):
     """Base model for AR entry."""
+
     image_key: str
     video_key: str
     nft_prefix: str
@@ -40,11 +42,13 @@ class AREntryBase(BaseModel):
 
 class AREntryCreate(AREntryBase):
     """Model for creating AR entry."""
+
     pass  # This can be extended with additional validation or fields if needed
 
 
 class AREntryUpdate(BaseModel):
     """Model for updating AR entry."""
+
     image_key: Optional[str] = None
     video_key: Optional[str] = None
     nft_prefix: Optional[str] = None
@@ -53,6 +57,7 @@ class AREntryUpdate(BaseModel):
 
 class AREntryInDBBase(AREntryBase):
     """Base model for AR entry in database."""
+
     id: int
     uuid: str
     created_at: datetime
@@ -64,10 +69,12 @@ class AREntryInDBBase(AREntryBase):
 
 class AREntry(AREntryInDBBase):
     """Model for AR entry."""
+
     pass  # This can be extended with additional methods or fields if needed
 
 
 class AREntryInDB(AREntryInDBBase):
     """Model for AR entry in database with all fields."""
+
     image_preview_url: Optional[str] = None
     video_preview_url: Optional[str] = None

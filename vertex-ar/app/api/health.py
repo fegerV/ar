@@ -1,10 +1,10 @@
 """
 Health check endpoints for Vertex AR API.
 """
-from fastapi import APIRouter
 
-from app.models import HealthResponse
 from app.main import get_current_app
+from app.models import HealthResponse
+from fastapi import APIRouter
 
 router = APIRouter()
 

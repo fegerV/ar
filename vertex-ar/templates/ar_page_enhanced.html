@@ -7,16 +7,16 @@
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.2/aframe/build/aframe-ar-nft.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
+        body {
+            margin: 0;
+            overflow: hidden;
             font-family: Arial, sans-serif;
         }
-        #start-btn { 
-            position: fixed; 
-            top: 10px; 
-            left: 10px; 
-            z-index: 100; 
+        #start-btn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
             padding: 10px 15px;
             background-color: #4CAF50;
             color: white;
@@ -66,7 +66,7 @@
     <!-- Кнопка старт, нужна для мобильных браузеров -->
     <button id="start-btn" onclick="startVideo()" disabled>Запустить видео</button>
     <div class="status-indicator" id="status-indicator">Загрузка...</div>
-    
+
     <!-- Loading indicator -->
     <div class="arjs-loader" id="loader">
         <div>
@@ -120,7 +120,7 @@
         let isVideoPlaying = false;
         let isMarkerDetected = false;
         let videoTimeout = null;
-        
+
         // Обновляем индикатор статуса
         function updateStatus(message) {
             const statusEl = document.getElementById('status-indicator');
@@ -128,23 +128,23 @@
                 statusEl.textContent = message;
             }
         }
-        
+
         // Функция запуска видео
         function startVideo() {
             const video = document.getElementById('ar-video');
             if (!video) return;
-            
+
             // Очищаем предыдущий таймер, если он был
             if (videoTimeout) {
                 clearTimeout(videoTimeout);
             }
-            
+
             // Воспроизводим видео
             video.play()
                 .then(() => {
                     isVideoPlaying = true;
                     updateStatus('Видео воспроизводится...');
-                    
+
                     // Устанавливаем таймер на 5 секунд
                     videoTimeout = setTimeout(() => {
                         pauseVideo();
@@ -156,7 +156,7 @@
                     updateStatus('Ошибка воспроизведения');
                 });
         }
-        
+
         // Функция паузы видео
         function pauseVideo() {
             const video = document.getElementById('ar-video');
@@ -166,7 +166,7 @@
                 isVideoPlaying = false;
             }
         }
-        
+
         // Обработка события загрузки сцены
         document.querySelector('a-scene').addEventListener('loaded', function() {
             // Скрываем лоадер
@@ -174,21 +174,21 @@
             if (loader) {
                 loader.style.display = 'none';
             }
-            
+
             // Активируем кнопку запуска
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
                 startBtn.disabled = false;
             }
-            
+
             updateStatus('Сцена загружена');
         });
-        
+
         // Обработка события обнаружения маркера
         document.querySelector('a-scene').addEventListener('markerFound', function() {
             isMarkerDetected = true;
             updateStatus('Маркер обнаружен');
-            
+
             // На мобильных устройствах кнопка уже доступна
             // На десктопе можем автостартовать
             if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {
@@ -200,16 +200,16 @@
                 }, 500);
             }
         });
-        
+
         // Обработка события потери маркера
         document.querySelector('a-scene').addEventListener('markerLost', function() {
             isMarkerDetected = false;
-            
+
             // Останавливаем видео при потере маркера
             if (isVideoPlaying) {
                 pauseVideo();
                 updateStatus('Маркер потерян');
-                
+
                 // Очищаем таймер
                 if (videoTimeout) {
                     clearTimeout(videoTimeout);
@@ -217,19 +217,19 @@
                 }
             }
         });
-        
+
         // Обработка ошибок видео
         document.getElementById('ar-video').addEventListener('error', function(e) {
             console.error('Ошибка загрузки видео для AR-опыта:', e);
             updateStatus('Ошибка видео');
         });
-        
+
         // Обработка окончания воспроизведения видео
         document.getElementById('ar-video').addEventListener('ended', function() {
             isVideoPlaying = false;
             updateStatus('Видео завершено');
         });
-        
+
         // Автостарт на десктопах (только если не мобильное устройство)
         window.onload = function() {
             if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {

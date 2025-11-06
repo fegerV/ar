@@ -76,32 +76,32 @@ echo "-----------------------------------"
 
 if [ -f "vertex-ar/requirements.txt" ]; then
     pass "requirements.txt exists"
-    
+
     # Check if critical packages are in requirements
     if grep -q "fastapi" vertex-ar/requirements.txt; then
         pass "FastAPI dependency present"
     else
         error "FastAPI missing from requirements.txt"
     fi
-    
+
     if grep -q "slowapi" vertex-ar/requirements.txt; then
         pass "slowapi (rate limiting) dependency present"
     else
         error "slowapi missing from requirements.txt"
     fi
-    
+
     if grep -q "structlog" vertex-ar/requirements.txt; then
         pass "structlog (logging) dependency present"
     else
         error "structlog missing from requirements.txt"
     fi
-    
+
     if grep -q "sentry-sdk" vertex-ar/requirements.txt; then
         pass "sentry-sdk (error tracking) dependency present"
     else
         warn "sentry-sdk missing from requirements.txt"
     fi
-    
+
     if grep -q "prometheus-fastapi-instrumentator" vertex-ar/requirements.txt; then
         pass "prometheus-fastapi-instrumentator (metrics) dependency present"
     else
@@ -129,7 +129,7 @@ if [ -f ".env" ]; then
     else
         error "SECRET_KEY not found in .env"
     fi
-    
+
     # Check if ADMIN_PASSWORD is set and not default
     if grep -q "ADMIN_PASSWORD=" .env; then
         ADMIN_PASS=$(grep "ADMIN_PASSWORD=" .env | cut -d'=' -f2)
@@ -141,7 +141,7 @@ if [ -f ".env" ]; then
     else
         error "ADMIN_PASSWORD not found in .env"
     fi
-    
+
     # Check CORS_ORIGINS
     if grep -q "CORS_ORIGINS=" .env; then
         CORS=$(grep "CORS_ORIGINS=" .env | cut -d'=' -f2)
@@ -153,7 +153,7 @@ if [ -f ".env" ]; then
     else
         warn "CORS_ORIGINS not found in .env - will use localhost"
     fi
-    
+
     # Check if DEBUG is disabled
     if grep -q "DEBUG=False" .env; then
         pass "DEBUG mode is disabled"
@@ -162,7 +162,7 @@ if [ -f ".env" ]; then
     else
         warn "DEBUG setting not found in .env"
     fi
-    
+
     # Check if RATE_LIMIT_ENABLED
     if grep -q "RATE_LIMIT_ENABLED=true" .env; then
         pass "Rate limiting is enabled"

@@ -287,15 +287,15 @@ def create_user(
     is_admin: bool = False
 ) -> Dict[str, Any]:
     """Create a new user.
-    
+
     Args:
         username: The username
         password: Plain text password
         is_admin: Whether user is admin
-        
+
     Returns:
         User dictionary with metadata
-        
+
     Raises:
         ValueError: If username already exists
     """
@@ -313,25 +313,25 @@ def upload_ar_content(
     config: NFTMarkerConfig
 ) -> ARContentResponse:
     """Upload and process AR content.
-    
+
     This function handles the complete workflow of uploading AR content:
     - Validates files
     - Generates NFT markers
     - Creates QR codes
     - Stores in database
-    
+
     Args:
         image_path: Path to the portrait image
         video_path: Path to the animation video
         config: NFT marker generation configuration
-        
+
     Returns:
         ARContentResponse with content ID and URLs
-        
+
     Raises:
         HTTPException: If file validation fails
         ValueError: If marker generation fails
-        
+
     Example:
         >>> config = NFTMarkerConfig(feature_density="high")
         >>> result = upload_ar_content("image.jpg", "video.mp4", config)
@@ -468,17 +468,17 @@ git commit -m "refactor(storage): extract storage interface"
    ```markdown
    ## Description
    Brief description of changes
-   
+
    ## Type of Change
    - [ ] Bug fix
    - [ ] New feature
    - [ ] Breaking change
-   
+
    ## Testing
    - [ ] Unit tests pass
    - [ ] Integration tests pass
    - [ ] Manual testing completed
-   
+
    ## Checklist
    - [ ] Code follows style guide
    - [ ] Documentation updated
@@ -525,13 +525,13 @@ def test_password_hashing():
     """Test password hashing and verification."""
     password = "secure_password123"
     hashed = hash_password(password)
-    
+
     # Check hash is not plain text
     assert hashed != password
-    
+
     # Check verification works
     assert verify_password(password, hashed) is True
-    
+
     # Check wrong password fails
     assert verify_password("wrong_password", hashed) is False
 
@@ -548,10 +548,10 @@ def test_create_user(test_database):
     """Test user creation."""
     username = "testuser"
     password = "testpass"
-    
+
     test_database.create_user(username, password)
     user = test_database.get_user(username)
-    
+
     assert user is not None
     assert user["username"] == username
 ```
@@ -581,7 +581,7 @@ def test_register_and_login():
     }
     response = client.post("/auth/register", json=register_data)
     assert response.status_code == 201
-    
+
     # Login
     response = client.post("/auth/login", json=register_data)
     assert response.status_code == 200
@@ -695,11 +695,11 @@ async def new_feature(
 ) -> Dict[str, Any]:
     """
     Description of new feature.
-    
+
     Args:
         request: Request parameters
         username: Authenticated user
-        
+
     Returns:
         Response with results
     """
@@ -709,13 +709,13 @@ async def new_feature(
             status_code=400,
             detail="param1 is required"
         )
-    
+
     # Business logic
     result = process_feature(request)
-    
+
     # Database operation
     database.save_feature(result)
-    
+
     return {"status": "success", "data": result}
 ```
 
@@ -726,18 +726,18 @@ def test_new_feature():
     """Test new feature endpoint."""
     token = get_test_token()
     headers = {"Authorization": f"Bearer {token}"}
-    
+
     data = {
         "param1": "value1",
         "param2": 42
     }
-    
+
     response = client.post(
         "/api/new-feature",
         json=data,
         headers=headers
     )
-    
+
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 ```
@@ -763,24 +763,24 @@ logger = logging.getLogger(__name__)
 
 class NewFeature:
     """Handle new feature operations."""
-    
+
     def __init__(self, config: dict):
         """
         Initialize feature.
-        
+
         Args:
             config: Configuration dictionary
         """
         self.config = config
         logger.info("NewFeature initialized")
-    
+
     def process(self, data: str) -> Optional[str]:
         """
         Process data.
-        
+
         Args:
             data: Input data
-            
+
         Returns:
             Processed result or None if error
         """
@@ -790,7 +790,7 @@ class NewFeature:
         except Exception as e:
             logger.error(f"Processing failed: {e}")
             return None
-    
+
     def _internal_process(self, data: str) -> str:
         """Internal processing logic."""
         return data.upper()
@@ -821,13 +821,13 @@ def test_process_error(feature, monkeypatch):
     """Test error handling."""
     def mock_process(self, data):
         raise ValueError("Test error")
-    
+
     monkeypatch.setattr(
         NewFeature,
         "_internal_process",
         mock_process
     )
-    
+
     result = feature.process("hello")
     assert result is None
 ```
@@ -963,5 +963,5 @@ ValueError: Not enough features detected
 
 **Happy Coding! 🚀**
 
-**Версия документации:** 1.0.0  
+**Версия документации:** 1.0.0
 **Последнее обновление:** 2024-01-15

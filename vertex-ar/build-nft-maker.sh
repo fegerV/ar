@@ -60,7 +60,7 @@ EOF
 # Собираем Docker-образ
 if docker build -f /tmp/Dockerfile.nft-maker-tmp -t nft-maker .; then
     echo "Docker-образ nft-maker успешно создан"
-    
+
     # Проверяем, что образ существует
     if docker image inspect nft-maker &> /dev/null; then
         echo "Образ nft-maker проверен и готов к использованию"

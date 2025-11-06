@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
+import os
+from datetime import datetime
+
+from dotenv import load_dotenv
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -12,6 +13,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
 
 class AREntry(Base):
     __tablename__ = "ar_entries"
@@ -22,10 +24,12 @@ class AREntry(Base):
     image_key = Column(String, nullable=False)
     video_key = Column(String, nullable=False)
     nft_prefix = Column(String, nullable=False)
-    status = Column(String, default='active')
+    status = Column(String, default="active")
+
 
 # Создание таблиц
 Base.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()

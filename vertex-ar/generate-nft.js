@@ -50,7 +50,7 @@ function createNFTMarkersWithPython() {
     // Используем Python-скрипт для генерации NFT-маркеров
     const pythonScript = path.join(__dirname, 'nft_maker.py');
     const pythonCommand = `python "${pythonScript}" "${imagePath}" "${outputDir}"`;
-    
+
     exec(pythonCommand, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error generating NFT markers with Python: ${error.message}`);
@@ -71,14 +71,14 @@ function createPlaceholderFiles() {
         path.join(outputDir, `${outputName}.fset3`),
         path.join(outputDir, `${outputName}.iset`)
     ];
-    
+
     try {
         expectedFiles.forEach(file => {
             // Создаем пустой файл как заглушку
             fs.writeFileSync(file, `// Placeholder NFT marker file for ${outputName}\n// This is a placeholder to allow the system to continue\n`);
             console.log(`Created placeholder file: ${file}`);
         });
-        
+
         console.log('NFT marker generation completed (with placeholders)');
     } catch (error) {
         console.error(`Error creating placeholder files: ${error.message}`);

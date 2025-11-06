@@ -340,9 +340,9 @@
 </head>
 <body>
     <div class="theme-toggle-container">
-        <button 
-            class="theme-toggle" 
-            id="themeToggle" 
+        <button
+            class="theme-toggle"
+            id="themeToggle"
             aria-label="Toggle dark mode"
             title="Toggle dark/light theme"
         >
@@ -358,7 +358,7 @@
 
         <div class="login-form">
             <div class="logo">🎨</div>
-            
+
             <div class="error-message" id="errorMessage" role="alert">
                 <!-- Error messages will be displayed here -->
             </div>
@@ -368,10 +368,10 @@
                     <label for="username">Username</label>
                     <div class="input-wrapper">
                         <span class="input-icon" aria-hidden="true">👤</span>
-                        <input 
-                            type="text" 
-                            id="username" 
-                            name="username" 
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
                             placeholder="Enter your username"
                             required
                             autocomplete="username"
@@ -384,18 +384,18 @@
                     <label for="password">Password</label>
                     <div class="input-wrapper">
                         <span class="input-icon" aria-hidden="true">🔒</span>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
                             placeholder="Enter your password"
                             required
                             autocomplete="current-password"
                             aria-label="Password"
                         >
-                        <button 
-                            type="button" 
-                            class="password-toggle" 
+                        <button
+                            type="button"
+                            class="password-toggle"
                             id="passwordToggle"
                             aria-label="Toggle password visibility"
                             title="Show/hide password"
@@ -429,20 +429,20 @@
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-        
+
         function setTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
             localStorage.setItem('theme', theme);
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             setTheme(currentTheme === 'dark' ? 'light' : 'dark');
         }
-        
+
         themeToggle.addEventListener('click', toggleTheme);
-        
+
         // Initialize theme
         const savedTheme = localStorage.getItem('theme') || (prefersDarkScheme.matches ? 'dark' : 'light');
         setTheme(savedTheme);
@@ -468,7 +468,7 @@
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.classList.add('active');
-            
+
             // Shake animation
             loginForm.style.animation = 'none';
             setTimeout(() => {
@@ -482,7 +482,7 @@
 
         loginForm.addEventListener('submit', function(e) {
             hideError();
-            
+
             // Basic validation
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
