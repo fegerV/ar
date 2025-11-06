@@ -1,13 +1,13 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer, Text
+import os
+from datetime import datetime
+from typing import Generator, List, Optional
+
+from dotenv import load_dotenv
+from logging_setup import get_logger
+from pydantic import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-from pydantic import BaseModel
-from typing import Optional, List, Generator
-import os
-from dotenv import load_dotenv
-
-from logging_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     message = Column(Text, nullable=False)
-    user_id = Column(String, nullable=True) # ID пользователя, если уведомление персонализировано
+    user_id = Column(String, nullable=True)  # ID пользователя, если уведомление персонализировано
     notification_type = Column(String, default="info")  # info, success, warning, error
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -78,7 +78,7 @@ def create_notification(db, notification: NotificationCreate):
             title=notification.title,
             message=notification.message,
             user_id=notification.user_id,
-            notification_type=notification.notification_type
+            notification_type=notification.notification_type,
         )
         db.add(db_notification)
         db.commit()
@@ -94,16 +94,16 @@ def get_notifications(db, user_id: Optional[str] = None, limit: int = 100, unrea
     """Получает список уведомлений"""
     try:
         query = db.query(Notification)
-        
+
         if user_id:
             query = query.filter(Notification.user_id == user_id)
-        
+
         if unread_only:
             query = query.filter(Notification.is_read == False)
-        
+
         query = query.order_by(Notification.created_at.desc())
         query = query.limit(limit)
-        
+
         return query.all()
     except Exception as e:
         logger.error(f"Error getting notifications: {e}")
@@ -153,10 +153,10 @@ def mark_all_as_read(db, user_id: Optional[str] = None):
     """Помечает все уведомления как прочитанные"""
     try:
         query = db.query(Notification).filter(Notification.is_read == False)
-        
+
         if user_id:
             query = query.filter(Notification.user_id == user_id)
-        
+
         query.update({Notification.is_read: True})
         db.commit()
     except Exception as e:
@@ -171,10 +171,7 @@ def send_notification(title: str, message: str, user_id: Optional[str] = None, n
         db = next(get_db())
         try:
             notification_data = NotificationCreate(
-                title=title,
-                message=message,
-                user_id=user_id,
-                notification_type=notification_type
+                title=title, message=message, user_id=user_id, notification_type=notification_type
             )
             return create_notification(db, notification_data)
         finally:
@@ -187,10 +184,7 @@ def send_notification(title: str, message: str, user_id: Optional[str] = None, n
 def get_user_unread_count(db, user_id: str) -> int:
     """Получает количество непрочитанных уведомлений для пользователя"""
     try:
-        return db.query(Notification).filter(
-            Notification.user_id == user_id,
-            Notification.is_read == False
-        ).count()
+        return db.query(Notification).filter(Notification.user_id == user_id, Notification.is_read == False).count()
     except Exception as e:
         logger.error(f"Error getting unread count for user {user_id}: {e}")
         raise
@@ -200,15 +194,15 @@ def cleanup_expired_notifications(db):
     """Удаляет устаревшие уведомления"""
     try:
         from datetime import datetime
+
         current_time = datetime.utcnow()
-        expired_notifications = db.query(Notification).filter(
-            Notification.expires_at != None,
-            Notification.expires_at < current_time
-        ).all()
-        
+        expired_notifications = (
+            db.query(Notification).filter(Notification.expires_at != None, Notification.expires_at < current_time).all()
+        )
+
         for notification in expired_notifications:
             db.delete(notification)
-        
+
         db.commit()
     except Exception as e:
         logger.error(f"Error cleaning up expired notifications: {e}")

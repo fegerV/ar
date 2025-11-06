@@ -2,8 +2,8 @@ import os
 import uuid
 from pathlib import Path
 from typing import Optional
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from logging_setup import get_logger
 
 # Загружаем переменные окружения
@@ -11,13 +11,14 @@ load_dotenv()
 
 logger = get_logger(__name__)
 
+
 class LocalStorage:
     def __init__(self):
         self.bucket_name = os.getenv("MINIO_BUCKET", "vertex-art-bucket")
         # Use absolute path based on current file location
         base_dir = Path(__file__).resolve().parent
         self.storage_path = str(base_dir / self.bucket_name)
-        
+
         # Создаем директорию для хранения файлов, если она не существует
         os.makedirs(self.storage_path, exist_ok=True)
         logger.info(f"LocalStorage initialized with path: {self.storage_path}")
@@ -26,11 +27,11 @@ class LocalStorage:
         """Загружает файл в локальное хранилище"""
         try:
             file_path = os.path.join(self.storage_path, file_name)
-            
+
             # Записываем файл
-            with open(file_path, 'wb') as f:
+            with open(file_path, "wb") as f:
                 f.write(file_content)
-            
+
             logger.info(f"File {file_name} uploaded successfully to {file_path}")
             return f"file://{file_path}"
         except Exception as e:
@@ -41,7 +42,7 @@ class LocalStorage:
         """Удаляет файл из локального хранилища"""
         try:
             file_path = os.path.join(self.storage_path, file_name)
-            
+
             if os.path.exists(file_path):
                 os.remove(file_path)
                 logger.info(f"File {file_name} deleted successfully")
@@ -57,9 +58,9 @@ class LocalStorage:
         """Получает содержимое файла из локального хранилища"""
         try:
             file_path = os.path.join(self.storage_path, file_name)
-            
+
             if os.path.exists(file_path):
-                with open(file_path, 'rb') as f:
+                with open(file_path, "rb") as f:
                     content = f.read()
                 logger.info(f"File {file_name} retrieved successfully")
                 return content
@@ -75,18 +76,23 @@ class LocalStorage:
         file_path = os.path.join(self.storage_path, file_name)
         return os.path.exists(file_path)
 
+
 # Создаем глобальный экземпляр локального хранилища
 local_storage = LocalStorage()
+
 
 # Функции для совместимости с оригинальным storage.py
 def upload_file(file_content: bytes, file_name: str, content_type: str = "application/octet-stream") -> str:
     return local_storage.upload_file(file_content, file_name, content_type)
 
+
 def delete_file(file_name: str) -> bool:
     return local_storage.delete_file(file_name)
 
+
 def get_file(file_name: str) -> Optional[bytes]:
     return local_storage.get_file(file_name)
+
 
 def file_exists(file_name: str) -> bool:
     return local_storage.file_exists(file_name)

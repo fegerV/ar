@@ -1,10 +1,11 @@
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from passlib.context import CryptContext
 import os
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
 from typing import Optional
+
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,13 +21,16 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-here")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed password."""
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def get_password_hash(password: str) -> str:
     """Hash a password."""
     return pwd_context.hash(password)
+
 
 def authenticate_user(username: str, password: str) -> bool:
     """
@@ -34,21 +38,23 @@ def authenticate_user(username: str, password: str) -> bool:
     """
     if username != ADMIN_USERNAME:
         return False
-    
+
     # Сначала проверяем ADMIN_PASSWORD_HASH, если он есть
     if ADMIN_PASSWORD_HASH:
         return verify_password(password, ADMIN_PASSWORD_HASH)
-    
+
     # Если ADMIN_PASSWORD начинается с $2b$, это bcrypt хеш
-    if ADMIN_PASSWORD and ADMIN_PASSWORD.startswith('$2b$'):
+    if ADMIN_PASSWORD and ADMIN_PASSWORD.startswith("$2b$"):
         return verify_password(password, ADMIN_PASSWORD)
-    
+
     # Иначе это простой пароль, сравниваем напрямую
     return password == (ADMIN_PASSWORD or "")
+
 
 def authenticate_admin(username: str, password: str) -> bool:
     """Псевдоним для аутентификации администратора"""
     return authenticate_user(username, password)
+
 
 def create_access_token(data: dict) -> str:
     """
@@ -59,6 +65,7 @@ def create_access_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 def verify_token(token: str) -> Optional[str]:
     """
@@ -73,6 +80,7 @@ def verify_token(token: str) -> Optional[str]:
     except JWTError:
         return None
 
+
 async def get_current_user(request: Request) -> str:
     """
     Получает текущего пользователя из токена
@@ -84,7 +92,7 @@ async def get_current_user(request: Request) -> str:
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     username = verify_token(token)
     if username is None:
         raise HTTPException(

@@ -24,20 +24,20 @@ sudo certbot certonly --webroot --webroot-path=/var/www/certbot -d $DOMAIN --ema
 if [ $? -eq 0 ]; then
     echo "SSL-сертификат успешно получен для $DOMAIN"
     echo "Сертификаты находятся в /etc/letsencrypt/live/$DOMAIN/"
-    
+
     # Копируем сертификаты в директорию ssl для использования в Docker
     sudo mkdir -p ./ssl
     sudo cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem ./ssl/cert.pem
     sudo cp /etc/letsencrypt/live/$DOMAIN/privkey.pem ./ssl/key.pem
-    
+
     # Устанавливаем правильные права доступа
     sudo chmod -R 755 ./ssl/
-    
+
     echo "Сертификаты скопированы в директорию ssl/"
-    
+
     # Обновляем конфигурацию nginx для использования SSL
     echo "Обновление конфигурации nginx..."
-    
+
     cat > nginx.conf << 'EOF'
 events {
     worker_connections 1024;
@@ -52,11 +52,11 @@ http {
     server {
         listen 80;
         server_name nft.vertex-art.ru;
-        
+
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
         }
-        
+
         # Редирект остальных запросов на HTTPS
         location / {
             return 301 https://$host$request_uri;
@@ -116,12 +116,12 @@ http {
 EOF
 
     echo "Конфигурация nginx обновлена"
-    
+
     # Добавляем задачу в cron для автоматического обновления сертификатов
     (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet --post-hook 'docker-compose restart nginx'") | crontab -
-    
+
     echo "Добавлена задача в cron для автоматического обновления сертификатов"
-    
+
     # Перезапускаем Nginx для применения изменений
     docker-compose restart nginx
 else

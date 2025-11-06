@@ -1,3 +1,28 @@
 {
-    "cSpell.enabled": false
+    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.mypyEnabled": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "python.linting.flake8Args": [
+        "--max-line-length=127",
+        "--extend-ignore=E203,W503"
+    ],
+    "python.linting.mypyArgs": [
+        "--ignore-missing-imports",
+        "--no-strict-optional"
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        ".pytest_cache": true,
+        ".mypy_cache": true,
+        ".coverage": true,
+        "htmlcov": true,
+        ".DS_Store": true
+    }
 }

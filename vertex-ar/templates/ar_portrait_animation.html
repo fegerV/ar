@@ -9,20 +9,20 @@
     <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.2/aframe/build/aframe-ar-nft.js"></script>
     <!-- Anime.js для анимаций -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    
+
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
+        body {
+            margin: 0;
+            overflow: hidden;
             font-family: Arial, sans-serif;
             background-color: #000;
         }
-        
-        #start-btn { 
-            position: fixed; 
-            top: 10px; 
-            left: 10px; 
-            z-index: 100; 
+
+        #start-btn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
             padding: 10px 15px;
             background-color: #4CAF50;
             color: white;
@@ -32,16 +32,16 @@
             font-size: 16px;
             display: none;
         }
-        
+
         #start-btn:hover {
             background-color: #45a049;
         }
-        
+
         #start-btn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
-        
+
         .arjs-loader {
             height: 100%;
             width: 100%;
@@ -54,13 +54,13 @@
             justify-content: center;
             align-items: center;
         }
-        
+
         .arjs-loader div {
             text-align: center;
             font-size: 1.25em;
             color: white;
         }
-        
+
         .status-indicator {
             position: fixed;
             top: 10px;
@@ -72,7 +72,7 @@
             border-radius: 4px;
             font-size: 14px;
         }
-        
+
         .animation-controls {
             position: fixed;
             bottom: 10px;
@@ -82,7 +82,7 @@
             display: flex;
             gap: 10px;
         }
-        
+
         .animation-btn {
             padding: 8px 12px;
             background-color: #2196F3;
@@ -92,11 +92,11 @@
             cursor: pointer;
             font-size: 14px;
         }
-        
+
         .animation-btn:hover {
             background-color: #0b7dda;
         }
-        
+
         .animation-btn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
@@ -106,10 +106,10 @@
 <body>
     <!-- Кнопка запуска видео, необходима для мобильных браузеров -->
     <button id="start-btn" onclick="startAnimation()" disabled>Запустить анимацию</button>
-    
+
     <!-- Индикатор статуса -->
     <div class="status-indicator" id="status-indicator">Загрузка AR-опыта...</div>
-    
+
     <!-- Кнопки управления анимацией -->
     <div class="animation-controls" id="animation-controls" style="display: none;">
         <button class="animation-btn" onclick="triggerBlinkAnimation()">Моргание</button>
@@ -117,7 +117,7 @@
         <button class="animation-btn" onclick="triggerSmile()">Улыбка</button>
         <button class="animation-btn" onclick="triggerWink()">Подмигивание</button>
     </div>
-    
+
     <!-- Индикатор загрузки -->
     <div class="arjs-loader" id="loader">
         <div>
@@ -161,7 +161,7 @@
                     position="0 0 0"
                     material="shader: flat; transparent: true;"
                 ></a-image>
-                
+
                 <!-- Элементы для анимации (глаза, рот и т.д.) -->
                 <a-entity id="eyes-container" position="0 0.2 0.01">
                     <a-entity id="left-eye" position="-0.2 0 0">
@@ -171,7 +171,7 @@
                         <a-box id="right-eye-blink" position="0 0 0" width="0.1" height="0.05" depth="0.01" color="black" visible="false"></a-box>
                     </a-entity>
                 </a-entity>
-                
+
                 <a-entity id="mouth-container" position="0 -0.3 0.01">
                     <a-box id="mouth" position="0 0 0" width="0.3" height="0.1" depth="0.01" color="pink" visible="false"></a-box>
                 </a-entity>
@@ -187,7 +187,7 @@
         let isAnimationPlaying = false;
         let isMarkerDetected = false;
         let currentAnimation = null;
-        
+
         // Обновляем индикатор статуса
         function updateStatus(message) {
             const statusEl = document.getElementById('status-indicator');
@@ -195,7 +195,7 @@
                 statusEl.textContent = message;
             }
         }
-        
+
         // Инициализация анимаций при загрузке сцены
         function initAnimations() {
             // Анимация моргания
@@ -213,7 +213,7 @@
                 autoplay: false,
                 duration: 200
             });
-            
+
             // Анимация улыбки
             window.smileAnimation = anime({
                 targets: '#mouth',
@@ -230,7 +230,7 @@
                 autoplay: false,
                 duration: 700
             });
-            
+
             // Анимация поворота головы
             window.headTurnAnimation = anime({
                 targets: '#portrait-entity',
@@ -243,7 +243,7 @@
                 autoplay: false,
                 duration: 1900
             });
-            
+
             // Анимация подмигивания
             window.winkAnimation = anime({
                 targets: '#right-eye-blink',
@@ -260,126 +260,126 @@
                 duration: 300
             });
         }
-        
+
         // Функция запуска анимации
         function startAnimation() {
             if (!isMarkerDetected) return;
-            
+
             // Показываем элементы анимации
             document.getElementById('left-eye-blink').setAttribute('visible', 'true');
             document.getElementById('right-eye-blink').setAttribute('visible', 'true');
             document.getElementById('mouth').setAttribute('visible', 'true');
-            
+
             // Запускаем случайную анимацию
             const animations = [window.blinkAnimation, window.smileAnimation, window.headTurnAnimation];
             const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
-            
+
             if (currentAnimation) {
                 currentAnimation.pause();
             }
-            
+
             currentAnimation = randomAnimation;
             currentAnimation.restart();
-            
+
             isAnimationPlaying = true;
             updateStatus('Анимация запущена');
         }
-        
+
         // Триггер анимации моргания
         function triggerBlinkAnimation() {
             if (!isMarkerDetected) return;
-            
+
             document.getElementById('left-eye-blink').setAttribute('visible', 'true');
             document.getElementById('right-eye-blink').setAttribute('visible', 'true');
-            
+
             if (currentAnimation) {
                 currentAnimation.pause();
             }
-            
+
             currentAnimation = window.blinkAnimation;
             currentAnimation.restart();
-            
+
             updateStatus('Анимация моргания');
         }
-        
+
         // Триггер анимации поворота головы
         function triggerHeadTurn() {
             if (!isMarkerDetected) return;
-            
+
             if (currentAnimation) {
                 currentAnimation.pause();
             }
-            
+
             currentAnimation = window.headTurnAnimation;
             currentAnimation.restart();
-            
+
             updateStatus('Анимация поворота головы');
         }
-        
+
         // Триггер анимации улыбки
         function triggerSmile() {
             if (!isMarkerDetected) return;
-            
+
             document.getElementById('mouth').setAttribute('visible', 'true');
-            
+
             if (currentAnimation) {
                 currentAnimation.pause();
             }
-            
+
             currentAnimation = window.smileAnimation;
             currentAnimation.restart();
-            
+
             updateStatus('Анимация улыбки');
         }
-        
+
         // Триггер анимации подмигивания
         function triggerWink() {
             if (!isMarkerDetected) return;
-            
+
             document.getElementById('right-eye-blink').setAttribute('visible', 'true');
-            
+
             if (currentAnimation) {
                 currentAnimation.pause();
             }
-            
+
             currentAnimation = window.winkAnimation;
             currentAnimation.restart();
-            
+
             updateStatus('Анимация подмигивания');
         }
-        
+
         // Обработка события загрузки сцены
         document.querySelector('a-scene').addEventListener('loaded', function() {
             // Инициализируем анимации
             initAnimations();
-            
+
             // Скрываем лоадер
             const loader = document.getElementById('loader');
             if (loader) {
                 loader.style.display = 'none';
             }
-            
+
             // Активируем кнопку запуска
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
                 startBtn.style.display = 'block';
                 startBtn.disabled = false;
             }
-            
+
             updateStatus('Сцена загружена, ожидание маркера...');
         });
-        
+
         // Обработка события обнаружения маркера
         document.querySelector('a-scene').addEventListener('markerFound', function() {
             isMarkerDetected = true;
             updateStatus('Маркер обнаружен! Активируйте анимацию');
-            
+
             // Показываем кнопки управления анимацией
             const controls = document.getElementById('animation-controls');
             if (controls) {
                 controls.style.display = 'flex';
             }
-            
+
             // На десктопе можем автостартовать ненавязчивую анимацию
             if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {
                 // Небольшая задержка для стабильности
@@ -393,32 +393,32 @@
                 }, 500);
             }
         });
-        
+
         // Обработка события потери маркера
         document.querySelector('a-scene').addEventListener('markerLost', function() {
             isMarkerDetected = false;
-            
+
             // Останавливаем текущую анимацию
             if (currentAnimation) {
                 currentAnimation.pause();
                 currentAnimation = null;
             }
-            
+
             isAnimationPlaying = false;
             updateStatus('Маркер потерян');
-            
+
             // Скрываем кнопки управления анимацией
             const controls = document.getElementById('animation-controls');
             if (controls) {
                 controls.style.display = 'none';
             }
-            
+
             // Скрываем элементы анимации
             document.getElementById('left-eye-blink').setAttribute('visible', 'false');
             document.getElementById('right-eye-blink').setAttribute('visible', 'false');
             document.getElementById('mouth').setAttribute('visible', 'false');
         });
-        
+
         // Обработка окончания анимации
         if (window.blinkAnimation) {
             window.blinkAnimation.finished.then(() => {
@@ -427,21 +427,21 @@
                 document.getElementById('right-eye-blink').setAttribute('visible', 'false');
             });
         }
-        
+
         if (window.smileAnimation) {
             window.smileAnimation.finished.then(() => {
                 isAnimationPlaying = false;
                 document.getElementById('mouth').setAttribute('visible', 'false');
             });
         }
-        
+
         if (window.winkAnimation) {
             window.winkAnimation.finished.then(() => {
                 isAnimationPlaying = false;
                 document.getElementById('right-eye-blink').setAttribute('visible', 'false');
             });
         }
-        
+
         // Автостарт на десктопах
         window.onload = function() {
             if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {

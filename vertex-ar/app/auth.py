@@ -2,6 +2,7 @@
 Authentication module for Vertex AR application.
 Contains authentication classes and utilities.
 """
+
 import hashlib
 import secrets
 import threading

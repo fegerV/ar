@@ -240,10 +240,10 @@ async def generate_marker(image: UploadFile = File(...)):
     image_path = f"temp/{image.filename}"
     with open(image_path, "wb") as f:
         f.write(await image.read())
-    
+
     # Generate marker
     result = generator.generate_marker(image_path)
-    
+
     return {"marker_path": result.marker_path}
 ```
 
@@ -257,13 +257,13 @@ async def batch_generate(images: List[UploadFile] = File(...)):
         with open(path, "wb") as f:
             f.write(await image.read())
         image_paths.append(path)
-    
+
     results = generator.generate_markers_batch(image_paths)
     return {"results": results}
 ```
 
 ---
 
-**Last Updated:** 2024-11-05  
-**Version:** 1.1.0  
+**Last Updated:** 2024-11-05
+**Version:** 1.1.0
 **Status:** Production Ready

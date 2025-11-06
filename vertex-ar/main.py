@@ -2,6 +2,7 @@
 Main entry point for Vertex AR application.
 Uses the modular app structure from app/main.py
 """
+
 import uvicorn
 from app.main import create_app
 
@@ -9,7 +10,7 @@ from app.main import create_app
 def main():
     """Main entry point."""
     app = create_app()
-    
+
     uvicorn.run(
         app,
         host="0.0.0.0",

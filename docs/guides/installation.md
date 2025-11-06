@@ -699,43 +699,43 @@ load_dotenv()
 def validate_config():
     errors = []
     warnings = []
-    
+
     # Проверка SECRET_KEY
     secret_key = os.getenv('SECRET_KEY')
     if not secret_key or secret_key == 'your-very-secret-key-change-this-in-production':
         errors.append("SECRET_KEY не установлен или используется дефолтное значение!")
     elif len(secret_key) < 32:
         warnings.append("SECRET_KEY слишком короткий (рекомендуется 64+ символов)")
-    
+
     # Проверка путей
     storage_path = Path(os.getenv('STORAGE_PATH', './storage'))
     if not storage_path.exists():
         errors.append(f"STORAGE_PATH не существует: {storage_path}")
-    
+
     # Проверка DEBUG в продакшене
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
     base_url = os.getenv('BASE_URL', '')
     if debug and 'localhost' not in base_url:
         warnings.append("DEBUG=True в продакшен окружении!")
-    
+
     # Проверка BASE_URL
     if not base_url:
         errors.append("BASE_URL не установлен!")
-    
+
     # Вывод результатов
     if errors:
         print("❌ ОШИБКИ:")
         for error in errors:
             print(f"  - {error}")
-    
+
     if warnings:
         print("⚠️  ПРЕДУПРЕЖДЕНИЯ:")
         for warning in warnings:
             print(f"  - {warning}")
-    
+
     if not errors and not warnings:
         print("✅ Конфигурация корректна!")
-    
+
     return len(errors) == 0
 
 if __name__ == '__main__':
@@ -1298,7 +1298,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name yourdomain.com www.yourdomain.com;
-    
+
     # Редирект на HTTPS
     return 301 https://$server_name$request_uri;
 }
@@ -1308,31 +1308,31 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name yourdomain.com www.yourdomain.com;
-    
+
     # SSL сертификаты (будут добавлены Certbot)
     # ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
     # ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-    
+
     # SSL настройки
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
-    
+
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    
+
     # Logs
     access_log /var/log/nginx/vertex-ar-access.log;
     error_log /var/log/nginx/vertex-ar-error.log;
-    
+
     # Max upload size
     client_max_body_size 100M;
-    
+
     # Proxy settings
     location / {
         proxy_pass http://vertex_ar;
@@ -1340,31 +1340,31 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Websocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        
+
         # Timeouts
         proxy_connect_timeout 300s;
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
     }
-    
+
     # Static files
     location /storage/ {
         alias /home/vertex/vertex-ar/vertex-ar/storage/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
-    
+
     location /static/ {
         alias /home/vertex/vertex-ar/vertex-ar/static/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
-    
+
     # Health check
     location /health {
         proxy_pass http://vertex_ar;
@@ -1685,8 +1685,8 @@ sudo systemctl status certbot.timer
 
 ---
 
-**Версия документа**: 1.0.0  
-**Последнее обновление**: 2024  
+**Версия документа**: 1.0.0
+**Последнее обновление**: 2024
 **Проект**: Vertex AR
 
 📧 Поддержка: support@vertex-ar.com

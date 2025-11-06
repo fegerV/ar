@@ -1,19 +1,19 @@
 """
 AR content endpoints for Vertex AR API.
 """
+
 import base64
 import uuid
 from io import BytesIO
 from pathlib import Path
 
 import qrcode
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-
 from app.api.auth import get_current_user, require_admin
 from app.database import Database
-from app.models import ARContentResponse
 from app.main import get_current_app
+from app.models import ARContentResponse
 from app.rate_limiter import create_rate_limit_dependency
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
 router = APIRouter()
 
@@ -26,10 +26,7 @@ def get_database() -> Database:
 
 @router.post("/upload", response_model=ARContentResponse, dependencies=[Depends(create_rate_limit_dependency("10/minute"))])
 async def upload_ar_content(
-    request: Request,
-    image: UploadFile = File(...),
-    video: UploadFile = File(...),
-    username: str = Depends(require_admin)
+    request: Request, image: UploadFile = File(...), video: UploadFile = File(...), username: str = Depends(require_admin)
 ) -> ARContentResponse:
     """
     Upload image and video to create AR content.
@@ -39,45 +36,46 @@ async def upload_ar_content(
     upload_rate_limit = app.state.config["UPLOAD_RATE_LIMIT"]
     base_url = app.state.config["BASE_URL"]
     storage_root = app.state.config["STORAGE_ROOT"]
-    
+
     @limiter.limit(upload_rate_limit)
     async def _upload(request: Request, image: UploadFile, video: UploadFile, username: str) -> ARContentResponse:
         if not image.content_type or not image.content_type.startswith("image/"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
-        
+
         if not video.content_type or not video.content_type.startswith("video/"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
-        
+
         # Generate UUID for files
         content_id = str(uuid.uuid4())
-        
+
         # Create storage directories
         user_storage = storage_root / "ar_content" / username
         user_storage.mkdir(parents=True, exist_ok=True)
         content_dir = user_storage / content_id
         content_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Read file contents for preview generation
         image.file.seek(0)
         image_content = await image.read()
         video.file.seek(0)
         video_content = await video.read()
-        
+
         # Save image
         image_path = content_dir / f"{content_id}.jpg"
         with open(image_path, "wb") as f:
             f.write(image_content)
-        
+
         # Save video
         video_path = content_dir / f"{content_id}.mp4"
         with open(video_path, "wb") as f:
             f.write(video_content)
-        
+
         # Generate previews
         from preview_generator import PreviewGenerator
+
         image_preview_path = None
         video_preview_path = None
-        
+
         try:
             # Generate image preview
             image_preview = PreviewGenerator.generate_image_preview(image_content)
@@ -86,13 +84,15 @@ async def upload_ar_content(
                 with open(image_preview_path, "wb") as f:
                     f.write(image_preview)
                 from logging_setup import get_logger
+
                 logger = get_logger(__name__)
                 logger.info(f"Image preview created: {image_preview_path}")
         except Exception as e:
             from logging_setup import get_logger
+
             logger = get_logger(__name__)
             logger.error(f"Error generating image preview: {e}")
-        
+
         try:
             # Generate video preview
             video_preview = PreviewGenerator.generate_video_preview(video_content)
@@ -103,20 +103,21 @@ async def upload_ar_content(
                 logger.info(f"Video preview created: {video_preview_path}")
         except Exception as e:
             logger.error(f"Error generating video preview: {e}")
-        
+
         # Generate QR code
         ar_url = f"{base_url}/ar/{content_id}"
         qr_img = qrcode.make(ar_url)
         qr_buffer = BytesIO()
         qr_img.save(qr_buffer, format="PNG")
         qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
-        
+
         # Generate NFT markers
         from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
+
         nft_generator = NFTMarkerGenerator(storage_root)
         config = NFTMarkerConfig(feature_density="high", levels=3)
         marker_result = nft_generator.generate_marker(str(image_path), content_id, config)
-        
+
         # Create database record
         database = get_database()
         db_record = database.create_ar_content(
@@ -132,7 +133,7 @@ async def upload_ar_content(
             ar_url=ar_url,
             qr_code=qr_base64,
         )
-        
+
         return ARContentResponse(
             id=content_id,
             ar_url=ar_url,
@@ -141,7 +142,7 @@ async def upload_ar_content(
             video_path=str(video_path),
             created_at=db_record["created_at"],
         )
-    
+
     return await _upload(request, image, video, username)
 
 

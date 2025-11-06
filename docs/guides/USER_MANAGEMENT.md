@@ -449,6 +449,6 @@ For issues related to the user management system:
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: 2024-01-01  
+**Version**: 1.0.0
+**Last Updated**: 2024-01-01
 **Compatibility**: Vertex AR v1.1.0+

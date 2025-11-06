@@ -301,7 +301,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_buffering off;
-        
+
         # Кэширование
         proxy_cache_valid 200 1d;
         expires 1d;
