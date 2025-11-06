@@ -134,9 +134,10 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, portraits, videos, health
+    from app.api import auth, ar, admin, clients, portraits, videos, health, users
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
+    app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(ar.router, prefix="/ar", tags=["ar"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
     app.include_router(clients.router, prefix="/clients", tags=["clients"])

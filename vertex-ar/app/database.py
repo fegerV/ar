@@ -30,7 +30,12 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     hashed_password TEXT NOT NULL,
-                    is_admin INTEGER NOT NULL DEFAULT 0
+                    is_admin INTEGER NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    email TEXT,
+                    full_name TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
                 )
                 """
             )
@@ -119,6 +124,38 @@ class Database:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
             except sqlite3.OperationalError:
                 pass
+            
+            # Migrate existing users table to new schema
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN full_name TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Create indexes for user management
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)")
+            except sqlite3.OperationalError:
+                pass
     
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
@@ -127,11 +164,15 @@ class Database:
             return cursor
     
     # User methods
-    def create_user(self, username: str, hashed_password: str, is_admin: bool = False) -> None:
+    def create_user(self, username: str, hashed_password: str, is_admin: bool = False, 
+                    email: Optional[str] = None, full_name: Optional[str] = None) -> None:
         try:
             self._execute(
-                "INSERT INTO users (username, hashed_password, is_admin) VALUES (?, ?, ?)",
-                (username, hashed_password, int(is_admin)),
+                """
+                INSERT INTO users (username, hashed_password, is_admin, email, full_name) 
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, hashed_password, int(is_admin), email, full_name),
             )
         except sqlite3.IntegrityError as exc:
             raise ValueError("user_already_exists") from exc
@@ -142,6 +183,105 @@ class Database:
         if row is None:
             return None
         return dict(row)
+    
+    def update_user(self, username: str, **kwargs) -> bool:
+        """Update user fields."""
+        if not kwargs:
+            return False
+        
+        # Filter valid fields
+        valid_fields = {'email', 'full_name', 'is_admin', 'is_active'}
+        update_fields = {k: v for k, v in kwargs.items() if k in valid_fields and v is not None}
+        
+        if not update_fields:
+            return False
+        
+        set_clause = ", ".join(f"{field} = ?" for field in update_fields.keys())
+        values = list(update_fields.values()) + [username]
+        
+        cursor = self._execute(
+            f"UPDATE users SET {set_clause} WHERE username = ?",
+            values
+        )
+        return cursor.rowcount > 0
+    
+    def delete_user(self, username: str) -> bool:
+        """Delete a user (soft delete by deactivating)."""
+        cursor = self._execute(
+            "UPDATE users SET is_active = 0 WHERE username = ?",
+            (username,)
+        )
+        return cursor.rowcount > 0
+    
+    def list_users(self, is_admin: Optional[bool] = None, is_active: Optional[bool] = None,
+                   limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """List users with optional filters."""
+        query = "SELECT * FROM users WHERE 1=1"
+        params = []
+        
+        if is_admin is not None:
+            query += " AND is_admin = ?"
+            params.append(int(is_admin))
+        
+        if is_active is not None:
+            query += " AND is_active = ?"
+            params.append(int(is_active))
+        
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def search_users(self, query_str: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Search users by username, email, or full name."""
+        cursor = self._execute(
+            """
+            SELECT * FROM users 
+            WHERE (username LIKE ? OR email LIKE ? OR full_name LIKE ?) AND is_active = 1
+            ORDER BY username ASC LIMIT ? OFFSET ?
+            """,
+            (f"%{query_str}%", f"%{query_str}%", f"%{query_str}%", limit, offset)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def update_last_login(self, username: str) -> None:
+        """Update the last login timestamp for a user."""
+        self._execute(
+            "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = ?",
+            (username,)
+        )
+    
+    def get_user_stats(self) -> Dict[str, Any]:
+        """Get user statistics."""
+        cursor = self._execute("SELECT COUNT(*) as total FROM users")
+        total_users = cursor.fetchone()['total']
+        
+        cursor = self._execute("SELECT COUNT(*) as active FROM users WHERE is_active = 1")
+        active_users = cursor.fetchone()['active']
+        
+        cursor = self._execute("SELECT COUNT(*) as admins FROM users WHERE is_admin = 1 AND is_active = 1")
+        admin_users = cursor.fetchone()['admins']
+        
+        cursor = self._execute(
+            "SELECT COUNT(*) as recent FROM users WHERE last_login >= datetime('now', '-7 days')"
+        )
+        recent_logins = cursor.fetchone()['recent']
+        
+        return {
+            'total_users': total_users,
+            'active_users': active_users,
+            'admin_users': admin_users,
+            'recent_logins': recent_logins
+        }
+    
+    def change_password(self, username: str, new_hashed_password: str) -> bool:
+        """Change user password."""
+        cursor = self._execute(
+            "UPDATE users SET hashed_password = ? WHERE username = ?",
+            (new_hashed_password, username)
+        )
+        return cursor.rowcount > 0
     
     # AR Content methods
     def create_ar_content(
