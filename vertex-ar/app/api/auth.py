@@ -8,6 +8,7 @@ from app.auth import AuthSecurityManager, TokenManager, _hash_password, _verify_
 from app.database import Database
 from app.models import TokenResponse, UserCreate, UserLogin
 from app.main import get_current_app
+from app.config import settings
 from app.rate_limiter import create_rate_limit_dependency
 from logging_setup import get_logger
 
@@ -120,7 +121,13 @@ async def register_user(
     
     # Check if this is the first user (make them admin)
     stats = database.get_user_stats()
-    is_first_user = stats['total_users'] == 0
+    total_users = stats['total_users']
+    default_admin_username = getattr(settings, "DEFAULT_ADMIN_USERNAME", None)
+    if default_admin_username:
+        existing_default_admin = database.get_user(default_admin_username)
+        if existing_default_admin:
+            total_users = max(total_users - 1, 0)
+    is_first_user = total_users == 0
     
     try:
         database.create_user(

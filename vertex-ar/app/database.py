@@ -283,6 +283,46 @@ class Database:
         )
         return cursor.rowcount > 0
     
+    def ensure_admin_user(
+        self,
+        username: str,
+        hashed_password: str,
+        *,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+    ) -> None:
+        """Ensure that a given user exists with admin privileges and active status."""
+        try:
+            user = self.get_user(username)
+            if user is None:
+                self.create_user(
+                    username=username,
+                    hashed_password=hashed_password,
+                    is_admin=True,
+                    email=email,
+                    full_name=full_name,
+                )
+                logger.info("Default admin user created", username=username)
+                return
+            updates: Dict[str, Any] = {}
+            if not bool(user.get("is_admin", 0)):
+                updates["is_admin"] = True
+            if not bool(user.get("is_active", 1)):
+                updates["is_active"] = True
+            if email is not None and user.get("email") != email:
+                updates["email"] = email
+            if full_name is not None and user.get("full_name") != full_name:
+                updates["full_name"] = full_name
+            if updates:
+                self.update_user(username, **updates)
+                logger.info("Default admin user updated", username=username, updates=list(updates.keys()))
+            if user.get("hashed_password") != hashed_password:
+                self.change_password(username, hashed_password)
+                logger.info("Default admin password refreshed", username=username)
+        except Exception as exc:
+            logger.error("Failed to ensure default admin user", username=username, exc_info=exc)
+            raise
+    
     # AR Content methods
     def create_ar_content(
         self,
@@ -545,3 +585,27 @@ class Database:
         """Delete video."""
         cursor = self._execute("DELETE FROM videos WHERE id = ?", (video_id,))
         return cursor.rowcount > 0
+
+
+def ensure_default_admin_user(database: "Database") -> None:
+    """Ensure the default admin user exists in the provided database instance."""
+    from app.config import settings
+    from app.auth import _hash_password
+
+    username = getattr(settings, "DEFAULT_ADMIN_USERNAME", None)
+    password = getattr(settings, "DEFAULT_ADMIN_PASSWORD", None)
+
+    if not username or not password:
+        logger.warning("Default admin credentials are not configured; skipping bootstrap")
+        return
+
+    hashed_password = _hash_password(password)
+    email = getattr(settings, "DEFAULT_ADMIN_EMAIL", None)
+    full_name = getattr(settings, "DEFAULT_ADMIN_FULL_NAME", None)
+
+    database.ensure_admin_user(
+        username=username,
+        hashed_password=hashed_password,
+        email=email,
+        full_name=full_name,
+    )

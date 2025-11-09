@@ -94,8 +94,9 @@ def create_app() -> FastAPI:
     }
     
     # Initialize database
-    from app.database import Database
+    from app.database import Database, ensure_default_admin_user
     app.state.database = Database(settings.DB_PATH)
+    ensure_default_admin_user(app.state.database)
     
     # Initialize auth components
     from app.auth import AuthSecurityManager, TokenManager

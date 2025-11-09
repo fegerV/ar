@@ -28,8 +28,9 @@ def get_database() -> Database:
         from pathlib import Path
         BASE_DIR = app.state.config["BASE_DIR"]
         DB_PATH = BASE_DIR / "app_data.db"
-        from app.database import Database
+        from app.database import Database, ensure_default_admin_user
         app.state.database = Database(DB_PATH)
+        ensure_default_admin_user(app.state.database)
     return app.state.database
 
 
@@ -130,17 +131,20 @@ async def admin_login(
         app = get_current_app()
         tokens = app.state.tokens
         token = tokens.issue_token(username)
-        
+
+        database.update_last_login(username)
+
         logger.info(f"Admin login successful for user: {username}")
         
-        response = RedirectResponse(url="/admin/orders", status_code=status.HTTP_302_FOUND)
+        response = RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="authToken",
             value=token,
             httponly=True,
-            secure=False,
+            secure=request.url.scheme == "https",
             samesite="lax",
-            max_age=86400
+            max_age=86400,
+            path="/",
         )
         return response
     except Exception as e:

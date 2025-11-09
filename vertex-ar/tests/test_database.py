@@ -56,6 +56,35 @@ class TestDatabase:
         with pytest.raises(ValueError, match="user_already_exists"):
             temp_db.create_user("testuser", "another_password")
     
+    def test_ensure_admin_user(self, temp_db):
+        """Test ensuring default admin user creation and updates."""
+        temp_db.ensure_admin_user(
+            "superar",
+            "initial_hash",
+            email="admin@example.com",
+            full_name="Super Admin",
+        )
+        user = temp_db.get_user("superar")
+        assert user is not None
+        assert user["hashed_password"] == "initial_hash"
+        assert user["is_admin"] == 1
+        assert user["is_active"] == 1
+        assert user["email"] == "admin@example.com"
+        assert user["full_name"] == "Super Admin"
+    
+        temp_db.ensure_admin_user(
+            "superar",
+            "updated_hash",
+            email="new@example.com",
+            full_name="Updated Admin",
+        )
+        updated_user = temp_db.get_user("superar")
+        assert updated_user["hashed_password"] == "updated_hash"
+        assert updated_user["email"] == "new@example.com"
+        assert updated_user["full_name"] == "Updated Admin"
+        assert updated_user["is_admin"] == 1
+        assert updated_user["is_active"] == 1
+    
     def test_client_operations(self, temp_db):
         """Test client CRUD operations."""
         # Create client
