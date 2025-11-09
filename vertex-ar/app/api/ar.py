@@ -2,9 +2,11 @@
 AR content endpoints for Vertex AR API.
 """
 import base64
+import shutil
 import uuid
 from io import BytesIO
 from pathlib import Path
+from typing import Dict
 
 import qrcode
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -14,8 +16,10 @@ from app.database import Database
 from app.models import ARContentResponse
 from app.main import get_current_app
 from app.rate_limiter import create_rate_limit_dependency
+from logging_setup import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def get_database() -> Database:
@@ -72,8 +76,6 @@ async def upload_ar_content(
     
     # Generate previews
     from preview_generator import PreviewGenerator
-    from logging_setup import get_logger
-    logger = get_logger(__name__)
     
     image_preview_path = None
     video_preview_path = None
@@ -147,3 +149,49 @@ async def list_ar_content(username: str = Depends(get_current_user)) -> list:
     if user and user.get("is_admin"):
         return database.list_ar_content()
     return database.list_ar_content(username)
+
+
+@router.post("/{content_id}/click")
+async def track_content_click(content_id: str) -> Dict[str, str]:
+    """Track click interactions for AR content."""
+    database = get_database()
+    record = database.get_ar_content(content_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    database.increment_click_count(content_id)
+    logger.info("AR content click tracked", extra={"content_id": content_id})
+    return {"status": "success", "content_id": content_id}
+
+
+@router.delete("/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ar_content(content_id: str, _: str = Depends(require_admin)) -> None:
+    """Delete AR content and associated files."""
+    database = get_database()
+    record = database.get_ar_content(content_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+
+    image_path = record.get("image_path")
+    content_dir = Path(image_path).parent if image_path else None
+
+    if content_dir and content_dir.exists():
+        try:
+            shutil.rmtree(content_dir)
+        except OSError as exc:
+            logger.error(
+                "Failed to remove AR content directory",
+                extra={"content_id": content_id, "path": str(content_dir)},
+                exc_info=exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to remove stored content files",
+            )
+
+    if not database.delete_ar_content(content_id):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete AR content from database",
+        )
+
+    logger.info("AR content deleted", extra={"content_id": content_id})
