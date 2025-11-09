@@ -38,7 +38,7 @@ Vertex AR — это FastAPI-приложение с полноценной па
 
 ```bash
 # 1. Клонируйте репозиторий
-git clone https://github.com/your-org/vertex-ar.git
+git clone https://github.com/fegerV/ar.git
 cd vertex-ar
 
 # 2. Создайте и активируйте виртуальное окружение
