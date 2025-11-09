@@ -53,14 +53,45 @@ async def get_current_user(
     return user
 
 
-def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    """Require admin role for endpoint access."""
-    if not current_user.get("is_admin", False):
+async def require_admin(request: Request) -> str:
+    """Require admin role for endpoint access. Returns username.
+    
+    Can authenticate via:
+    1. Authorization Bearer token header
+    2. authToken cookie
+    """
+    tokens = get_token_manager()
+    database = get_database()
+    
+    token = None
+    
+    # Try to get token from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    
+    # If no header token, try cookie
+    if not token:
+        token = request.cookies.get("authToken")
+    
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    
+    username = tokens.verify_token(token)
+    if username is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
+    
+    user = database.get_user(username)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    
+    if not user.get("is_admin", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-    return current_user
+    
+    return username
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[Depends(create_rate_limit_dependency("5/minute"))])
