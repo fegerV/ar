@@ -36,113 +36,107 @@ async def upload_ar_content(
     Only admins can upload.
     """
     app = get_current_app()
-    upload_rate_limit = app.state.config["UPLOAD_RATE_LIMIT"]
     base_url = app.state.config["BASE_URL"]
     storage_root = app.state.config["STORAGE_ROOT"]
     
-    @limiter.limit(upload_rate_limit)
-    async def _upload(request: Request, image: UploadFile, video: UploadFile, username: str) -> ARContentResponse:
-        if not image.content_type or not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
-        
-        if not video.content_type or not video.content_type.startswith("video/"):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
-        
-        # Generate UUID for files
-        content_id = str(uuid.uuid4())
-        
-        # Create storage directories
-        user_storage = storage_root / "ar_content" / username
-        user_storage.mkdir(parents=True, exist_ok=True)
-        content_dir = user_storage / content_id
-        content_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Read file contents for preview generation
-        image.file.seek(0)
-        image_content = await image.read()
-        video.file.seek(0)
-        video_content = await video.read()
-        
-        # Save image
-        image_path = content_dir / f"{content_id}.jpg"
-        with open(image_path, "wb") as f:
-            f.write(image_content)
-        
-        # Save video
-        video_path = content_dir / f"{content_id}.mp4"
-        with open(video_path, "wb") as f:
-            f.write(video_content)
-        
-        # Generate previews
-        from preview_generator import PreviewGenerator
-        image_preview_path = None
-        video_preview_path = None
-        
-        try:
-            # Generate image preview
-            image_preview = PreviewGenerator.generate_image_preview(image_content)
-            if image_preview:
-                image_preview_path = content_dir / f"{content_id}_preview.jpg"
-                with open(image_preview_path, "wb") as f:
-                    f.write(image_preview)
-                from logging_setup import get_logger
-                logger = get_logger(__name__)
-                logger.info(f"Image preview created: {image_preview_path}")
-        except Exception as e:
-            from logging_setup import get_logger
-            logger = get_logger(__name__)
-            logger.error(f"Error generating image preview: {e}")
-        
-        try:
-            # Generate video preview
-            video_preview = PreviewGenerator.generate_video_preview(video_content)
-            if video_preview:
-                video_preview_path = content_dir / f"{content_id}_video_preview.jpg"
-                with open(video_preview_path, "wb") as f:
-                    f.write(video_preview)
-                logger.info(f"Video preview created: {video_preview_path}")
-        except Exception as e:
-            logger.error(f"Error generating video preview: {e}")
-        
-        # Generate QR code
-        ar_url = f"{base_url}/ar/{content_id}"
-        qr_img = qrcode.make(ar_url)
-        qr_buffer = BytesIO()
-        qr_img.save(qr_buffer, format="PNG")
-        qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
-        
-        # Generate NFT markers
-        from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
-        nft_generator = NFTMarkerGenerator(storage_root)
-        config = NFTMarkerConfig(feature_density="high", levels=3)
-        marker_result = nft_generator.generate_marker(str(image_path), content_id, config)
-        
-        # Create database record
-        database = get_database()
-        db_record = database.create_ar_content(
-            content_id=content_id,
-            username=username,
-            image_path=str(image_path),
-            video_path=str(video_path),
-            image_preview_path=str(image_preview_path) if image_preview_path else None,
-            video_preview_path=str(video_preview_path) if video_preview_path else None,
-            marker_fset=marker_result.fset_path,
-            marker_fset3=marker_result.fset3_path,
-            marker_iset=marker_result.iset_path,
-            ar_url=ar_url,
-            qr_code=qr_base64,
-        )
-        
-        return ARContentResponse(
-            id=content_id,
-            ar_url=ar_url,
-            qr_code_base64=qr_base64,
-            image_path=str(image_path),
-            video_path=str(video_path),
-            created_at=db_record["created_at"],
-        )
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
     
-    return await _upload(request, image, video, username)
+    if not video.content_type or not video.content_type.startswith("video/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
+    
+    # Generate UUID for files
+    content_id = str(uuid.uuid4())
+    
+    # Create storage directories
+    user_storage = storage_root / "ar_content" / username
+    user_storage.mkdir(parents=True, exist_ok=True)
+    content_dir = user_storage / content_id
+    content_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Read file contents for preview generation
+    image.file.seek(0)
+    image_content = await image.read()
+    video.file.seek(0)
+    video_content = await video.read()
+    
+    # Save image
+    image_path = content_dir / f"{content_id}.jpg"
+    with open(image_path, "wb") as f:
+        f.write(image_content)
+    
+    # Save video
+    video_path = content_dir / f"{content_id}.mp4"
+    with open(video_path, "wb") as f:
+        f.write(video_content)
+    
+    # Generate previews
+    from preview_generator import PreviewGenerator
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    image_preview_path = None
+    video_preview_path = None
+    
+    try:
+        # Generate image preview
+        image_preview = PreviewGenerator.generate_image_preview(image_content)
+        if image_preview:
+            image_preview_path = content_dir / f"{content_id}_preview.jpg"
+            with open(image_preview_path, "wb") as f:
+                f.write(image_preview)
+            logger.info(f"Image preview created: {image_preview_path}")
+    except Exception as e:
+        logger.error(f"Error generating image preview: {e}")
+    
+    try:
+        # Generate video preview
+        video_preview = PreviewGenerator.generate_video_preview(video_content)
+        if video_preview:
+            video_preview_path = content_dir / f"{content_id}_video_preview.jpg"
+            with open(video_preview_path, "wb") as f:
+                f.write(video_preview)
+            logger.info(f"Video preview created: {video_preview_path}")
+    except Exception as e:
+        logger.error(f"Error generating video preview: {e}")
+    
+    # Generate QR code
+    ar_url = f"{base_url}/ar/{content_id}"
+    qr_img = qrcode.make(ar_url)
+    qr_buffer = BytesIO()
+    qr_img.save(qr_buffer, format="PNG")
+    qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
+    
+    # Generate NFT markers
+    from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
+    nft_generator = NFTMarkerGenerator(storage_root)
+    config = NFTMarkerConfig(feature_density="high", levels=3)
+    marker_result = nft_generator.generate_marker(str(image_path), content_id, config)
+    
+    # Create database record
+    database = get_database()
+    db_record = database.create_ar_content(
+        content_id=content_id,
+        username=username,
+        image_path=str(image_path),
+        video_path=str(video_path),
+        image_preview_path=str(image_preview_path) if image_preview_path else None,
+        video_preview_path=str(video_preview_path) if video_preview_path else None,
+        marker_fset=marker_result.fset_path,
+        marker_fset3=marker_result.fset3_path,
+        marker_iset=marker_result.iset_path,
+        ar_url=ar_url,
+        qr_code=qr_base64,
+    )
+    
+    return ARContentResponse(
+        id=content_id,
+        ar_url=ar_url,
+        qr_code_base64=qr_base64,
+        image_path=str(image_path),
+        video_path=str(video_path),
+        created_at=db_record["created_at"],
+    )
 
 
 @router.get("/list")

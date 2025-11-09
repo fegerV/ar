@@ -424,11 +424,15 @@
 
     <script>
         const API_BASE = window.location.origin;
-        let authToken = localStorage.getItem('authToken');
-
-        if (!authToken) {
-            window.location.href = '/admin';
+        
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return localStorage.getItem(name);
         }
+        
+        let authToken = getCookie('authToken');
 
         function showLoading() {
             document.getElementById('loading').classList.add('active');
@@ -777,6 +781,7 @@
 
         function logout() {
             localStorage.removeItem('authToken');
+            document.cookie = 'authToken=; Max-Age=0; path=/;';
             window.location.href = '/admin';
         }
     </script>
