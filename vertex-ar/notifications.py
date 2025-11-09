@@ -1,21 +1,39 @@
 from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional, List, Generator
 import os
 from dotenv import load_dotenv
 
+from app.config import settings
 from logging_setup import get_logger
 
 logger = get_logger(__name__)
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:secret@localhost:5432/vertex_art")
 
-engine = create_engine(DATABASE_URL)
+def _build_database_url() -> str:
+    """Resolve database URL for notifications storage."""
+    env_url = os.getenv("NOTIFICATIONS_DATABASE_URL") or os.getenv("DATABASE_URL")
+    if env_url:
+        if env_url.startswith("sqlite:///") and not env_url.startswith("sqlite:////"):
+            relative_path = env_url.replace("sqlite:///", "", 1)
+            resolved_path = (settings.BASE_DIR / relative_path).resolve()
+            return f"sqlite:///{resolved_path.as_posix()}"
+        return env_url
+    return f"sqlite:///{settings.DB_PATH.as_posix()}"
+
+
+DATABASE_URL = _build_database_url()
+
+engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -63,7 +81,7 @@ class NotificationResponse(BaseModel):
 Base.metadata.create_all(bind=engine)
 
 
-def get_db() -> Generator:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
@@ -71,7 +89,7 @@ def get_db() -> Generator:
         db.close()
 
 
-def create_notification(db, notification: NotificationCreate):
+def create_notification(db: Session, notification: NotificationCreate) -> Notification:
     """Создает новое уведомление"""
     try:
         db_notification = Notification(
@@ -90,7 +108,12 @@ def create_notification(db, notification: NotificationCreate):
         raise
 
 
-def get_notifications(db, user_id: Optional[str] = None, limit: int = 100, unread_only: bool = False):
+def get_notifications(
+    db: Session,
+    user_id: Optional[str] = None,
+    limit: int = 100,
+    unread_only: bool = False,
+) -> List[Notification]:
     """Получает список уведомлений"""
     try:
         query = db.query(Notification)
@@ -110,7 +133,7 @@ def get_notifications(db, user_id: Optional[str] = None, limit: int = 100, unrea
         raise
 
 
-def get_notification(db, notification_id: int):
+def get_notification(db: Session, notification_id: int) -> Optional[Notification]:
     """Получает конкретное уведомление"""
     try:
         return db.query(Notification).filter(Notification.id == notification_id).first()
@@ -119,7 +142,11 @@ def get_notification(db, notification_id: int):
         raise
 
 
-def update_notification(db, notification_id: int, notification_update: NotificationUpdate):
+def update_notification(
+    db: Session,
+    notification_id: int,
+    notification_update: NotificationUpdate,
+) -> Optional[Notification]:
     """Обновляет уведомление (например, помечает как прочитанное)"""
     try:
         db_notification = db.query(Notification).filter(Notification.id == notification_id).first()
@@ -135,7 +162,7 @@ def update_notification(db, notification_id: int, notification_update: Notificat
         raise
 
 
-def delete_notification(db, notification_id: int):
+def delete_notification(db: Session, notification_id: int) -> Optional[Notification]:
     """Удаляет уведомление"""
     try:
         db_notification = db.query(Notification).filter(Notification.id == notification_id).first()
@@ -149,7 +176,7 @@ def delete_notification(db, notification_id: int):
         raise
 
 
-def mark_all_as_read(db, user_id: Optional[str] = None):
+def mark_all_as_read(db: Session, user_id: Optional[str] = None) -> None:
     """Помечает все уведомления как прочитанные"""
     try:
         query = db.query(Notification).filter(Notification.is_read == False)
@@ -184,7 +211,7 @@ def send_notification(title: str, message: str, user_id: Optional[str] = None, n
         raise
 
 
-def get_user_unread_count(db, user_id: str) -> int:
+def get_user_unread_count(db: Session, user_id: str) -> int:
     """Получает количество непрочитанных уведомлений для пользователя"""
     try:
         return db.query(Notification).filter(
@@ -196,7 +223,7 @@ def get_user_unread_count(db, user_id: str) -> int:
         raise
 
 
-def cleanup_expired_notifications(db):
+def cleanup_expired_notifications(db: Session) -> None:
     """Удаляет устаревшие уведомления"""
     try:
         from datetime import datetime

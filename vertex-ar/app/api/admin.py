@@ -1,17 +1,20 @@
 """
 Admin panel endpoints for Vertex AR API.
 """
-from fastapi import APIRouter, Request, Response, File, UploadFile, Depends, Form, HTTPException, status
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.api.auth import get_current_user, require_admin
+from app.api.auth import require_admin
 from app.database import Database
 from app.main import get_current_app
 from app.models import ARContentResponse
 from app.rate_limiter import create_rate_limit_dependency
-from app.auth import TokenManager, _verify_password
+from app.auth import _verify_password
 from logging_setup import get_logger
+from utils import format_bytes, get_disk_usage, get_storage_usage
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -40,32 +43,63 @@ def get_templates() -> Jinja2Templates:
     return app.state.templates
 
 
+def _redirect_to_login(error: str = "unauthorized") -> RedirectResponse:
+    """Redirect user to admin login page with optional error flag."""
+    response = RedirectResponse(
+        url=f"/admin?error={error}",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.delete_cookie("authToken")
+    return response
+
+
+def _validate_admin_session(request: Request) -> Optional[str]:
+    """Validate admin session cookie and return username when valid."""
+    auth_token = request.cookies.get("authToken")
+    if not auth_token:
+        return None
+    try:
+        app = get_current_app()
+        tokens = app.state.tokens
+        username = tokens.verify_token(auth_token)
+        if not username:
+            return None
+        database = get_database()
+        user = database.get_user(username)
+        if not user or not user.get("is_admin", False):
+            return None
+        return username
+    except Exception as exc:
+        logger.error("Failed to validate admin session", exc_info=exc)
+        return None
+
+
 @router.get("/", response_class=HTMLResponse)
 async def admin_panel(request: Request) -> HTMLResponse:
     """Serve admin panel or login page."""
-    auth_token = request.cookies.get("authToken")
-    if not auth_token:
-        templates = get_templates()
+    templates = get_templates()
+    username = _validate_admin_session(request)
+    if not username:
+        if request.cookies.get("authToken"):
+            return _redirect_to_login("unauthorized")
         error = request.query_params.get("error")
         return templates.TemplateResponse("login.html", {"request": request, "error": error})
     
     database = get_database()
-    templates = get_templates()
-    
-    # Get AR content list for admin display
     records = database.list_ar_content()
-    return templates.TemplateResponse("admin.html", {"request": request, "records": records})
+    context = {"request": request, "records": records, "username": username}
+    return templates.TemplateResponse("admin.html", context)
 
 
 @router.get("/orders", response_class=HTMLResponse)
 async def admin_orders_panel(request: Request) -> HTMLResponse:
     """Serve new admin panel for orders management."""
-    auth_token = request.cookies.get("authToken")
-    if not auth_token:
-        return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
     
     templates = get_templates()
-    return templates.TemplateResponse("admin_orders.html", {"request": request})
+    return templates.TemplateResponse("admin_orders.html", {"request": request, "username": username})
 
 
 @router.post("/login")
@@ -130,3 +164,44 @@ async def upload_ar_content_admin(
     """
     from app.api.ar import upload_ar_content
     return await upload_ar_content(request, image, video, username)
+
+
+@router.get("/system-info")
+async def get_system_info(_: str = Depends(require_admin)) -> Dict[str, Any]:
+    """Return disk and storage usage information for admin dashboard."""
+    app = get_current_app()
+    storage_root = app.state.config["STORAGE_ROOT"]
+    disk_usage = get_disk_usage(str(storage_root))
+    storage_usage = get_storage_usage(str(storage_root))
+    return {
+        "disk_info": {
+            "total": format_bytes(disk_usage["total"]),
+            "used": format_bytes(disk_usage["used"]),
+            "free": format_bytes(disk_usage["free"]),
+            "used_percent": disk_usage["used_percent"],
+            "free_percent": disk_usage["free_percent"],
+        },
+        "storage_info": {
+            "total_size": storage_usage["formatted_size"],
+            "file_count": storage_usage["file_count"],
+            "path": str(storage_root),
+        },
+    }
+
+
+@router.get("/content-stats")
+async def get_content_stats(_: str = Depends(require_admin)) -> List[Dict[str, Any]]:
+    """Return aggregated AR content statistics for the admin dashboard."""
+    database = get_database()
+    records = database.list_ar_content()
+    stats: List[Dict[str, Any]] = []
+    for record in records:
+        stats.append({
+            "id": record["id"],
+            "views": record.get("view_count", 0),
+            "clicks": record.get("click_count", 0),
+            "created_at": record.get("created_at"),
+            "ar_url": record.get("ar_url"),
+        })
+    stats.sort(key=lambda item: item["views"], reverse=True)
+    return stats
