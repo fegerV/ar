@@ -24,8 +24,9 @@ def get_database() -> Database:
         from pathlib import Path
         BASE_DIR = app.state.config["BASE_DIR"]
         DB_PATH = BASE_DIR / "app_data.db"
-        from app.database import Database
+        from app.database import Database, ensure_default_admin_user
         app.state.database = Database(DB_PATH)
+        ensure_default_admin_user(app.state.database)
     return app.state.database
 
 

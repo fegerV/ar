@@ -67,6 +67,12 @@ class Settings:
         self.ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
         self.ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
         
+        # Default admin credentials
+        self.DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME", "superar")
+        self.DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "ffE48f0ns@HQ")
+        self.DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL", "superar@vertex-ar.local")
+        self.DEFAULT_ADMIN_FULL_NAME = os.getenv("DEFAULT_ADMIN_FULL_NAME", "Super Administrator")
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)
