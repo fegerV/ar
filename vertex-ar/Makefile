@@ -41,7 +41,7 @@ setup: install-dev
 
 # Development
 run:
-	python -m uvicorn main_new:app --host 0.0.0.0 --port 8000 --reload
+	python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Code formatting
 format:
@@ -79,16 +79,16 @@ check: lint security test-cov
 
 # Docker
 docker-build:
-	docker build -f Dockerfile.app -t vertex-ar:latest .
+	docker build -f ../Dockerfile.app -t vertex-ar:latest ..
 
 docker-run:
-	docker-compose up -d
+	docker-compose -f ../docker-compose.yml up -d
 
 docker-stop:
-	docker-compose down
+	docker-compose -f ../docker-compose.yml down
 
 docker-logs:
-	docker-compose logs -f
+	docker-compose -f ../docker-compose.yml logs -f
 
 # Database
 db-backup:
@@ -108,11 +108,11 @@ perf-test:
 # Documentation
 docs:
 	@echo "Generating documentation..."
-	cd docs && make html
+	cd ../docs && make html
 
 docs-serve:
 	@echo "Serving documentation..."
-	cd docs/_build/html && python -m http.server 8080
+	cd ../docs/_build/html && python -m http.server 8080
 
 # Cleanup
 clean:

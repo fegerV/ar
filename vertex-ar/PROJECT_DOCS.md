@@ -66,7 +66,7 @@ vertex-ar/
 - **Генерация маркеров:** `/api/nft-markers/generate`, `/api/nft-markers/batch-generate`, `/api/nft-markers/cleanup`
 - **Просмотр контента:** `/portrait/{permanent_link}`, `/ar/{content_id}`, `/qr/{content_id}`
 
-Полное описание см. в `docs/api/endpoints.md`.
+Полное описание см. в `../docs/api/endpoints.md`.
 
 ---
 
@@ -92,7 +92,7 @@ docker-compose up --build -d
 - `SESSION_TIMEOUT_MINUTES`, `AUTH_MAX_ATTEMPTS`
 - `BASE_URL` и CORS-настройки
 
-Подробная инструкция: `README_DEPLOYMENT.md` и `docs/guides/installation.md`.
+Подробная инструкция: `README_DEPLOYMENT.md` и `../docs/guides/installation.md`.
 
 ---
 
