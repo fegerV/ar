@@ -6,6 +6,8 @@ import mimetypes
 from storage_adapter import get_storage
 import uuid
 from typing import Optional
+import cv2
+import numpy as np
 
 from logging_setup import get_logger
 
@@ -16,9 +18,9 @@ class PreviewGenerator:
     """Класс для генерации превью для различных типов файлов"""
     
     @staticmethod
-    def generate_image_preview(image_content: bytes, size=(200, 200)) -> Optional[bytes]:
-        """Генерирует превью для изображений"""
-        logger.info(f"Начинаем генерацию превью для изображения, размер: {len(image_content)} байт")
+    def generate_image_preview(image_content: bytes, size=(120, 120)) -> Optional[bytes]:
+        """Генерирует превью для изображений с уменьшенным размером"""
+        logger.info(f"Начинаем генерацию превью для изображения, размер: {len(image_content)} байт, целевой размер: {size}")
         try:
             # Открываем изображение
             image = Image.open(BytesIO(image_content))
@@ -40,29 +42,131 @@ class PreviewGenerator:
             # Вставляем изображение в центр
             preview.paste(image, (x, y))
             
-            # Сохраняем превью в байтовый буфер
+            # Сохраняем превью в байтовый буфер с высоким качеством
             buffer = BytesIO()
-            preview.save(buffer, format='JPEG', quality=85)
+            preview.save(buffer, format='JPEG', quality=90)
             buffer.seek(0)
             
+            logger.info(f"Превью изображения успешно сгенерировано, размер превью: {len(buffer.getvalue())} байт")
             return buffer.getvalue()
         except Exception as e:
             logger.exception(f"Ошибка при генерации превью изображения: {e}")
             return None
     
     @staticmethod
-    def generate_video_preview(video_content: bytes, size=(200, 200), frame_time=1.0) -> Optional[bytes]:
-        """Генерирует превью для видео (использует заглушку без OpenCV)"""
-        logger.info(f"Начинаем генерацию превью для видео, размер: {len(video_content)} байт")
-        logger.info("Используем заглушку для превью видео (OpenCV отключен)")
-        return PreviewGenerator.generate_video_preview_stub(size)
+    def generate_video_preview(video_content: bytes, size=(120, 120), frame_time=None) -> Optional[bytes]:
+        """Генерирует превью для видео, извлекая кадр из середины"""
+        logger.info(f"Начинаем генерацию превью для видео, размер: {len(video_content)} байт, целевой размер: {size}")
+        
+        try:
+            # Сохраняем видео во временный файл
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video:
+                temp_video.write(video_content)
+                temp_video_path = temp_video.name
+            
+            try:
+                # Открываем видео с помощью OpenCV
+                cap = cv2.VideoCapture(temp_video_path)
+                
+                if not cap.isOpened():
+                    logger.error("Не удалось открыть видео с помощью OpenCV")
+                    return PreviewGenerator.generate_video_preview_stub(size)
+                
+                # Получаем общее количество кадров
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                
+                logger.info(f"Видео открыто успешно: всего кадров={total_frames}, FPS={fps}")
+                
+                if total_frames <= 0:
+                    logger.error("Видео не содержит кадров")
+                    return PreviewGenerator.generate_video_preview_stub(size)
+                
+                # Вычисляем номер кадра из середины видео
+                middle_frame = total_frames // 2
+                
+                # Устанавливаем позицию на середину видео
+                cap.set(cv2.CAP_PROP_POS_FRAMES, middle_frame)
+                
+                # Читаем кадр
+                ret, frame = cap.read()
+                
+                if not ret or frame is None:
+                    logger.error(f"Не удалось прочитать кадр {middle_frame} из видео")
+                    # Пробуем первый кадр как fallback
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        logger.error("Не удалось прочитать даже первый кадр")
+                        return PreviewGenerator.generate_video_preview_stub(size)
+                
+                logger.info(f"Кадр успешно извлечен, размер: {frame.shape}")
+                
+                # Конвертируем BGR (OpenCV) в RGB (PIL)
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Конвертируем numpy array в PIL Image
+                pil_image = Image.fromarray(frame_rgb)
+                
+                # Создаем превью с сохранением пропорций
+                pil_image.thumbnail(size, Image.Resampling.LANCZOS)
+                
+                # Создаем новое изображение с черным фоном (для видео)
+                preview = Image.new('RGB', size, (0, 0, 0))
+                
+                # Вычисляем позицию для центрирования
+                x = (size[0] - pil_image.size[0]) // 2
+                y = (size[1] - pil_image.size[1]) // 2
+                
+                # Вставляем кадр в центр
+                preview.paste(pil_image, (x, y))
+                
+                # Добавляем иконку воспроизведения поверх превью
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(preview)
+                
+                # Рисуем полупрозрачный круг в центре
+                center_x, center_y = size[0] // 2, size[1] // 2
+                circle_radius = min(size) // 8
+                
+                # Рисуем треугольник воспроизведения
+                triangle_size = circle_radius
+                triangle_points = [
+                    (center_x - triangle_size//2, center_y - triangle_size//2),  # Левая точка
+                    (center_x - triangle_size//2, center_y + triangle_size//2),  # Нижняя точка
+                    (center_x + triangle_size//2, center_y)                     # Правая точка
+                ]
+                draw.polygon(triangle_points, fill=(255, 255, 255))  # Белый треугольник
+                
+                # Сохраняем превью в байтовый буфер
+                buffer = BytesIO()
+                preview.save(buffer, format='JPEG', quality=85)
+                buffer.seek(0)
+                
+                logger.info(f"Превью видео успешно сгенерировано из кадра {middle_frame}, размер превью: {len(buffer.getvalue())} байт")
+                return buffer.getvalue()
+                
+            finally:
+                # Освобождаем ресурсы
+                if 'cap' in locals():
+                    cap.release()
+                # Удаляем временный файл
+                try:
+                    os.unlink(temp_video_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            logger.exception(f"Ошибка при генерации превью видео: {e}")
+            logger.info("Используем заглушку для превью видео")
+            return PreviewGenerator.generate_video_preview_stub(size)
     
     @staticmethod
-    def generate_video_preview_stub(size=(200, 200)) -> Optional[bytes]:
+    def generate_video_preview_stub(size=(120, 120)) -> Optional[bytes]:
         """Создает заглушку для превью видео"""
         try:
             # Создаем стандартное изображение-заглушку для видео
-            preview = Image.new('RGB', size, (30, 30))  # Темный фон
+            preview = Image.new('RGB', size, (30, 30, 30))  # Темный фон
             
             # Добавляем символ воспроизведения
             from PIL import ImageDraw
@@ -89,7 +193,7 @@ class PreviewGenerator:
             return None
     
     @staticmethod
-    def generate_document_preview(document_content: bytes, size=(200, 200)) -> Optional[bytes]:
+    def generate_document_preview(document_content: bytes, size=(120, 120)) -> Optional[bytes]:
         """Генерирует превью для документов (пока просто заглушка)"""
         try:
             # Для документов создаем стандартное изображение-заглушку
@@ -120,7 +224,7 @@ class PreviewGenerator:
             return None
     
     @staticmethod
-    def generate_preview(file_content: bytes, file_type: str, size=(200, 200)) -> Optional[bytes]:
+    def generate_preview(file_content: bytes, file_type: str, size=(120, 120)) -> Optional[bytes]:
         """Основной метод для генерации превью в зависимости от типа файла"""
         if file_type.startswith('image/'):
             return PreviewGenerator.generate_image_preview(file_content, size)
