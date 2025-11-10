@@ -51,6 +51,8 @@ class NFTMarkerConfig:
     feature_density: str = "medium"  # low, medium, high
     auto_enhance_contrast: bool = False
     contrast_factor: float = 1.5
+    max_image_size: int = 8192  # Maximum image dimension (width/height)
+    max_image_area: int = 50_000_000  # Maximum image area (width * height)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
@@ -252,12 +254,13 @@ class NFTMarkerGenerator:
         logger.info(f"NFT marker generator initialized at {storage_root}")
         logger.info(f"Cache {'enabled' if enable_cache else 'disabled'}")
     
-    def _validate_image(self, image_path: Path) -> Tuple[bool, str]:
+    def _validate_image(self, image_path: Path, config: NFTMarkerConfig) -> Tuple[bool, str]:
         """
         Validate image for NFT marker generation.
         
         Args:
             image_path: Path to image file
+            config: NFT marker configuration
             
         Returns:
             Tuple of (is_valid, message)
@@ -275,8 +278,15 @@ class NFTMarkerGenerator:
                 if width < 480 or height < 480:
                     return False, f"Image too small ({width}x{height}). Minimum 480x480px recommended"
                 
-                if width > 4096 or height > 4096:
-                    return False, f"Image too large ({width}x{height}). Maximum 4096x4096px recommended"
+                # Use configuration limits instead of hardcoded values
+                max_size = config.max_image_size
+                max_area = config.max_image_area
+                
+                if width > max_size or height > max_size:
+                    return False, f"Image too large ({width}x{height}). Maximum {max_size}x{max_size}px recommended"
+                
+                if width * height > max_area:
+                    return False, f"Image area too large ({width * height:,}). Maximum {max_area:,} pixels"
                 
                 return True, "Image valid"
             
@@ -550,14 +560,14 @@ class NFTMarkerGenerator:
         """
         image_path = Path(image_path)
         
-        # Validate image
-        is_valid, message = self._validate_image(image_path)
-        if not is_valid:
-            raise ValueError(f"Image validation failed: {message}")
-        
         # Use default config if none provided
         if config is None:
             config = NFTMarkerConfig()
+        
+        # Validate image with config
+        is_valid, message = self._validate_image(image_path, config)
+        if not is_valid:
+            raise ValueError(f"Image validation failed: {message}")
         
         # Create marker directory
         marker_dir = self.markers_dir / marker_name
@@ -611,8 +621,9 @@ class NFTMarkerGenerator:
                 return cached_result
             self.metrics['cache_misses'] += 1
         
-        # Validate image
-        is_valid, message = self._validate_image(image_path)
+        # Validate image with default config
+        default_config = NFTMarkerConfig()
+        is_valid, message = self._validate_image(image_path, default_config)
         result = {
             "valid": is_valid,
             "message": message
