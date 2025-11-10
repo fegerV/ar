@@ -2,7 +2,7 @@
 Client management endpoints for Vertex AR API.
 """
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -30,14 +30,22 @@ def get_database() -> Database:
     return app.state.database
 
 
-def _client_to_response(client: Dict[str, Any]) -> ClientResponse:
+def _client_to_response(client: Dict[str, Any], with_portrait_count: bool = False) -> Union[Dict[str, Any], ClientResponse]:
     """Convert database record to API response."""
-    return ClientResponse(
-        id=client["id"],
-        phone=client["phone"],
-        name=client["name"],
-        created_at=client["created_at"],
-    )
+    response_dict = {
+        "id": client["id"],
+        "phone": client["phone"],
+        "name": client["name"],
+        "created_at": client["created_at"],
+    }
+    
+    if with_portrait_count:
+        database = get_database()
+        portraits = database.list_portraits(client["id"])
+        response_dict["portraits_count"] = len(portraits)
+        return response_dict
+    
+    return ClientResponse(**response_dict)
 
 
 @router.post("/", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
@@ -96,12 +104,12 @@ async def list_clients(username: str = Depends(get_current_user)) -> List[Client
     return [_client_to_response(client) for client in clients]
 
 
-@router.get("/list", response_model=List[ClientResponse])
-async def list_clients_legacy(_: str = Depends(require_admin)) -> List[ClientResponse]:
-    """Legacy endpoint: list all clients (admin only)."""
+@router.get("/list", response_model=List[Dict[str, Any]])
+async def list_clients_legacy(_: str = Depends(require_admin)) -> List[Dict[str, Any]]:
+    """Legacy endpoint: list all clients (admin only) with portrait counts."""
     database = get_database()
     clients = database.list_clients()
-    return [_client_to_response(client) for client in clients]
+    return [_client_to_response(client, with_portrait_count=True) for client in clients]
 
 
 @router.get("/{client_id}", response_model=ClientResponse)
@@ -158,15 +166,15 @@ async def search_clients(
     return [_client_to_response(client) for client in clients]
 
 
-@router.get("/search", response_model=List[ClientResponse])
+@router.get("/search", response_model=List[Dict[str, Any]])
 async def search_clients_query(
     phone: str,
     _: str = Depends(require_admin)
-) -> List[ClientResponse]:
-    """Legacy endpoint: search clients via query parameter."""
+) -> List[Dict[str, Any]]:
+    """Legacy endpoint: search clients via query parameter with portrait counts."""
     database = get_database()
     clients = database.search_clients(phone)
-    return [_client_to_response(client) for client in clients]
+    return [_client_to_response(client, with_portrait_count=True) for client in clients]
 
 
 @router.put("/{client_id}", response_model=ClientResponse)
