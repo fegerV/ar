@@ -17,9 +17,11 @@ class Database:
     """Simplified database with just users and AR content."""
     
     def __init__(self, path: Path) -> None:
-        self.path = path
+        self.path = Path(path)
+        # Ensure directory exists
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._connection = sqlite3.connect(self.path, check_same_thread=False)
+        self._connection = sqlite3.connect(str(self.path), check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._initialise_schema()
     
