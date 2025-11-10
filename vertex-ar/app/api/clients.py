@@ -2,11 +2,11 @@
 Client management endpoints for Vertex AR API.
 """
 import uuid
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import ClientCreate, ClientResponse, ClientUpdate
 from logging_setup import get_logger
@@ -28,6 +28,16 @@ def get_database() -> Database:
         app.state.database = Database(DB_PATH)
         ensure_default_admin_user(app.state.database)
     return app.state.database
+
+
+def _client_to_response(client: Dict[str, Any]) -> ClientResponse:
+    """Convert database record to API response."""
+    return ClientResponse(
+        id=client["id"],
+        phone=client["phone"],
+        name=client["name"],
+        created_at=client["created_at"],
+    )
 
 
 @router.post("/", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
@@ -69,12 +79,7 @@ async def create_client(
         username=username,
     )
     
-    return ClientResponse(
-        id=db_client["id"],
-        phone=db_client["phone"],
-        name=db_client["name"],
-        created_at=db_client["created_at"]
-    )
+    return _client_to_response(db_client)
 
 
 @router.get("/", response_model=List[ClientResponse])
@@ -88,15 +93,15 @@ async def list_clients(username: str = Depends(get_current_user)) -> List[Client
     
     logger.info("clients_list_retrieved", count=len(clients), username=username)
     
-    return [
-        ClientResponse(
-            id=client["id"],
-            phone=client["phone"],
-            name=client["name"],
-            created_at=client["created_at"]
-        )
-        for client in clients
-    ]
+    return [_client_to_response(client) for client in clients]
+
+
+@router.get("/list", response_model=List[ClientResponse])
+async def list_clients_legacy(_: str = Depends(require_admin)) -> List[ClientResponse]:
+    """Legacy endpoint: list all clients (admin only)."""
+    database = get_database()
+    clients = database.list_clients()
+    return [_client_to_response(client) for client in clients]
 
 
 @router.get("/{client_id}", response_model=ClientResponse)
@@ -120,12 +125,7 @@ async def get_client(
     
     logger.info("client_fetched_successfully", client_id=client_id, username=username)
     
-    return ClientResponse(
-        id=client["id"],
-        phone=client["phone"],
-        name=client["name"],
-        created_at=client["created_at"]
-    )
+    return _client_to_response(client)
 
 
 @router.get("/phone/{phone}", response_model=ClientResponse)
@@ -143,12 +143,7 @@ async def get_client_by_phone(
             detail="Client not found"
         )
     
-    return ClientResponse(
-        id=client["id"],
-        phone=client["phone"],
-        name=client["name"],
-        created_at=client["created_at"]
-    )
+    return _client_to_response(client)
 
 
 @router.get("/search/{phone}", response_model=List[ClientResponse])
@@ -160,15 +155,18 @@ async def search_clients(
     database = get_database()
     clients = database.search_clients(phone)
     
-    return [
-        ClientResponse(
-            id=client["id"],
-            phone=client["phone"],
-            name=client["name"],
-            created_at=client["created_at"]
-        )
-        for client in clients
-    ]
+    return [_client_to_response(client) for client in clients]
+
+
+@router.get("/search", response_model=List[ClientResponse])
+async def search_clients_query(
+    phone: str,
+    _: str = Depends(require_admin)
+) -> List[ClientResponse]:
+    """Legacy endpoint: search clients via query parameter."""
+    database = get_database()
+    clients = database.search_clients(phone)
+    return [_client_to_response(client) for client in clients]
 
 
 @router.put("/{client_id}", response_model=ClientResponse)
@@ -229,12 +227,7 @@ async def update_client(
         username=username,
     )
     
-    return ClientResponse(
-        id=updated_client["id"],
-        phone=updated_client["phone"],
-        name=updated_client["name"],
-        created_at=updated_client["created_at"]
-    )
+    return _client_to_response(updated_client)
 
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)

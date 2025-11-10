@@ -4,14 +4,14 @@ Portrait management endpoints for Vertex AR API.
 import base64
 import uuid
 from io import BytesIO
-from typing import List
+from typing import Any, Dict, List, Optional
 
 import qrcode
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_admin
 from app.database import Database
-from app.models import PortraitResponse
+from app.models import ClientResponse, PortraitResponse, VideoResponse
 from app.main import get_current_app
 
 router = APIRouter()
@@ -29,6 +29,30 @@ def get_database() -> Database:
         app.state.database = Database(DB_PATH)
         ensure_default_admin_user(app.state.database)
     return app.state.database
+
+
+def _portrait_to_response(portrait: Dict[str, Any]) -> PortraitResponse:
+    """Convert database record to API response."""
+    return PortraitResponse(
+        id=portrait["id"],
+        client_id=portrait["client_id"],
+        permanent_link=portrait["permanent_link"],
+        qr_code_base64=portrait.get("qr_code"),
+        image_path=portrait["image_path"],
+        view_count=portrait["view_count"],
+        created_at=portrait["created_at"],
+    )
+
+
+def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
+    """Convert video record to API response."""
+    return VideoResponse(
+        id=video["id"],
+        portrait_id=video["portrait_id"],
+        video_path=video["video_path"],
+        is_active=bool(video["is_active"]),
+        created_at=video["created_at"],
+    )
 
 
 @router.post("/", response_model=PortraitResponse, status_code=status.HTTP_201_CREATED)
@@ -120,38 +144,33 @@ async def create_portrait(
         image_preview_path=str(image_preview_path) if image_preview_path else None,
     )
     
-    return PortraitResponse(
-        id=db_portrait["id"],
-        client_id=db_portrait["client_id"],
-        permanent_link=db_portrait["permanent_link"],
-        qr_code_base64=qr_base64,
-        image_path=db_portrait["image_path"],
-        view_count=db_portrait["view_count"],
-        created_at=db_portrait["created_at"]
-    )
+    # Ensure QR code is included in response payload
+    db_portrait["qr_code"] = qr_base64
+    
+    return _portrait_to_response(db_portrait)
 
 
 @router.get("/", response_model=List[PortraitResponse])
 async def list_portraits(
-    client_id: str = None,
+    client_id: Optional[str] = None,
     username: str = Depends(get_current_user)
 ) -> List[PortraitResponse]:
     """Get list of portraits (optionally filtered by client)."""
     database = get_database()
     portraits = database.list_portraits(client_id)
     
-    return [
-        PortraitResponse(
-            id=portrait["id"],
-            client_id=portrait["client_id"],
-            permanent_link=portrait["permanent_link"],
-            qr_code_base64=portrait.get("qr_code"),
-            image_path=portrait["image_path"],
-            view_count=portrait["view_count"],
-            created_at=portrait["created_at"]
-        )
-        for portrait in portraits
-    ]
+    return [_portrait_to_response(portrait) for portrait in portraits]
+
+
+@router.get("/list", response_model=List[PortraitResponse])
+async def list_portraits_legacy(
+    client_id: Optional[str] = None,
+    _: str = Depends(require_admin)
+) -> List[PortraitResponse]:
+    """Legacy endpoint: list portraits via query parameter (admin only)."""
+    database = get_database()
+    portraits = database.list_portraits(client_id)
+    return [_portrait_to_response(portrait) for portrait in portraits]
 
 
 @router.get("/{portrait_id}", response_model=PortraitResponse)
@@ -169,15 +188,7 @@ async def get_portrait(
             detail="Portrait not found"
         )
     
-    return PortraitResponse(
-        id=portrait["id"],
-        client_id=portrait["client_id"],
-        permanent_link=portrait["permanent_link"],
-        qr_code_base64=portrait.get("qr_code"),
-        image_path=portrait["image_path"],
-        view_count=portrait["view_count"],
-        created_at=portrait["created_at"]
-    )
+    return _portrait_to_response(portrait)
 
 
 @router.get("/link/{permanent_link}", response_model=PortraitResponse)
@@ -194,16 +205,39 @@ async def get_portrait_by_link(permanent_link: str) -> PortraitResponse:
     
     # Increment view count
     database.increment_portrait_views(portrait["id"])
+    portrait["view_count"] = portrait.get("view_count", 0) + 1
     
-    return PortraitResponse(
-        id=portrait["id"],
-        client_id=portrait["client_id"],
-        permanent_link=portrait["permanent_link"],
-        qr_code_base64=portrait.get("qr_code"),
-        image_path=portrait["image_path"],
-        view_count=portrait["view_count"] + 1,  # Incremented view
-        created_at=portrait["created_at"]
+    return _portrait_to_response(portrait)
+
+
+@router.get("/{portrait_id}/details", response_model=Dict[str, Any])
+async def get_portrait_details(
+    portrait_id: str,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Return portrait details along with client and videos."""
+    database = get_database()
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portrait not found")
+    client = database.get_client(portrait["client_id"])
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    videos = database.list_videos(portrait_id)
+    portrait_response = _portrait_to_response(portrait)
+    client_response = ClientResponse(
+        id=client["id"],
+        phone=client["phone"],
+        name=client["name"],
+        created_at=client["created_at"],
     )
+    videos_response = [_video_to_response(video) for video in videos]
+    
+    return {
+        "portrait": portrait_response.model_dump(),
+        "client": client_response.model_dump(),
+        "videos": [video.model_dump() for video in videos_response],
+    }
 
 
 @router.delete("/{portrait_id}", status_code=status.HTTP_204_NO_CONTENT)

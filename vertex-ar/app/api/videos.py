@@ -2,11 +2,11 @@
 Video management endpoints for Vertex AR API.
 """
 import uuid
-from typing import List
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import VideoResponse
 from app.main import get_current_app
@@ -28,11 +28,22 @@ def get_database() -> Database:
     return app.state.database
 
 
+def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
+    """Convert raw database record to API response."""
+    return VideoResponse(
+        id=video["id"],
+        portrait_id=video["portrait_id"],
+        video_path=video["video_path"],
+        is_active=bool(video["is_active"]),
+        created_at=video["created_at"],
+    )
+
+
 @router.post("/", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
 async def create_video(
-    portrait_id: str,
+    portrait_id: str = Form(...),
     video: UploadFile = File(...),
-    is_active: bool = False,
+    is_active: bool = Form(False),
     username: str = Depends(get_current_user)
 ) -> VideoResponse:
     """Create a new video for a portrait."""
