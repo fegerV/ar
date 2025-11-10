@@ -96,10 +96,15 @@ async def create_portrait(
     qr_img.save(qr_buffer, format="PNG")
     qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
     
-    # Generate NFT markers
+    # Generate NFT markers with increased image size limits
     from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
     nft_generator = NFTMarkerGenerator(storage_root)
-    config = NFTMarkerConfig(feature_density="high", levels=3)
+    config = NFTMarkerConfig(
+        feature_density="high", 
+        levels=3,
+        max_image_size=8192,  # Increased from 4096 to support larger images
+        max_image_area=50_000_000  # Increased from 16_777_216 to support larger images
+    )
     marker_result = nft_generator.generate_marker(str(image_path), portrait_id, config)
     
     # Create portrait in database
