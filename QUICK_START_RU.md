@@ -23,7 +23,7 @@
 ### 1. Клонируйте репозиторий
 
 ```bash
-git clone https://github.com/your-org/vertex-ar.git
+git clone https://github.com/fegerV/ar
 cd vertex-ar
 ```
 
