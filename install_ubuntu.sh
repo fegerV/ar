@@ -322,7 +322,7 @@ deploy_application() {
     
     # Clone repository
     cd "$PROJECT_DIR"
-    sudo -u "$PROJECT_USER" git clone https://github.com/your-org/vertex-ar.git .
+    sudo -u "$PROJECT_USER" git clone https://github.com/fegerV/ar.git .
     
     if [[ "$USE_DOCKER" == false ]]; then
         # Install Python dependencies
