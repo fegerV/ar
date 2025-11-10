@@ -173,6 +173,58 @@ async def list_portraits_legacy(
     return [_portrait_to_response(portrait) for portrait in portraits]
 
 
+@router.get("/admin/list-with-preview", response_model=List[Dict[str, Any]])
+async def list_portraits_with_preview(
+    _: str = Depends(require_admin)
+) -> List[Dict[str, Any]]:
+    """Get all portraits with preview images and video info for admin dashboard."""
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    portraits = database.list_portraits()
+    
+    result = []
+    for portrait in portraits:
+        try:
+            preview_data = None
+            image_preview_path = portrait.get("image_preview_path")
+            if image_preview_path:
+                try:
+                    from pathlib import Path
+                    preview_path = Path(image_preview_path)
+                    if preview_path.exists():
+                        with open(preview_path, "rb") as f:
+                            import base64
+                            preview_data = base64.b64encode(f.read()).decode()
+                except Exception as e:
+                    logger.warning(f"Failed to read preview for portrait {portrait['id']}: {e}")
+            
+            videos = database.list_videos(portrait["id"])
+            
+            result.append({
+                "id": portrait["id"],
+                "client_id": portrait["client_id"],
+                "permanent_link": portrait["permanent_link"],
+                "view_count": portrait.get("view_count", 0),
+                "created_at": portrait.get("created_at"),
+                "preview": preview_data or "",
+                "videos": [
+                    {
+                        "id": v["id"],
+                        "is_active": bool(v["is_active"]),
+                        "created_at": v.get("created_at")
+                    }
+                    for v in videos
+                ]
+            })
+        except Exception as e:
+            logger.error(f"Error processing portrait {portrait.get('id')}: {e}")
+            continue
+    
+    return result
+
+
 @router.get("/{portrait_id}", response_model=PortraitResponse)
 async def get_portrait(
     portrait_id: str,

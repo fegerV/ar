@@ -19,15 +19,23 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .header {
             background: white;
             border-radius: 10px;
             padding: 20px;
-            margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             display: flex;
             justify-content: space-between;
@@ -98,6 +106,15 @@
         .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
+        }
+
+        .btn-clear {
+            background: #a0aec0;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #718096;
         }
 
         .tabs {
@@ -268,16 +285,131 @@
             margin: 10px 0;
         }
 
+        /* Logs Panel Styles */
+        .logs-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 380px;
+            height: calc(100vh - 40px);
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .logs-header {
+            padding: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .logs-header h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .logs-header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .logs-header-actions button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .logs-header-actions button:hover {
+            background: rgba(255,255,255,0.4);
+        }
+
+        .logs-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #cbd5e0;
+            background: #f7fafc;
+        }
+
+        .log-entry.info {
+            border-left-color: #4299e1;
+            background: #ebf8ff;
+        }
+
+        .log-entry.success {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .log-entry.error {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+
+        .log-entry.warning {
+            border-left-color: #ed8936;
+            background: #fffaf0;
+        }
+
+        .log-entry.debug {
+            border-left-color: #9f7aea;
+            background: #faf5ff;
+        }
+
+        .log-timestamp {
+            display: block;
+            font-size: 11px;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+
+        .log-message {
+            color: #2d3748;
+            word-break: break-word;
+        }
+
+        .log-details {
+            font-size: 11px;
+            color: #4a5568;
+            margin-top: 4px;
+            background: rgba(0,0,0,0.02);
+            padding: 6px;
+            border-radius: 3px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
         .notification {
             position: fixed;
             top: 20px;
-            right: 20px;
+            right: 420px;
             padding: 15px 20px;
             border-radius: 5px;
             color: white;
             font-weight: 500;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            z-index: 1000;
+            z-index: 1001;
             animation: slideIn 0.3s ease;
         }
 
@@ -335,7 +467,39 @@
             100% { transform: rotate(360deg); }
         }
 
-        @media (max-width: 768px) {
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .logs-panel {
+                position: relative;
+                width: 100%;
+                height: 300px;
+                right: auto;
+                top: auto;
+            }
+
+            .notification {
+                right: 20px;
+            }
+
             .header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -361,81 +525,152 @@
     </div>
 
     <div class="container">
-        <div class="header">
-            <h1>🎨 Управление Заказами - Vertex AR</h1>
-            <div class="header-actions">
-                <a href="/admin" class="btn btn-secondary">Старая админка</a>
-                <button class="btn btn-danger" onclick="logout()">Выход</button>
+        <div class="main-content">
+            <div class="header">
+                <h1>🎨 Управление Заказами - Vertex AR</h1>
+                <div class="header-actions">
+                    <a href="/admin" class="btn btn-secondary">Старая админка</a>
+                    <button class="btn btn-danger" onclick="logout()">Выход</button>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('orders')">📦 Создать Заказ</button>
+                <button class="tab" onclick="showTab('clients')">👥 Клиенты</button>
+                <button class="tab" onclick="showTab('portraits')">🖼️ Портреты</button>
+                <button class="tab" onclick="showTab('search')">🔍 Поиск</button>
+            </div>
+
+            <!-- Создание заказа -->
+            <div id="orders-panel" class="panel active">
+                <h2>Создать новый заказ</h2>
+                <form id="orderForm" onsubmit="createOrder(event)">
+                    <div class="form-group">
+                        <label>Телефон клиента *</label>
+                        <input type="tel" name="phone" required placeholder="+7 (999) 123-45-67">
+                    </div>
+                    <div class="form-group">
+                        <label>Имя клиента *</label>
+                        <input type="text" name="name" required placeholder="Иван Иванов">
+                    </div>
+                    <div class="form-group">
+                        <label>Изображение портрета *</label>
+                        <input type="file" name="image" accept="image/*" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Видео анимация *</label>
+                        <input type="file" name="video" accept="video/*" required>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="uploadProgress"></div>
+                    </div>
+                    <button type="submit" class="btn btn-success" style="margin-top: 10px; width: 100%;">Создать заказ</button>
+                </form>
+            </div>
+
+            <!-- Список клиентов -->
+            <div id="clients-panel" class="panel">
+                <h2>Список клиентов</h2>
+                <div id="clientsList"></div>
+            </div>
+
+            <!-- Список портретов -->
+            <div id="portraits-panel" class="panel">
+                <h2>Все портреты</h2>
+                <div id="portraitsList" class="portrait-list"></div>
+            </div>
+
+            <!-- Поиск -->
+            <div id="search-panel" class="panel">
+                <h2>Поиск по телефону</h2>
+                <div class="search-box">
+                    <input type="text" id="searchPhone" placeholder="Введите номер телефона..." oninput="searchClients()">
+                </div>
+                <div id="searchResults"></div>
             </div>
         </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('orders')">📦 Создать Заказ</button>
-            <button class="tab" onclick="showTab('clients')">👥 Клиенты</button>
-            <button class="tab" onclick="showTab('portraits')">🖼️ Портреты</button>
-            <button class="tab" onclick="showTab('search')">🔍 Поиск</button>
-        </div>
-
-        <!-- Создание заказа -->
-        <div id="orders-panel" class="panel active">
-            <h2>Создать новый заказ</h2>
-            <form id="orderForm" onsubmit="createOrder(event)">
-                <div class="form-group">
-                    <label>Телефон клиента *</label>
-                    <input type="tel" name="phone" required placeholder="+7 (999) 123-45-67">
+        <!-- Панель Логов -->
+        <div class="logs-panel">
+            <div class="logs-header">
+                <h3>📋 Логи</h3>
+                <div class="logs-header-actions">
+                    <button onclick="clearLogs()" title="Очистить логи">🗑️</button>
+                    <button onclick="toggleLogsAutoScroll()" title="Авто-скролл" id="autoScrollBtn">📌</button>
                 </div>
-                <div class="form-group">
-                    <label>Имя клиента *</label>
-                    <input type="text" name="name" required placeholder="Иван Иванов">
-                </div>
-                <div class="form-group">
-                    <label>Изображение портрета *</label>
-                    <input type="file" name="image" accept="image/*" required>
-                </div>
-                <div class="form-group">
-                    <label>Видео анимация *</label>
-                    <input type="file" name="video" accept="video/*" required>
-                </div>
-                <button type="submit" class="btn btn-success">Создать заказ</button>
-            </form>
-        </div>
-
-        <!-- Список клиентов -->
-        <div id="clients-panel" class="panel">
-            <h2>Список клиентов</h2>
-            <div id="clientsList"></div>
-        </div>
-
-        <!-- Список портретов -->
-        <div id="portraits-panel" class="panel">
-            <h2>Все портреты</h2>
-            <div id="portraitsList" class="portrait-list"></div>
-        </div>
-
-        <!-- Поиск -->
-        <div id="search-panel" class="panel">
-            <h2>Поиск по телефону</h2>
-            <div class="search-box">
-                <input type="text" id="searchPhone" placeholder="Введите номер телефона..." oninput="searchClients()">
             </div>
-            <div id="searchResults"></div>
+            <div class="logs-content" id="logsContainer"></div>
         </div>
     </div>
 
     <script>
         const API_BASE = window.location.origin;
-        
+        let authToken = getCookie('authToken');
+        let logsAutoScroll = true;
+        const maxLogs = 100;
+        let logs = [];
+
         function getCookie(name) {
             const value = `; ${document.cookie}`;
             const parts = value.split(`; ${name}=`);
             if (parts.length === 2) return parts.pop().split(';').shift();
             return localStorage.getItem(name);
         }
-        
-        let authToken = getCookie('authToken');
+
+        function addLog(message, type = 'info', details = null) {
+            const timestamp = new Date().toLocaleTimeString('ru-RU');
+            const logEntry = {
+                timestamp,
+                type,
+                message,
+                details
+            };
+            logs.unshift(logEntry);
+            if (logs.length > maxLogs) logs.pop();
+            renderLogs();
+            
+            if (logsAutoScroll) {
+                setTimeout(() => {
+                    const logsContainer = document.getElementById('logsContainer');
+                    logsContainer.scrollTop = 0;
+                }, 0);
+            }
+        }
+
+        function renderLogs() {
+            const logsContainer = document.getElementById('logsContainer');
+            logsContainer.innerHTML = logs.map(log => `
+                <div class="log-entry ${log.type}">
+                    <span class="log-timestamp">[${log.timestamp}]</span>
+                    <div class="log-message">${escapeHtml(log.message)}</div>
+                    ${log.details ? `<div class="log-details">${escapeHtml(JSON.stringify(log.details, null, 2))}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearLogs() {
+            logs = [];
+            renderLogs();
+            showNotification('Логи очищены', 'info');
+            addLog('Логи очищены пользователем', 'info');
+        }
+
+        function toggleLogsAutoScroll() {
+            logsAutoScroll = !logsAutoScroll;
+            const btn = document.getElementById('autoScrollBtn');
+            btn.style.opacity = logsAutoScroll ? '1' : '0.5';
+            addLog(`Авто-скролл ${logsAutoScroll ? 'включен' : 'отключен'}`, 'debug');
+        }
 
         function showLoading() {
             document.getElementById('loading').classList.add('active');
+            addLog('Загрузка...', 'info');
         }
 
         function hideLoading() {
@@ -456,6 +691,7 @@
             
             event.target.classList.add('active');
             document.getElementById(`${tabName}-panel`).classList.add('active');
+            addLog(`Переключение на вкладку: ${tabName}`, 'debug');
 
             if (tabName === 'clients') loadClients();
             if (tabName === 'portraits') loadPortraits();
@@ -464,9 +700,14 @@
         async function createOrder(event) {
             event.preventDefault();
             showLoading();
+            addLog('Начало создания заказа...', 'info');
 
             const formData = new FormData(event.target);
+            const phone = formData.get('phone');
+            const name = formData.get('name');
             
+            addLog(`Данные заказа: ${name}, ${phone}`, 'debug');
+
             try {
                 const response = await fetch(`${API_BASE}/orders/create`, {
                     method: 'POST',
@@ -478,13 +719,20 @@
 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.detail || 'Ошибка создания заказа');
+                    const errorMessage = error.detail || 'Ошибка создания заказа';
+                    addLog(`Ошибка API: ${errorMessage}`, 'error', error);
+                    throw new Error(errorMessage);
                 }
 
                 const order = await response.json();
+                addLog(`✅ Заказ создан успешно`, 'success', {
+                    portrait_id: order.portrait.id,
+                    client_id: order.client.id,
+                    permanent_link: order.portrait.permanent_link
+                });
+                
                 showNotification('Заказ успешно создан!', 'success');
                 
-                // Показываем QR код
                 const qrWindow = window.open('', '_blank', 'width=400,height=500');
                 qrWindow.document.write(`
                     <html>
@@ -500,17 +748,20 @@
                     </body>
                     </html>
                 `);
-
+                
                 event.target.reset();
             } catch (error) {
-                showNotification(error.message, 'error');
+                addLog(`❌ Ошибка при создании заказа: ${error.message}`, 'error', {
+                    stack: error.stack
+                });
+                showNotification(`Ошибка: ${error.message}`, 'error');
             } finally {
                 hideLoading();
             }
         }
 
         async function loadClients() {
-            showLoading();
+            addLog('Загрузка списка клиентов...', 'info');
             try {
                 const response = await fetch(`${API_BASE}/clients/list`, {
                     headers: {
@@ -518,272 +769,149 @@
                     }
                 });
 
-                if (!response.ok) throw new Error('Ошибка загрузки клиентов');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
                 const clients = await response.json();
-                displayClients(clients);
-            } catch (error) {
-                showNotification(error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function displayClients(clients) {
-            const container = document.getElementById('clientsList');
-            if (clients.length === 0) {
-                container.innerHTML = '<p>Клиентов пока нет</p>';
-                return;
-            }
-
-            let html = '';
-            for (const client of clients) {
-                const portraits = await loadClientPortraits(client.id);
-                html += `
+                addLog(`✅ Загружено ${clients.length} клиентов`, 'success');
+                
+                const clientsList = document.getElementById('clientsList');
+                clientsList.innerHTML = clients.map(client => `
                     <div class="client-card">
-                        <h3>${client.name}</h3>
+                        <h3>👤 ${client.name}</h3>
                         <div class="client-info">
                             <div><strong>Телефон:</strong> ${client.phone}</div>
-                            <div><strong>Создан:</strong> ${new Date(client.created_at).toLocaleString('ru-RU')}</div>
-                            <div><strong>Портретов:</strong> ${portraits.length}</div>
+                            <div><strong>ID:</strong> ${client.id}</div>
+                            <div><strong>Портретов:</strong> ${client.portraits_count || 0}</div>
                         </div>
-                        <div id="portraits-${client.id}" class="portrait-list"></div>
                     </div>
-                `;
-            }
-            container.innerHTML = html;
-
-            // Загружаем портреты для каждого клиента
-            for (const client of clients) {
-                const portraits = await loadClientPortraits(client.id);
-                displayClientPortraits(client.id, portraits);
-            }
-        }
-
-        async function loadClientPortraits(clientId) {
-            try {
-                const response = await fetch(`${API_BASE}/portraits/list?client_id=${clientId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-                if (!response.ok) return [];
-                return await response.json();
+                `).join('');
             } catch (error) {
-                return [];
+                addLog(`❌ Ошибка загрузки клиентов: ${error.message}`, 'error');
+                document.getElementById('clientsList').innerHTML = '<p style="color: red;">Ошибка загрузки данных</p>';
             }
-        }
-
-        async function displayClientPortraits(clientId, portraits) {
-            const container = document.getElementById(`portraits-${clientId}`);
-            if (!container || portraits.length === 0) return;
-
-            let html = '';
-            for (const portrait of portraits) {
-                const videos = await loadPortraitVideos(portrait.id);
-                html += `
-                    <div class="portrait-card">
-                        <img src="/${portrait.image_path}" alt="Portrait">
-                        <p><strong>ID:</strong> ${portrait.id.substring(0, 8)}...</p>
-                        <p><strong>Просмотров:</strong> ${portrait.view_count}</p>
-                        <a href="${portrait.permanent_link}" target="_blank" class="btn btn-primary btn-sm">Открыть</a>
-                        <button class="btn btn-secondary btn-sm" onclick="showQR('${portrait.qr_code_base64}')">QR код</button>
-                        <div class="video-list">
-                            <strong>Видео (${videos.length}):</strong>
-                            ${videos.map(v => `
-                                <div class="video-item ${v.is_active ? 'active' : ''}">
-                                    <span>${v.id.substring(0, 8)}... ${v.is_active ? '✓ Активно' : ''}</span>
-                                    <div>
-                                        ${!v.is_active ? `<button class="btn btn-success btn-sm" onclick="activateVideo('${v.id}')">Активировать</button>` : ''}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <button class="btn btn-success btn-sm" onclick="addVideo('${portrait.id}')">+ Добавить видео</button>
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
         }
 
         async function loadPortraits() {
-            showLoading();
+            addLog('Загрузка списка портретов...', 'info');
             try {
-                const response = await fetch(`${API_BASE}/portraits/list`, {
+                const response = await fetch(`${API_BASE}/portraits/admin/list-with-preview`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     }
                 });
 
-                if (!response.ok) throw new Error('Ошибка загрузки портретов');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
                 const portraits = await response.json();
-                displayPortraits(portraits);
-            } catch (error) {
-                showNotification(error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function displayPortraits(portraits) {
-            const container = document.getElementById('portraitsList');
-            if (portraits.length === 0) {
-                container.innerHTML = '<p>Портретов пока нет</p>';
-                return;
-            }
-
-            let html = '';
-            for (const portrait of portraits) {
-                const videos = await loadPortraitVideos(portrait.id);
-                html += `
+                addLog(`✅ Загружено ${portraits.length} портретов`, 'success');
+                
+                const portraitsList = document.getElementById('portraitsList');
+                portraitsList.innerHTML = portraits.map((portrait, idx) => `
                     <div class="portrait-card">
-                        <img src="/${portrait.image_path}" alt="Portrait">
-                        <p><strong>ID:</strong> ${portrait.id.substring(0, 8)}...</p>
-                        <p><strong>Просмотров:</strong> ${portrait.view_count}</p>
-                        <a href="${portrait.permanent_link}" target="_blank" class="btn btn-primary">Открыть</a>
-                        <button class="btn btn-secondary" onclick="showQR('${portrait.qr_code_base64}')">QR код</button>
-                        <div class="video-list">
-                            <strong>Видео (${videos.length}):</strong>
-                            ${videos.map(v => `
-                                <div class="video-item ${v.is_active ? 'active' : ''}">
-                                    <span>${v.id.substring(0, 8)}... ${v.is_active ? '✓ Активно' : ''}</span>
-                                    ${!v.is_active ? `<button class="btn btn-success btn-sm" onclick="activateVideo('${v.id}')">Активировать</button>` : ''}
-                                </div>
-                            `).join('')}
+                        ${portrait.preview ? `<img src="data:image/jpeg;base64,${portrait.preview}" alt="Portrait">` : `<div style="width:100%;height:200px;background:#f0f0f0;border-radius:5px;display:flex;align-items:center;justify-content:center;">Нет превью</div>`}
+                        <div><strong>ID:</strong> ${portrait.id}</div>
+                        <div><strong>Просмотров:</strong> ${portrait.view_count || 0}</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 8px;">
+                            ${new Date(portrait.created_at).toLocaleDateString('ru-RU')}
                         </div>
-                        <button class="btn btn-success" onclick="addVideo('${portrait.id}')">+ Добавить видео</button>
+                        <div class="video-list">
+                            ${portrait.videos && portrait.videos.length > 0 ? portrait.videos.map((v, i) => `
+                                <div class="video-item ${v.is_active ? 'active' : ''}">
+                                    <span>Видео #${i + 1}</span>
+                                    <span>${v.is_active ? '✅' : '⭕'}</span>
+                                </div>
+                            `).join('') : '<div style="padding: 8px; color: #999;">Видео отсутствуют</div>'}
+                        </div>
                     </div>
-                `;
-            }
-            container.innerHTML = html;
-        }
-
-        async function loadPortraitVideos(portraitId) {
-            try {
-                const response = await fetch(`${API_BASE}/videos/list/${portraitId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-                if (!response.ok) return [];
-                return await response.json();
-            } catch (error) {
-                return [];
-            }
-        }
-
-        async function activateVideo(videoId) {
-            showLoading();
-            try {
-                const response = await fetch(`${API_BASE}/videos/${videoId}/activate`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (!response.ok) throw new Error('Ошибка активации видео');
-
-                showNotification('Видео активировано!', 'success');
-                loadPortraits();
-                loadClients();
-            } catch (error) {
-                showNotification(error.message, 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        function addVideo(portraitId) {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'video/*';
-            input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                showLoading();
-                const formData = new FormData();
-                formData.append('portrait_id', portraitId);
-                formData.append('video', file);
-
-                try {
-                    const response = await fetch(`${API_BASE}/videos/add`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${authToken}`
-                        },
-                        body: formData
-                    });
-
-                    if (!response.ok) throw new Error('Ошибка добавления видео');
-
-                    showNotification('Видео добавлено!', 'success');
-                    loadPortraits();
-                    loadClients();
-                } catch (error) {
-                    showNotification(error.message, 'error');
-                } finally {
-                    hideLoading();
+                `).join('');
+                
+                if (portraits.length === 0) {
+                    portraitsList.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999; padding: 40px 20px;">Портреты отсутствуют</p>';
                 }
-            };
-            input.click();
-        }
-
-        function showQR(qrBase64) {
-            const qrWindow = window.open('', '_blank', 'width=400,height=400');
-            qrWindow.document.write(`
-                <html>
-                <head><title>QR код</title></head>
-                <body style="text-align:center; padding:20px;">
-                    <img src="data:image/png;base64,${qrBase64}" style="max-width:100%;">
-                    <br><br>
-                    <button onclick="window.print()">Печать</button>
-                </body>
-                </html>
-            `);
+            } catch (error) {
+                addLog(`❌ Ошибка загрузки портретов: ${error.message}`, 'error');
+                document.getElementById('portraitsList').innerHTML = '<p style="color: red;">Ошибка загрузки данных</p>';
+            }
         }
 
         async function searchClients() {
-            const phone = document.getElementById('searchPhone').value;
-            if (phone.length < 3) {
+            const searchPhone = document.getElementById('searchPhone').value.trim();
+            if (!searchPhone) {
                 document.getElementById('searchResults').innerHTML = '';
                 return;
             }
 
+            addLog(`Поиск клиента: ${searchPhone}`, 'debug');
             try {
-                const response = await fetch(`${API_BASE}/clients/search?phone=${encodeURIComponent(phone)}`, {
+                const response = await fetch(`${API_BASE}/clients/search?phone=${encodeURIComponent(searchPhone)}`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     }
                 });
 
-                if (!response.ok) throw new Error('Ошибка поиска');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
-                const clients = await response.json();
-                displaySearchResults(clients);
+                const results = await response.json();
+                addLog(`✅ Найдено ${results.length} результатов для "${searchPhone}"`, 'success');
+                
+                const searchResults = document.getElementById('searchResults');
+                if (results.length === 0) {
+                    searchResults.innerHTML = '<p>Клиент не найден</p>';
+                } else {
+                    searchResults.innerHTML = results.map(client => `
+                        <div class="client-card">
+                            <h3>👤 ${client.name}</h3>
+                            <div class="client-info">
+                                <div><strong>Телефон:</strong> ${client.phone}</div>
+                                <div><strong>ID:</strong> ${client.id}</div>
+                                <div><strong>Портретов:</strong> ${client.portraits_count || 0}</div>
+                                <div><strong>Создан:</strong> ${new Date(client.created_at).toLocaleString('ru-RU')}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
             } catch (error) {
-                showNotification(error.message, 'error');
+                addLog(`❌ Ошибка поиска: ${error.message}`, 'error');
+                document.getElementById('searchResults').innerHTML = '<p style="color: red;">Ошибка поиска</p>';
             }
-        }
-
-        async function displaySearchResults(clients) {
-            const container = document.getElementById('searchResults');
-            if (clients.length === 0) {
-                container.innerHTML = '<p>Клиенты не найдены</p>';
-                return;
-            }
-
-            displayClients(clients);
-            container.innerHTML = document.getElementById('clientsList').innerHTML;
         }
 
         function logout() {
+            addLog('Попытка выхода из системы...', 'warning');
+            document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
             localStorage.removeItem('authToken');
-            document.cookie = 'authToken=; Max-Age=0; path=/;';
+            addLog('✅ Сеанс завершен, перенаправление...', 'info');
             window.location.href = '/admin';
         }
+
+        // Инициализация
+        window.addEventListener('load', () => {
+            addLog('🚀 Админ-панель загружена', 'success', {
+                browser: navigator.userAgent,
+                timestamp: new Date().toISOString()
+            });
+            renderLogs();
+        });
+
+        // Мониторинг ошибок
+        window.addEventListener('error', (event) => {
+            addLog(`❌ Ошибка JavaScript: ${event.message}`, 'error', {
+                file: event.filename,
+                line: event.lineno,
+                column: event.colno
+            });
+        });
+
+        // Мониторинг необработанных Promise
+        window.addEventListener('unhandledrejection', (event) => {
+            addLog(`❌ Необработанное Promise: ${event.reason}`, 'error');
+        });
     </script>
 </body>
 </html>
