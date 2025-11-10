@@ -151,6 +151,8 @@ cython_debug/
 *.sqlite3
 app_data.db
 vertex_art.db
+app_data/
+!app_data/.gitkeep
 
 # Storage directories (user uploaded files)
 storage/

@@ -21,7 +21,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - ./storage:/app/storage
-      - ./app_data.db:/app/app_data.db
+      - ./app_data:/app/data
     restart: unless-stopped
 
   nginx:
@@ -36,6 +36,3 @@ services:
     depends_on:
       - app
     restart: unless-stopped
-
-volumes:
-  app_data:

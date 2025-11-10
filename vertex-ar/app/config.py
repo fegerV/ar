@@ -16,7 +16,11 @@ class Settings:
         """Load configuration from environment variables."""
         # Base paths
         self.BASE_DIR = Path(__file__).resolve().parent.parent
-        self.DB_PATH = self.BASE_DIR / "app_data.db"
+        # Use /app/data for database if it exists (Docker), otherwise use BASE_DIR
+        db_dir = Path("/app/data") if Path("/app/data").exists() else self.BASE_DIR
+        self.DB_DIR = db_dir
+        self.DB_DIR.mkdir(parents=True, exist_ok=True)
+        self.DB_PATH = self.DB_DIR / "app_data.db"
         self.STORAGE_ROOT = self.BASE_DIR / "storage"
         self.STATIC_ROOT = self.BASE_DIR / "static"
         

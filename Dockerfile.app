@@ -29,6 +29,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Create data directory for persistent storage (database, etc.)
+RUN mkdir -p /app/data && chmod 755 /app/data
+
 COPY vertex-ar/requirements-simple.txt .
 RUN pip install --no-cache-dir -r requirements-simple.txt
 
