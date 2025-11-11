@@ -1,0 +1,31 @@
+{
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Smoke Test - Module Import",
+      "passed": true
+    },
+    {
+      "name": "Database Operations",
+      "passed": true
+    },
+    {
+      "name": "FastAPI TestClient",
+      "passed": true
+    },
+    {
+      "name": "Error Handling",
+      "passed": true
+    },
+    {
+      "name": "Models and Validators",
+      "passed": true
+    },
+    {
+      "name": "NFT Generation",
+      "passed": true
+    }
+  ]
+}
