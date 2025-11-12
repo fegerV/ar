@@ -605,17 +605,9 @@
 
     <script>
         const API_BASE = window.location.origin;
-        let authToken = getCookie('authToken');
         let logsAutoScroll = true;
         const maxLogs = 100;
         let logs = [];
-
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return localStorage.getItem(name);
-        }
 
         function addLog(message, type = 'info', details = null) {
             const timestamp = new Date().toLocaleTimeString('ru-RU');
@@ -711,9 +703,7 @@
             try {
                 const response = await fetch(`${API_BASE}/orders/create`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    },
+                    credentials: 'include',  // Include cookies in request
                     body: formData
                 });
 
@@ -764,9 +754,7 @@
             addLog('Загрузка списка клиентов...', 'info');
             try {
                 const response = await fetch(`${API_BASE}/clients/list`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
+                    credentials: 'include'  // Include cookies in request
                 });
 
                 if (!response.ok) {
@@ -797,9 +785,7 @@
             addLog('Загрузка списка портретов...', 'info');
             try {
                 const response = await fetch(`${API_BASE}/portraits/admin/list-with-preview`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
+                    credentials: 'include'  // Include cookies in request
                 });
 
                 if (!response.ok) {
@@ -848,9 +834,7 @@
             addLog(`Поиск клиента: ${searchPhone}`, 'debug');
             try {
                 const response = await fetch(`${API_BASE}/clients/search?phone=${encodeURIComponent(searchPhone)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
+                    credentials: 'include'  // Include cookies in request
                 });
 
                 if (!response.ok) {
@@ -885,7 +869,6 @@
         function logout() {
             addLog('Попытка выхода из системы...', 'warning');
             document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
-            localStorage.removeItem('authToken');
             addLog('✅ Сеанс завершен, перенаправление...', 'info');
             window.location.href = '/admin';
         }
