@@ -156,6 +156,43 @@ async def list_ar_content(username: str = Depends(get_current_user)) -> list:
     return database.list_ar_content(username)
 
 
+@router.get("/{content_id}")
+async def get_ar_content(content_id: str, request: Request):
+    """Get AR content by ID for viewing."""
+    database = get_database()
+    record = database.get_ar_content(content_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    
+    # Increment view count
+    database.increment_view_count(content_id)
+    logger.info("AR content viewed", extra={"content_id": content_id})
+    
+    # Prepare URLs for the template
+    app = get_current_app()
+    base_url = app.state.config["BASE_URL"]
+    storage_url = f"{base_url}/storage"
+    
+    # Convert file paths to URLs
+    video_url = f"{storage_url}/{'/'.join(Path(record['video_path']).parts[-3:])}"
+    
+    from fastapi.templating import Jinja2Templates
+    templates = Jinja2Templates(directory="templates")
+    
+    return templates.TemplateResponse(
+        "ar_page.html", 
+        {
+            "request": request,
+            "record": {
+                "id": content_id,
+                "video_url": video_url,
+                "view_count": record.get("view_count", 0),
+                "created_at": record.get("created_at")
+            }
+        }
+    )
+
+
 @router.post("/{content_id}/click")
 async def track_content_click(content_id: str) -> Dict[str, str]:
     """Track click interactions for AR content."""
