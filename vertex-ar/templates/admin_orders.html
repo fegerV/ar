@@ -821,9 +821,12 @@
                         </div>
                         <div class="video-list">
                             ${portrait.videos && portrait.videos.length > 0 ? portrait.videos.map((v, i) => `
-                                <div class="video-item ${v.is_active ? 'active' : ''}">
-                                    <span>Видео #${i + 1}</span>
-                                    <span>${v.is_active ? '✅' : '⭕'}</span>
+                                <div class="video-item ${v.is_active ? 'active' : ''}" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                                        <span>Видео #${i + 1}</span>
+                                        <span>${v.is_active ? '✅' : '⭕'}</span>
+                                    </div>
+                                    ${v.preview ? `<img src="data:image/jpeg;base64,${v.preview}" alt="Video Preview" style="width: 100%; height: auto; border-radius: 3px; max-height: 100px;">` : '<div style="width: 100%; height: 60px; background: #e0e0e0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #999;">Нет превью</div>'}
                                 </div>
                             `).join('') : '<div style="padding: 8px; color: #999;">Видео отсутствуют</div>'}
                         </div>
