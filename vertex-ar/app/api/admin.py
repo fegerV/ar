@@ -94,13 +94,16 @@ async def admin_panel(request: Request) -> HTMLResponse:
 
 @router.get("/orders", response_class=HTMLResponse)
 async def admin_orders_panel(request: Request) -> HTMLResponse:
-    """Serve new admin panel for orders management."""
+    """Serve admin panel for orders management (unified view)."""
     username = _validate_admin_session(request)
     if not username:
         return _redirect_to_login("unauthorized")
     
     templates = get_templates()
-    return templates.TemplateResponse("admin_orders.html", {"request": request, "username": username})
+    database = get_database()
+    records = database.list_ar_content()
+    context = {"request": request, "records": records, "username": username}
+    return templates.TemplateResponse("admin.html", context)
 
 
 @router.post("/login")
