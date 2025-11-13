@@ -1231,6 +1231,7 @@
                 
                 const response = await fetch('/admin/upload', {
                     method: 'POST',
+                    credentials: 'include',  // Include cookies in request
                     body: formData
                 });
                 
@@ -1266,16 +1267,9 @@
             }
             
             try {
-                // Получаем токен из localStorage (если используется)
-                const token = localStorage.getItem('auth_token');
-                const headers = {};
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-                
                 const response = await fetch(`/ar/${id}`, {
                     method: 'DELETE',
-                    headers: headers
+                    credentials: 'include'  // Include cookies in request
                 });
                 
                 if (response.ok) {
@@ -1385,7 +1379,9 @@
 
         async function loadNotifications() {
             try {
-                const response = await fetch('/notifications?unread_only=true');
+                const response = await fetch('/notifications?unread_only=true', {
+                    credentials: 'include'  // Include cookies in request
+                });
                 if (response.ok) {
                     const data = await response.json();
                     notifications = data;
@@ -1413,7 +1409,8 @@
             
             try {
                 await fetch('/notifications/mark-all-read', {
-                    method: 'PUT'
+                    method: 'PUT',
+                    credentials: 'include'  // Include cookies in request
                 });
                 notifications.forEach(notification => {
                     notification.is_read = true;
@@ -1427,7 +1424,9 @@
         // System info
         async function loadSystemInfo() {
             try {
-                const response = await fetch('/admin/system-info');
+                const response = await fetch('/admin/system-info', {
+                    credentials: 'include'  // Include cookies in request
+                });
                 if (response.ok) {
                     const data = await response.json();
                     updateSystemInfo(data);
@@ -1452,7 +1451,9 @@
         // Content stats
         async function loadContentStats() {
             try {
-                const response = await fetch('/admin/content-stats');
+                const response = await fetch('/admin/content-stats', {
+                    credentials: 'include'  // Include cookies in request
+                });
                 if (response.ok) {
                     const data = await response.json();
                     updateContentStats(data);

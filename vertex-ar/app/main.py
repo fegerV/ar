@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
         app.state.storage = LocalStorageAdapter(settings.STORAGE_ROOT)
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, portraits, videos, health, users, notifications as notifications_api
+    from app.api import auth, ar, admin, clients, portraits, videos, health, users, notifications as notifications_api, orders
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -132,6 +132,7 @@ def create_app() -> FastAPI:
     app.include_router(clients.router, prefix="/clients", tags=["clients"])
     app.include_router(portraits.router, prefix="/portraits", tags=["portraits"])
     app.include_router(videos.router, prefix="/videos", tags=["videos"])
+    app.include_router(orders.router, prefix="/orders", tags=["orders"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
     
