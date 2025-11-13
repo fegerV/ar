@@ -133,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(portraits.router, prefix="/portraits", tags=["portraits"])
     app.include_router(videos.router, prefix="/videos", tags=["videos"])
     app.include_router(orders.router, prefix="/orders", tags=["orders"])
+    app.include_router(orders.legacy_router, prefix="/api/orders", tags=["orders"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
     

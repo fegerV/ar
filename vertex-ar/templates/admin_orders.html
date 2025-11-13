@@ -701,14 +701,29 @@
             addLog(`Данные заказа: ${name}, ${phone}`, 'debug');
 
             try {
-                const response = await fetch(`${API_BASE}/orders/create`, {
+                const sendOrderRequest = (url, data) => fetch(url, {
                     method: 'POST',
                     credentials: 'include',  // Include cookies in request
-                    body: formData
+                    body: data
                 });
 
+                let response = await sendOrderRequest(`${API_BASE}/orders/create`, formData);
+
+                if (response.status === 404) {
+                    addLog('Endpoint /orders/create не найден, пробуем /api/orders/create', 'warning');
+                    response = await sendOrderRequest(
+                        `${API_BASE}/api/orders/create`,
+                        new FormData(event.target)
+                    );
+                }
+
                 if (!response.ok) {
-                    const error = await response.json();
+                    let error;
+                    try {
+                        error = await response.json();
+                    } catch (parseError) {
+                        error = { detail: `HTTP ${response.status}` };
+                    }
                     const errorMessage = error.detail || 'Ошибка создания заказа';
                     addLog(`Ошибка API: ${errorMessage}`, 'error', error);
                     throw new Error(errorMessage);

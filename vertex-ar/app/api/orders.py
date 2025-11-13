@@ -29,21 +29,25 @@ def get_database() -> Database:
     return app.state.database  # type: ignore[attr-defined]
 
 
+legacy_router = APIRouter()
 
-@router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_order(
-    phone: str = Form(...),
-    name: str = Form(...),
-    image: UploadFile = File(...),
-    video: UploadFile = File(...),
-    username: str = Depends(require_admin),
+
+def _validate_upload(file: UploadFile, expected_prefix: str, error_detail: str) -> None:
+    if not file.content_type or not file.content_type.startswith(expected_prefix):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
+
+
+async def _create_order_workflow(
+    phone: str,
+    name: str,
+    image: UploadFile,
+    video: UploadFile,
+    username: str,
+    endpoint: str = "orders",
 ) -> OrderResponse:
-    """Create a new order with client, portrait, and primary video."""
-    if not image.content_type or not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
-
-    if not video.content_type or not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
+    """Shared implementation for creating an order."""
+    _validate_upload(image, "image/", "Invalid image file")
+    _validate_upload(video, "video/", "Invalid video file")
 
     app = get_current_app()
     database = get_database()
@@ -54,7 +58,10 @@ async def create_order(
     if not client:
         client_id = str(uuid.uuid4())
         client = database.create_client(client_id, phone, name)
-        logger.info("Created new client for order", extra={"client_id": client_id, "admin": username})
+        logger.info(
+            "Created new client for order",
+            extra={"client_id": client_id, "admin": username, "endpoint": endpoint},
+        )
     elif client.get("name") != name:
         database.update_client(client["id"], name=name)
         client = database.get_client(client["id"])  # refresh with updated values
@@ -91,7 +98,7 @@ async def create_order(
         except Exception as exc:  # pragma: no cover - preview generation best-effort
             logger.warning(
                 "Failed to generate portrait preview",
-                extra={"portrait_id": portrait_id, "admin": username},
+                extra={"portrait_id": portrait_id, "admin": username, "endpoint": endpoint},
                 exc_info=exc,
             )
 
@@ -104,7 +111,7 @@ async def create_order(
         except Exception as exc:  # pragma: no cover - preview generation best-effort
             logger.warning(
                 "Failed to generate video preview",
-                extra={"portrait_id": portrait_id, "admin": username},
+                extra={"portrait_id": portrait_id, "admin": username, "endpoint": endpoint},
                 exc_info=exc,
             )
 
@@ -151,6 +158,7 @@ async def create_order(
                 "portrait_id": portrait_id,
                 "client_id": client["id"],
                 "admin": username,
+                "endpoint": endpoint,
             },
         )
 
@@ -181,8 +189,37 @@ async def create_order(
     except Exception as exc:
         logger.error(
             "Failed to create order",
-            extra={"admin": username, "client_phone": phone},
+            extra={"admin": username, "client_phone": phone, "endpoint": endpoint},
             exc_info=exc,
         )
         shutil.rmtree(portrait_dir, ignore_errors=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create order")
+
+
+@router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+async def create_order(
+    phone: str = Form(...),
+    name: str = Form(...),
+    image: UploadFile = File(...),
+    video: UploadFile = File(...),
+    username: str = Depends(require_admin),
+) -> OrderResponse:
+    """Create a new order with client, portrait, and primary video."""
+    return await _create_order_workflow(phone, name, image, video, username, endpoint="orders")
+
+
+@legacy_router.post(
+    "/create",
+    response_model=OrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+async def create_order_legacy(
+    phone: str = Form(...),
+    name: str = Form(...),
+    image: UploadFile = File(...),
+    video: UploadFile = File(...),
+    username: str = Depends(require_admin),
+) -> OrderResponse:
+    """Legacy compatibility endpoint for /api/orders/create."""
+    return await _create_order_workflow(phone, name, image, video, username, endpoint="api/orders")
