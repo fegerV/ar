@@ -10,6 +10,8 @@ from typing import Dict
 
 import qrcode
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 from app.api.auth import get_current_user, require_admin
 from app.database import Database
@@ -26,6 +28,15 @@ def get_database() -> Database:
     """Get database instance."""
     app = get_current_app()
     return app.state.database
+
+
+def get_templates() -> Jinja2Templates:
+    """Get Jinja2 templates instance."""
+    app = get_current_app()
+    if not hasattr(app.state, 'templates'):
+        BASE_DIR = app.state.config["BASE_DIR"]
+        app.state.templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+    return app.state.templates
 
 
 @router.post("/upload", response_model=ARContentResponse, dependencies=[Depends(create_rate_limit_dependency("10/minute"))])
@@ -154,6 +165,33 @@ async def list_ar_content(username: str = Depends(get_current_user)) -> list:
     if user and user.get("is_admin"):
         return database.list_ar_content()
     return database.list_ar_content(username)
+
+
+@router.get("/{content_id}", response_class=HTMLResponse)
+async def view_ar_content(request: Request, content_id: str) -> HTMLResponse:
+    """View AR content page (public access)."""
+    database = get_database()
+    record = database.get_ar_content(content_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
+    
+    # Increment view count
+    database.increment_view_count(content_id)
+    logger.info("AR content viewed", extra={"content_id": content_id})
+    
+    # Prepare video URL
+    app = get_current_app()
+    base_url = app.state.config["BASE_URL"]
+    video_url = f"{base_url}/storage/{Path(record['video_path']).relative_to(app.state.config['STORAGE_ROOT'])}"
+    
+    # Prepare record data for template
+    record_data = {
+        "id": record["id"],
+        "video_url": video_url,
+    }
+    
+    templates = get_templates()
+    return templates.TemplateResponse("ar_page.html", {"request": request, "record": record_data})
 
 
 @router.post("/{content_id}/click")

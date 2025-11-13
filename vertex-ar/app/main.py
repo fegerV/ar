@@ -72,6 +72,11 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(settings.STATIC_ROOT)), name="static")
     app.mount("/storage", StaticFiles(directory=str(settings.STORAGE_ROOT)), name="storage")
     
+    # Mount NFT markers directory (for AR.js to access marker files)
+    nft_markers_path = settings.STORAGE_ROOT / "nft_markers"
+    nft_markers_path.mkdir(parents=True, exist_ok=True)
+    app.mount("/nft-markers", StaticFiles(directory=str(nft_markers_path)), name="nft-markers")
+    
     # Store configuration in app state
     app.state.config = {
         "BASE_DIR": settings.BASE_DIR,
