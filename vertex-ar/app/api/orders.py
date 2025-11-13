@@ -95,6 +95,15 @@ async def _create_order_workflow(
                 image_preview_path = portrait_dir / f"{portrait_id}_preview.jpg"
                 with open(image_preview_path, "wb") as preview_file:
                     preview_file.write(image_preview)
+                logger.info(
+                    "Portrait preview created successfully",
+                    extra={"portrait_id": portrait_id, "preview_path": str(image_preview_path), "size": len(image_preview)},
+                )
+            else:
+                logger.warning(
+                    "Image preview generation returned None",
+                    extra={"portrait_id": portrait_id},
+                )
         except Exception as exc:  # pragma: no cover - preview generation best-effort
             logger.warning(
                 "Failed to generate portrait preview",
@@ -108,6 +117,15 @@ async def _create_order_workflow(
                 video_preview_path = portrait_dir / f"{video_id}_preview.jpg"
                 with open(video_preview_path, "wb") as preview_file:
                     preview_file.write(video_preview)
+                logger.info(
+                    "Video preview created successfully",
+                    extra={"video_id": video_id, "preview_path": str(video_preview_path), "size": len(video_preview)},
+                )
+            else:
+                logger.warning(
+                    "Video preview generation returned None",
+                    extra={"video_id": video_id},
+                )
         except Exception as exc:  # pragma: no cover - preview generation best-effort
             logger.warning(
                 "Failed to generate video preview",

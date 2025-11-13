@@ -183,24 +183,53 @@ async def list_portraits_with_preview(
     
     database = get_database()
     portraits = database.list_portraits()
+    logger.info(f"Loading {len(portraits)} portraits with previews")
     
     result = []
     for portrait in portraits:
         try:
             preview_data = None
             image_preview_path = portrait.get("image_preview_path")
+            logger.info(f"Portrait {portrait['id']}: image_preview_path={image_preview_path}")
             if image_preview_path:
                 try:
                     from pathlib import Path
                     preview_path = Path(image_preview_path)
                     if preview_path.exists():
                         with open(preview_path, "rb") as f:
-                            import base64
                             preview_data = base64.b64encode(f.read()).decode()
+                            logger.info(f"Successfully loaded image preview for portrait {portrait['id']}, size={len(preview_data)}")
+                    else:
+                        logger.warning(f"Preview path does not exist for portrait {portrait['id']}: {preview_path}")
                 except Exception as e:
                     logger.warning(f"Failed to read preview for portrait {portrait['id']}: {e}")
             
             videos = database.list_videos(portrait["id"])
+            
+            videos_with_previews = []
+            for v in videos:
+                video_preview_data = None
+                video_preview_path = v.get("video_preview_path")
+                logger.info(f"Video {v['id']}: video_preview_path={video_preview_path}")
+                if video_preview_path:
+                    try:
+                        from pathlib import Path
+                        preview_path = Path(video_preview_path)
+                        if preview_path.exists():
+                            with open(preview_path, "rb") as f:
+                                video_preview_data = base64.b64encode(f.read()).decode()
+                                logger.info(f"Successfully loaded video preview for video {v['id']}, size={len(video_preview_data)}")
+                        else:
+                            logger.warning(f"Video preview path does not exist for video {v['id']}: {preview_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to read video preview for video {v['id']}: {e}")
+                
+                videos_with_previews.append({
+                    "id": v["id"],
+                    "is_active": bool(v["is_active"]),
+                    "created_at": v.get("created_at"),
+                    "preview": video_preview_data or ""
+                })
             
             result.append({
                 "id": portrait["id"],
@@ -209,14 +238,7 @@ async def list_portraits_with_preview(
                 "view_count": portrait.get("view_count", 0),
                 "created_at": portrait.get("created_at"),
                 "preview": preview_data or "",
-                "videos": [
-                    {
-                        "id": v["id"],
-                        "is_active": bool(v["is_active"]),
-                        "created_at": v.get("created_at")
-                    }
-                    for v in videos
-                ]
+                "videos": videos_with_previews
             })
         except Exception as e:
             logger.error(f"Error processing portrait {portrait.get('id')}: {e}")
