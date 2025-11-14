@@ -37,7 +37,7 @@ mkdir -p "$REPORT_DIR"
 echo ""
 echo "📊 ТЕСТ 1: Комплексное тестирование производительности с psutil"
 echo "=============================================================="
-if python3 test_comprehensive_performance.py; then
+if python3 test_files/test_comprehensive_performance.py; then
     mv performance_report.json "$REPORT_DIR/comprehensive_$(date +%Y%m%d_%H%M%S).json"
     echo "✅ Комплексное тестирование завершено"
 else
@@ -47,7 +47,7 @@ fi
 echo ""
 echo "🔄 ТЕСТ 2: Нагрузочное тестирование API портретов"
 echo "=================================================="
-if python3 test_portraits_load.py; then
+if python3 test_files/test_portraits_load.py; then
     mv load_test_report.json "$REPORT_DIR/load_test_$(date +%Y%m%d_%H%M%S).json"
     echo "✅ Нагрузочное тестирование завершено"
 else
@@ -57,7 +57,7 @@ fi
 echo ""
 echo "🗄️  ТЕСТ 3: Тестирование интеграции с MinIO/локальным хранилищем"
 echo "================================================================"
-if python3 test_storage_integration.py; then
+if python3 test_files/test_storage_integration.py; then
     mv storage_integration_report.json "$REPORT_DIR/storage_$(date +%Y%m%d_%H%M%S).json"
     echo "✅ Тестирование хранилищ завершено"
 else
@@ -67,7 +67,7 @@ fi
 echo ""
 echo "📈 ТЕСТ 4: Базовое тестирование производительности"
 echo "=================================================="
-if python3 test_performance.py; then
+if python3 test_files/test_performance.py; then
     echo "✅ Базовое тестирование завершено"
 else
     echo "❌ Базовое тестирование не пройдено"

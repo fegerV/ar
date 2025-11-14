@@ -46,32 +46,43 @@ fi
 print_status "Running Vertex AR test suite..."
 echo
 
+# Set test file paths
+TEST_PATHS="vertex-ar/tests test_files"
+
 # Run tests with different options based on arguments
 case "${1:-all}" in
     "fast")
         print_status "Running fast tests only..."
-        python -m pytest --tb=no -q --disable-warnings -m "not slow"
+        python -m pytest $TEST_PATHS --tb=no -q --disable-warnings -m "not slow"
         ;;
     "coverage")
         print_status "Running tests with coverage report..."
-        python -m pytest --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
+        python -m pytest $TEST_PATHS --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
         print_success "Coverage report generated in htmlcov/index.html"
         ;;
     "verbose")
         print_status "Running tests with verbose output..."
-        python -m pytest -v --disable-warnings
+        python -m pytest $TEST_PATHS -v --disable-warnings
         ;;
     "watch")
         print_status "Running tests in watch mode (requires pytest-xdist)..."
-        python -m pytest -f --disable-warnings
+        python -m pytest $TEST_PATHS -f --disable-warnings
         ;;
     "failed")
         print_status "Running only failed tests..."
-        python -m pytest --lf --disable-warnings
+        python -m pytest $TEST_PATHS --lf --disable-warnings
+        ;;
+    "unit")
+        print_status "Running unit tests only..."
+        python -m pytest vertex-ar/tests -v --disable-warnings
+        ;;
+    "integration")
+        print_status "Running integration tests only..."
+        python -m pytest test_files -v --disable-warnings
         ;;
     "all"|*)
         print_status "Running all tests..."
-        python -m pytest --tb=short --disable-warnings
+        python -m pytest $TEST_PATHS --tb=short --disable-warnings
         ;;
 esac
 

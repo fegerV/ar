@@ -126,8 +126,7 @@ jobs:
 
     - name: Run integration tests
       run: |
-        cd vertex-ar
-        pytest ../test_*.py -v --cov=app --cov-append --cov-report=xml
+        pytest test_files/test_*.py -v --cov=app --cov-append --cov-report=xml
 
     - name: Run performance tests
       run: |
@@ -135,8 +134,8 @@ jobs:
         pip install -e .
         python -c "import uvicorn; from app.main import create_app; uvicorn.run(create_app(), host='127.0.0.1', port=8000)" &
         sleep 5
-        python test_comprehensive_performance.py --quick || true
-        python test_portraits_load.py --quick || true
+        python ../test_files/test_comprehensive_performance.py --quick || true
+        python ../test_files/test_portraits_load.py --quick || true
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -152,9 +151,9 @@ jobs:
         name: test-results
         path: |
           vertex-ar/htmlcov/
-          vertex-artest_reports/
-          performance_report.json
-          load_test_report.json
+          vertex-ar/test_reports/
+          test_files/performance_report.json
+          test_files/load_test_report.json
 
   security:
     name: Security Scan
@@ -386,7 +385,7 @@ jobs:
           ```
         files: |
           vertex-ar/requirements.txt
-          vertex-artest_reports/
+          test_files/test_reports/
           sbom.spdx.json
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
