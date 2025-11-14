@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Детальная информация о заказе - Vertex AR">
+    <title>Заказ: {{ order_number }} - Vertex AR</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+            --header-height: 70px;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
+        }
+
+        /* Header Styles */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .back-btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Order Title */
+        .order-title {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .order-title h2 {
+            font-size: 2rem;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Content Sections */
+        .content-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 968px) {
+            .content-sections {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .section h3 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            font-size: 1.25rem;
+        }
+
+        /* Portrait Section */
+        .portrait-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: transform var(--transition-speed);
+            margin-bottom: 1rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .portrait-image:hover {
+            transform: scale(1.02);
+        }
+
+        .image-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .info-item {
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+        }
+
+        .info-item .label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .info-item .value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* Client Info Section */
+        .client-info {
+            margin-bottom: 1.5rem;
+        }
+
+        .client-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 0.5rem;
+        }
+
+        .client-info-item .label {
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .client-info-item .value {
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .link-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .link-display {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            word-break: break-all;
+        }
+
+        .link-display .url {
+            flex: 1;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .copy-btn {
+            background-color: var(--info-color);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color var(--transition-speed);
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background-color: #138496;
+        }
+
+        .qr-code {
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .qr-code img {
+            max-width: 200px;
+            height: auto;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: transform var(--transition-speed);
+        }
+
+        .qr-code img:hover {
+            transform: scale(1.05);
+        }
+
+        /* Videos Section */
+        .videos-section {
+            grid-column: 1 / -1;
+        }
+
+        .videos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .video-card {
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            position: relative;
+            transition: all var(--transition-speed);
+        }
+
+        .video-card.active {
+            border: 2px solid var(--success-color);
+        }
+
+        .video-card .active-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: var(--success-color);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .video-preview {
+            width: 100%;
+            height: 200px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: transform var(--transition-speed);
+            object-fit: cover;
+            margin-bottom: 1rem;
+        }
+
+        .video-preview:hover {
+            transform: scale(1.02);
+        }
+
+        .video-description {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .video-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color var(--transition-speed);
+        }
+
+        .activate-btn {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .activate-btn:hover {
+            background-color: #218838;
+        }
+
+        .activate-btn:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+        }
+
+        .delete-btn {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        /* Add Video Section */
+        .add-video-section {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .add-video-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: background-color var(--transition-speed);
+            margin-bottom: 1rem;
+        }
+
+        .add-video-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .add-video-form {
+            display: none;
+            text-align: left;
+        }
+
+        .add-video-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .form-group input[type="file"],
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: border-color var(--transition-speed);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .upload-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            width: 100%;
+            transition: background-color var(--transition-speed);
+        }
+
+        .upload-btn:hover {
+            background-color: #218838;
+        }
+
+        .upload-btn:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+        }
+
+        /* Delete Order Section */
+        .delete-order-section {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        .delete-order-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: background-color var(--transition-speed);
+        }
+
+        .delete-order-btn:hover {
+            background-color: #c82333;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: var(--border-radius);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+        }
+
+        .toast {
+            background-color: var(--success-color);
+            color: white;
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 0.5rem;
+            min-width: 250px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.error {
+            background-color: var(--danger-color);
+        }
+
+        .toast.warning {
+            background-color: var(--warning-color);
+            color: #212529;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 0.5rem;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .content-sections {
+                grid-template-columns: 1fr;
+            }
+
+            .image-info {
+                grid-template-columns: 1fr;
+            }
+
+            .videos-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <a href="/admin" class="back-btn">← Назад</a>
+            <h1>Детальная информация о заказе</h1>
+            <div class="header-actions">
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">
+                    🌙
+                </button>
+            </div>
+        </header>
+
+        <!-- Order Title -->
+        <div class="order-title">
+            <h2>Заказ: {{ order_number }}</h2>
+        </div>
+
+        <!-- Content Sections -->
+        <div class="content-sections">
+            <!-- Left Section - Portrait -->
+            <div class="section">
+                <h3>Портрет</h3>
+                {% if portrait.image_preview_data %}
+                <img src="data:image/jpeg;base64,{{ portrait.image_preview_data }}" 
+                     class="portrait-image" 
+                     onclick="showLightbox('data:image/jpeg;base64,{{ portrait.image_preview_data }}')"
+                     alt="Portrait">
+                {% else %}
+                <img src="{{ portrait.image_path }}" 
+                     class="portrait-image" 
+                     onclick="showLightbox('{{ portrait.image_path }}')"
+                     alt="Portrait">
+                {% endif %}
+                
+                <div class="image-info">
+                    <div class="info-item">
+                        <div class="label">Ширина изображения</div>
+                        <div class="value" id="imageWidth">{{ image_analysis.width or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Высота изображения</div>
+                        <div class="value" id="imageHeight">{{ image_analysis.height or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Яркость</div>
+                        <div class="value" id="brightness">{{ image_analysis.brightness or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Контраст</div>
+                        <div class="value" id="contrast">{{ image_analysis.contrast or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Качество</div>
+                        <div class="value" id="quality">{{ image_analysis.quality or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Критерии оценки</div>
+                        <div class="value" id="criteria">{{ image_analysis.criteria or 'N/A' }}</div>
+                    </div>
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <div class="label">Рекомендации</div>
+                        <div class="value" id="recommendations">{{ image_analysis.recommendations or 'N/A' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Section - Client Info -->
+            <div class="section">
+                <h3>Информация о заказчике</h3>
+                <div class="client-info">
+                    <div class="client-info-item">
+                        <span class="label">Имя заказчика:</span>
+                        <span class="value">{{ client.name if client else 'N/A' }}</span>
+                    </div>
+                    <div class="client-info-item">
+                        <span class="label">Телефон:</span>
+                        <span class="value">{{ client.phone if client else 'N/A' }}</span>
+                    </div>
+                    <div class="client-info-item">
+                        <span class="label">Дата создания:</span>
+                        <span class="value">{{ portrait.created_at }}</span>
+                    </div>
+                    <div class="client-info-item">
+                        <span class="label">Количество просмотров:</span>
+                        <span class="value">{{ portrait.view_count }}</span>
+                    </div>
+                </div>
+
+                <div class="link-section">
+                    <h4>Постоянная ссылка:</h4>
+                    <div class="link-display">
+                        <span class="url">{{ full_url }}</span>
+                        <button class="copy-btn" onclick="copyLink('{{ full_url }}')">Копировать</button>
+                    </div>
+                </div>
+
+                <div class="qr-code">
+                    {% if portrait.qr_code %}
+                    <img src="data:image/png;base64,{{ portrait.qr_code }}" 
+                         onclick="showLightbox('data:image/png;base64,{{ portrait.qr_code }}')"
+                         alt="QR Code">
+                    {% else %}
+                    <div style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; background-color: var(--bg-color); color: var(--text-color); border-radius: var(--border-radius);">
+                        Нет QR-кода
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Video Section -->
+        <div class="add-video-section">
+            <button class="add-video-btn" onclick="toggleAddVideoForm()">
+                + Добавить новую анимацию
+            </button>
+            
+            <form class="add-video-form" id="addVideoForm" onsubmit="addVideo(event)">
+                <div class="form-group">
+                    <label for="newVideo">Видео анимация</label>
+                    <input type="file" id="newVideo" name="video" accept="video/*" required>
+                </div>
+                <div class="form-group">
+                    <label for="videoDescription">Описание</label>
+                    <textarea id="videoDescription" name="description" rows="3" required placeholder="Например: Анимация к Новому году"></textarea>
+                </div>
+                <button type="submit" class="upload-btn">Upload & Create NFT</button>
+            </form>
+        </div>
+
+        <!-- Videos Section -->
+        <div class="section videos-section">
+            <h3>Видеоанимация</h3>
+            <div class="videos-grid" id="videosGrid">
+                {% for video in videos %}
+                <div class="video-card {% if video.is_active %}active{% endif %}" id="video-{{ video.id }}">
+                    {% if video.is_active %}
+                    <div class="active-badge">Активно</div>
+                    {% endif %}
+                    {% if video.video_preview_path %}
+                    <img src="" 
+                         class="video-preview" 
+                         onload="loadVideoPreview(this, '{{ video.id }}')"
+                         onclick="showVideoLightbox('{{ video.video_path }}')"
+                         alt="Video Preview">
+                    {% else %}
+                    <div class="video-preview" style="display: flex; align-items: center; justify-content: center; background-color: var(--bg-color); color: var(--text-color);">
+                        Нет превью
+                    </div>
+                    {% endif %}
+                    <div class="video-description">
+                        <strong>Описание:</strong> {{ video.description or 'Нет описания' }}
+                    </div>
+                    <div class="video-actions">
+                        {% if not video.is_active %}
+                        <button class="activate-btn" onclick="activateVideo('{{ video.id }}')">Активировать</button>
+                        {% endif %}
+                        <button class="delete-btn" onclick="deleteVideo('{{ video.id }}')">Удалить</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Delete Order Section -->
+        <div class="delete-order-section">
+            <button class="delete-order-btn" onclick="deleteOrder()">
+                Удалить заказ
+            </button>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightboxImage">
+        <video class="lightbox-content" id="lightboxVideo" controls style="display: none;"></video>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        const portraitId = '{{ portrait.id }}';
+        const baseUrl = window.location.origin;
+
+        // Theme Toggle
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', newTheme);
+            
+            const themeIcon = newTheme === 'dark' ? '🌙' : '☀️';
+            this.textContent = themeIcon;
+        });
+
+        // Toggle Add Video Form
+        function toggleAddVideoForm() {
+            const form = document.getElementById('addVideoForm');
+            form.classList.toggle('active');
+        }
+
+        // Add Video
+        async function addVideo(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const submitBtn = event.target.querySelector('.upload-btn');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Загрузка...';
+            
+            try {
+                const response = await fetch(`/api/portraits/${portraitId}/videos`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    showToast('Видео успешно добавлено!', 'success');
+                    event.target.reset();
+                    toggleAddVideoForm();
+                    
+                    // Reload page to show new video
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось добавить видео'}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload & Create NFT';
+            }
+        }
+
+        // Activate Video
+        async function activateVideo(videoId) {
+            try {
+                const response = await fetch(`/api/videos/${videoId}/activate`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('Видео активировано!', 'success');
+                    
+                    // Update UI
+                    document.querySelectorAll('.video-card').forEach(card => {
+                        card.classList.remove('active');
+                        const badge = card.querySelector('.active-badge');
+                        if (badge) badge.remove();
+                        
+                        const activateBtn = card.querySelector('.activate-btn');
+                        if (activateBtn) {
+                            activateBtn.style.display = 'block';
+                        }
+                    });
+                    
+                    const activeCard = document.getElementById(`video-${videoId}`);
+                    activeCard.classList.add('active');
+                    
+                    const badge = document.createElement('div');
+                    badge.className = 'active-badge';
+                    badge.textContent = 'Активно';
+                    activeCard.appendChild(badge);
+                    
+                    const activateBtn = activeCard.querySelector('.activate-btn');
+                    if (activateBtn) {
+                        activateBtn.style.display = 'none';
+                    }
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось активировать видео'}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        // Delete Video
+        async function deleteVideo(videoId) {
+            if (!confirm('Вы уверены, что хотите удалить это видео?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/videos/${videoId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('Видео удалено!', 'success');
+                    
+                    // Remove from UI
+                    const videoCard = document.getElementById(`video-${videoId}`);
+                    videoCard.remove();
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось удалить видео'}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        // Delete Order
+        async function deleteOrder() {
+            if (!confirm('Вы уверены, что хотите удалить этот заказ? Это действие нельзя отменить.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/portraits/${portraitId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('Заказ удален!', 'success');
+                    
+                    // Redirect to admin panel
+                    setTimeout(() => {
+                        window.location.href = '/admin';
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось удалить заказ'}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+            }
+        }
+
+        // Copy Link
+        function copyLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('Ссылка скопирована!', 'success');
+            }).catch(() => {
+                showToast('Ошибка копирования', 'error');
+            });
+        }
+
+        // Lightbox
+        function showLightbox(imageSrc) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightboxImage');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+            
+            lightboxImage.src = imageSrc;
+            lightboxImage.style.display = 'block';
+            lightboxVideo.style.display = 'none';
+            lightbox.classList.add('active');
+        }
+
+        function showVideoLightbox(videoPath) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightboxImage');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+            
+            lightboxVideo.src = videoPath;
+            lightboxVideo.style.display = 'block';
+            lightboxImage.style.display = 'none';
+            lightbox.classList.add('active');
+        }
+
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+            
+            lightbox.classList.remove('active');
+            lightboxVideo.pause();
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+
+        // Load image analysis on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadImageAnalysis();
+        });
+
+        // Load Video Preview
+        async function loadVideoPreview(img, videoId) {
+            try {
+                const response = await fetch(`/api/videos/${videoId}/preview`);
+                if (response.ok) {
+                    const data = await response.json();
+                    img.src = `data:image/jpeg;base64,${data.preview_data}`;
+                }
+            } catch (error) {
+                console.error('Failed to load video preview:', error);
+            }
+        }
+
+        // Load Image Analysis
+        async function loadImageAnalysis() {
+            try {
+                const response = await fetch(`/api/portraits/${portraitId}/analyze`);
+                if (response.ok) {
+                    const analysis = await response.json();
+                    
+                    document.getElementById('imageWidth').textContent = analysis.width || 'N/A';
+                    document.getElementById('imageHeight').textContent = analysis.height || 'N/A';
+                    document.getElementById('brightness').textContent = analysis.brightness || 'N/A';
+                    document.getElementById('contrast').textContent = analysis.contrast || 'N/A';
+                    document.getElementById('quality').textContent = analysis.quality || 'N/A';
+                    document.getElementById('criteria').textContent = getCriteriaText(analysis.contrast);
+                    document.getElementById('recommendations').textContent = analysis.recommendation || 'N/A';
+                }
+            } catch (error) {
+                console.error('Failed to load image analysis:', error);
+            }
+        }
+
+        // Get Criteria Text
+        function getCriteriaText(contrast) {
+            if (!contrast) return 'N/A';
+            
+            if (contrast < 30) return 'Контраст < 30 → poor';
+            if (contrast < 60) return '30 ≤ Контраст < 60 → fair';
+            if (contrast < 90) return '60 ≤ Контраст < 90 → good';
+            return 'Контраст ≥ 90 → excellent';
+        }
+    </script>
+</body>
+</html>

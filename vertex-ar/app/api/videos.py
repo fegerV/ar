@@ -104,6 +104,7 @@ async def create_video(
         video_path=str(video_path),
         is_active=is_active,
         video_preview_path=str(video_preview_path) if video_preview_path else None,
+        description=description,
     )
     
     return VideoResponse(
@@ -113,6 +114,55 @@ async def create_video(
         is_active=bool(db_video["is_active"]),
         created_at=db_video["created_at"]
     )
+
+
+@router.get("/{video_id}/preview")
+async def get_video_preview(
+    video_id: str,
+    _: str = Depends(require_admin)
+):
+    """Get video preview as base64 image."""
+    from logging_setup import get_logger
+    import base64
+    
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    video = database.get_video(video_id)
+    
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found"
+        )
+    
+    video_preview_path = video.get("video_preview_path")
+    if not video_preview_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video preview not found"
+        )
+    
+    try:
+        from pathlib import Path
+        preview_path = Path(video_preview_path)
+        if not preview_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Video preview file not found"
+            )
+        
+        with open(preview_path, "rb") as f:
+            preview_data = base64.b64encode(f.read()).decode()
+        
+        return {"preview_data": preview_data}
+        
+    except Exception as e:
+        logger.error(f"Failed to load video preview for {video_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load video preview"
+        )
 
 
 @router.get("/portrait/{portrait_id}", response_model=List[VideoResponse])
@@ -238,12 +288,52 @@ async def get_video(
     )
 
 
-@router.delete("/{video_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_video(
+@router.post("/{video_id}/activate", response_model=VideoResponse)
+async def activate_video_admin(
     video_id: str,
-    username: str = Depends(get_current_user)
+    username: str = Depends(require_admin)
+) -> VideoResponse:
+    """Activate video for its portrait (admin only)."""
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    
+    # Check if video exists
+    video = database.get_video(video_id)
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found"
+        )
+    
+    portrait_id = video["portrait_id"]
+    
+    # Set as active
+    updated = database.set_active_video(video_id, portrait_id)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to activate video"
+        )
+    
+    logger.info(f"Video {video_id} activated for portrait {portrait_id} by {username}")
+    
+    # Return updated video
+    updated_video = database.get_video(video_id)
+    return _video_to_response(updated_video)
+
+
+@router.delete("/{video_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_video_admin(
+    video_id: str,
+    username: str = Depends(require_admin)
 ):
-    """Delete video."""
+    """Delete video (admin only)."""
+    from logging_setup import get_logger
+    import shutil
+    logger = get_logger(__name__)
+    
     database = get_database()
     
     # Check if video exists
@@ -254,9 +344,37 @@ async def delete_video(
             detail="Video not found"
         )
     
-    # Delete video
-    deleted = database.delete_video(video_id)
-    if not deleted:
+    try:
+        # Delete video from database
+        deleted = database.delete_video(video_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete video"
+            )
+        
+        # Delete video file and preview
+        app = get_current_app()
+        storage_root = app.state.config["STORAGE_ROOT"]
+        
+        video_path = existing_video.get("video_path")
+        if video_path:
+            video_file = storage_root / video_path
+            if video_file.exists():
+                video_file.unlink()
+                logger.info(f"Deleted video file: {video_file}")
+        
+        preview_path = existing_video.get("video_preview_path")
+        if preview_path:
+            preview_file = storage_root / preview_path
+            if preview_file.exists():
+                preview_file.unlink()
+                logger.info(f"Deleted video preview: {preview_file}")
+        
+        logger.info(f"Video {video_id} deleted successfully by {username}")
+        
+    except Exception as e:
+        logger.error(f"Failed to delete video {video_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete video"

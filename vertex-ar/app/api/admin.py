@@ -86,10 +86,8 @@ async def admin_panel(request: Request) -> HTMLResponse:
         error = request.query_params.get("error")
         return templates.TemplateResponse("login.html", {"request": request, "error": error})
     
-    database = get_database()
-    records = database.list_ar_content()
-    context = {"request": request, "records": records, "username": username}
-    return templates.TemplateResponse("admin.html", context)
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_dashboard.html", context)
 
 
 @router.get("/orders", response_class=HTMLResponse)
@@ -100,10 +98,71 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
         return _redirect_to_login("unauthorized")
     
     templates = get_templates()
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_dashboard.html", context)
+
+
+@router.get("/order/{portrait_id}", response_class=HTMLResponse)
+async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse:
+    """Serve order detail page."""
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
+    
+    templates = get_templates()
     database = get_database()
-    records = database.list_ar_content()
-    context = {"request": request, "records": records, "username": username}
-    return templates.TemplateResponse("admin.html", context)
+    
+    # Get portrait information
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
+    
+    # Load image preview if available
+    image_preview_data = None
+    image_preview_path = portrait.get("image_preview_path")
+    if image_preview_path:
+        try:
+            from pathlib import Path
+            import base64
+            preview_path = Path(image_preview_path)
+            if preview_path.exists():
+                with open(preview_path, "rb") as f:
+                    image_preview_data = base64.b64encode(f.read()).decode()
+        except Exception as e:
+            logger.warning(f"Failed to load portrait preview: {e}")
+    
+    portrait["image_preview_data"] = image_preview_data
+    
+    # Get client information
+    client = database.get_client(portrait["client_id"])
+    
+    # Get videos for this portrait
+    videos = database.get_videos_by_portrait(portrait_id)
+    
+    # Enhance portrait with client info for template
+    portrait["client_name"] = client["name"] if client else "N/A"
+    portrait["client_phone"] = client["phone"] if client else "N/A"
+    
+    # Generate order number (simplified - in production you'd have a proper order number system)
+    order_number = f"{hash(portrait_id) % 1000000:06d}"
+    
+    # Generate full URL
+    from app.main import get_current_app
+    app = get_current_app()
+    base_url = app.state.config["BASE_URL"]
+    full_url = f"{base_url}/portrait/{portrait['permanent_link']}"
+    
+    context = {
+        "request": request,
+        "username": username,
+        "order_number": order_number,
+        "portrait": portrait,
+        "client": client,
+        "videos": videos,
+        "full_url": full_url,
+        "image_analysis": {}  # Will be loaded via AJAX
+    }
+    return templates.TemplateResponse("admin_order_detail.html", context)
 
 
 @router.post("/login")
