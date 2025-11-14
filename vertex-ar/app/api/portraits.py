@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 import qrcode
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.auth import get_current_user, require_admin
 from app.database import Database
@@ -204,9 +204,14 @@ async def list_portraits_with_preview(
                 except Exception as e:
                     logger.warning(f"Failed to read preview for portrait {portrait['id']}: {e}")
             
+            # Get client information
+            client = database.get_client(portrait["client_id"])
+            
             videos = database.list_videos(portrait["id"])
             
             videos_with_previews = []
+            active_video_description = "Нет активного видео"
+            
             for v in videos:
                 video_preview_data = None
                 video_preview_path = v.get("video_preview_path")
@@ -224,6 +229,10 @@ async def list_portraits_with_preview(
                     except Exception as e:
                         logger.warning(f"Failed to read video preview for video {v['id']}: {e}")
                 
+                # Check if this is the active video
+                if v.get("is_active"):
+                    active_video_description = v.get("description", "Активное видео без описания")
+                
                 videos_with_previews.append({
                     "id": v["id"],
                     "is_active": bool(v["is_active"]),
@@ -238,13 +247,190 @@ async def list_portraits_with_preview(
                 "view_count": portrait.get("view_count", 0),
                 "created_at": portrait.get("created_at"),
                 "preview": preview_data or "",
-                "videos": videos_with_previews
+                "videos": videos_with_previews,
+                "client_name": client["name"] if client else "N/A",
+                "client_phone": client["phone"] if client else "N/A",
+                "active_video_description": active_video_description,
+                "image_preview_data": preview_data or "",
+                "qr_code_base64": portrait.get("qr_code", "")
             })
         except Exception as e:
             logger.error(f"Error processing portrait {portrait.get('id')}: {e}")
             continue
     
     return result
+
+
+@router.get("/{portrait_id}/analyze", response_model=Dict[str, Any])
+async def analyze_portrait_image(
+    portrait_id: str,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Analyze portrait image for quality metrics."""
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    portrait = database.get_portrait(portrait_id)
+    
+    if not portrait:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portrait not found"
+        )
+    
+    try:
+        from nft_marker_generator import analyze_image
+        image_path = portrait["image_path"]
+        analysis = analyze_image(image_path)
+        
+        logger.info(f"Image analysis completed for portrait {portrait_id}")
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Failed to analyze image for portrait {portrait_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to analyze image"
+        )
+
+
+@router.post("/{portrait_id}/videos", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
+async def add_video_to_portrait(
+    portrait_id: str,
+    video: UploadFile = File(...),
+    description: str = Form(None),
+    username: str = Depends(require_admin)
+) -> VideoResponse:
+    """Add a new video to an existing portrait (admin only)."""
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    
+    # Check if portrait exists
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portrait not found"
+        )
+    
+    if not video.content_type or not video.content_type.startswith("video/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
+    
+    # Generate UUID and paths
+    video_id = str(uuid.uuid4())
+    
+    app = get_current_app()
+    storage_root = app.state.config["STORAGE_ROOT"]
+    
+    # Create storage directories
+    client_id = portrait["client_id"]
+    portrait_storage = storage_root / "portraits" / client_id / portrait_id
+    portrait_storage.mkdir(parents=True, exist_ok=True)
+    
+    # Read and save video
+    video.file.seek(0)
+    video_content = await video.read()
+    video_path = portrait_storage / f"{video_id}.mp4"
+    
+    with open(video_path, "wb") as f:
+        f.write(video_content)
+    
+    # Generate video preview
+    from preview_generator import PreviewGenerator
+    video_preview_path = None
+    
+    try:
+        video_preview = PreviewGenerator.generate_video_preview(video_content)
+        if video_preview:
+            video_preview_path = portrait_storage / f"{video_id}_preview.jpg"
+            with open(video_preview_path, "wb") as f:
+                f.write(video_preview)
+            logger.info(f"Video preview created: {video_preview_path}")
+    except Exception as e:
+        logger.error(f"Error generating video preview: {e}")
+    
+    # Create video in database (not active by default)
+    db_video = database.create_video(
+        video_id=video_id,
+        portrait_id=portrait_id,
+        video_path=str(video_path),
+        is_active=False,  # New videos are not active by default
+        video_preview_path=str(video_preview_path) if video_preview_path else None,
+        description=description,
+    )
+    
+    logger.info(f"Video added to portrait {portrait_id}: {video_id}")
+    
+    return _video_to_response(db_video)
+
+
+@router.delete("/{portrait_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_portrait(
+    portrait_id: str,
+    username: str = Depends(require_admin)
+):
+    """Delete a portrait and all its associated data."""
+    from logging_setup import get_logger
+    import shutil
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    
+    # Check if portrait exists
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portrait not found"
+        )
+    
+    try:
+        # Get all videos for this portrait
+        videos = database.list_videos(portrait_id)
+        
+        # Delete portrait from database (this should cascade delete videos)
+        deleted = database.delete_portrait(portrait_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete portrait"
+            )
+        
+        # Delete files from storage
+        app = get_current_app()
+        storage_root = app.state.config["STORAGE_ROOT"]
+        client_id = portrait["client_id"]
+        portrait_storage = storage_root / "portraits" / client_id / portrait_id
+        
+        if portrait_storage.exists():
+            shutil.rmtree(portrait_storage)
+            logger.info(f"Deleted portrait storage: {portrait_storage}")
+        
+        # Delete NFT markers
+        marker_paths = [
+            portrait.get("marker_fset"),
+            portrait.get("marker_fset3"),
+            portrait.get("marker_iset")
+        ]
+        
+        for marker_path in marker_paths:
+            if marker_path:
+                marker_file = storage_root / marker_path
+                if marker_file.exists():
+                    marker_file.unlink()
+                    logger.info(f"Deleted marker file: {marker_file}")
+        
+        logger.info(f"Portrait {portrait_id} deleted successfully by {username}")
+        
+    except Exception as e:
+        logger.error(f"Failed to delete portrait {portrait_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete portrait"
+        )
 
 
 @router.get("/{portrait_id}", response_model=PortraitResponse)

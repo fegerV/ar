@@ -98,6 +98,7 @@ class Database:
                     portrait_id TEXT NOT NULL,
                     video_path TEXT NOT NULL,
                     video_preview_path TEXT,
+                    description TEXT,
                     is_active INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(portrait_id) REFERENCES portraits(id) ON DELETE CASCADE
@@ -119,6 +120,10 @@ class Database:
                 pass
             try:
                 self._connection.execute("ALTER TABLE ar_content ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN description TEXT")
             except sqlite3.OperationalError:
                 pass
             # Create index for phone search
@@ -528,15 +533,16 @@ class Database:
         video_path: str,
         is_active: bool = False,
         video_preview_path: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new video."""
         self._execute(
             """
             INSERT INTO videos (
-                id, portrait_id, video_path, video_preview_path, is_active
-            ) VALUES (?, ?, ?, ?, ?)
+                id, portrait_id, video_path, video_preview_path, description, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (video_id, portrait_id, video_path, video_preview_path, int(is_active)),
+            (video_id, portrait_id, video_path, video_preview_path, description, int(is_active)),
         )
         return self.get_video(video_id)
     
@@ -582,6 +588,14 @@ class Database:
             )
             self._connection.commit()
             return cursor.rowcount > 0
+    
+    def get_videos_by_portrait(self, portrait_id: str) -> List[Dict[str, Any]]:
+        """Get all videos for a portrait."""
+        cursor = self._execute(
+            "SELECT * FROM videos WHERE portrait_id = ? ORDER BY created_at DESC",
+            (portrait_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
     
     def delete_video(self, video_id: str) -> bool:
         """Delete video."""
