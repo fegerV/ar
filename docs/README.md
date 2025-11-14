@@ -50,6 +50,7 @@
 - [Релизы ветки 1.x](releases/1.x.md)
 - [Roadmap](../ROADMAP.md)
 - [Отчёт о тестировании](../TESTING_REPORT.md)
+- [Нереализованные функции](../MISSING_FUNCTIONS.md)
 
 ---
 

@@ -218,6 +218,7 @@ pytest --cov=vertex-ar --cov-report=term-missing
 - 🗂️ [docs/releases/1.x.md](docs/releases/1.x.md) — детали релизов ветки 1.x
 - 🗺️ [ROADMAP.md](ROADMAP.md) — дорожная карта развития проекта
 - 📊 [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) — текущий статус реализации функций
+- 🧩 [MISSING_FUNCTIONS.md](MISSING_FUNCTIONS.md) — 15 оставшихся функций и приоритеты их реализации
 
 ---
 
