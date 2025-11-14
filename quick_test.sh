@@ -52,14 +52,15 @@ TEST_TYPE="${1:-all}"
 print_header "Vertex AR - Quick Test Tool"
 
 echo -e "Available test modes:"
-echo -e "  ${BOLD}all${NC}        - Run all tests (default)"
-echo -e "  ${BOLD}quick${NC}      - Run quick tests only (no slow tests)"
-echo -e "  ${BOLD}unit${NC}       - Run unit tests only"
-echo -e "  ${BOLD}api${NC}        - Run API tests only"
-echo -e "  ${BOLD}setup${NC}      - Setup test environment"
-echo -e "  ${BOLD}demo${NC}       - Run demo scenarios"
-echo -e "  ${BOLD}coverage${NC}   - Run tests with coverage report"
-echo -e "  ${BOLD}clean${NC}      - Clean test artifacts"
+echo -e "  ${BOLD}all${NC}          - Run all tests (default)"
+echo -e "  ${BOLD}quick${NC}        - Run quick tests only (no slow tests)"
+echo -e "  ${BOLD}unit${NC}         - Run unit tests only"
+echo -e "  ${BOLD}integration${NC}  - Run integration tests only"
+echo -e "  ${BOLD}api${NC}          - Run API tests only"
+echo -e "  ${BOLD}setup${NC}        - Setup test environment"
+echo -e "  ${BOLD}demo${NC}         - Run demo scenarios"
+echo -e "  ${BOLD}coverage${NC}     - Run tests with coverage report"
+echo -e "  ${BOLD}clean${NC}        - Clean test artifacts"
 echo ""
 print_info "Current mode: ${BOLD}$TEST_TYPE${NC}"
 echo ""
@@ -146,19 +147,22 @@ run_tests() {
     
     case $test_type in
         "all")
-            python -m pytest -v --tb=short --disable-warnings
+            python -m pytest vertex-ar/tests test_files -v --tb=short --disable-warnings
             ;;
         "quick")
-            python -m pytest -v -m "not slow" --tb=short --disable-warnings
+            python -m pytest vertex-ar/tests test_files -v -m "not slow" --tb=short --disable-warnings
             ;;
         "unit")
-            python -m pytest -v -m "unit" --tb=short --disable-warnings
+            python -m pytest vertex-ar/tests -v -m "unit" --tb=short --disable-warnings
+            ;;
+        "integration")
+            python -m pytest test_files -v --tb=short --disable-warnings
             ;;
         "api")
-            python -m pytest -v -m "api" --tb=short --disable-warnings vertex-ar/tests/test_api.py
+            python -m pytest -v -m "api" --tb=short --disable-warnings vertex-ar/tests/test_api.py test_files/test_api_*.py
             ;;
         "coverage")
-            python -m pytest --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
+            python -m pytest vertex-ar/tests test_files --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
             print_success "Coverage report generated: htmlcov/index.html"
             
             # Try to open the report
