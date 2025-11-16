@@ -789,9 +789,10 @@
             submitBtn.textContent = 'Загрузка...';
             
             try {
-                const response = await fetch(`/api/portraits/${portraitId}/videos`, {
+                const response = await fetch(`/portraits/${portraitId}/videos`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -818,8 +819,9 @@
         // Activate Video
         async function activateVideo(videoId) {
             try {
-                const response = await fetch(`/api/videos/${videoId}/activate`, {
-                    method: 'POST'
+                const response = await fetch(`/videos/${videoId}/activate`, {
+                    method: 'POST',
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -865,8 +867,9 @@
             }
             
             try {
-                const response = await fetch(`/api/videos/${videoId}`, {
-                    method: 'DELETE'
+                const response = await fetch(`/videos/${videoId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -891,8 +894,9 @@
             }
             
             try {
-                const response = await fetch(`/api/portraits/${portraitId}`, {
-                    method: 'DELETE'
+                const response = await fetch(`/portraits/${portraitId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
                 
                 if (response.ok) {
@@ -980,7 +984,9 @@
         // Load Video Preview
         async function loadVideoPreview(img, videoId) {
             try {
-                const response = await fetch(`/api/videos/${videoId}/preview`);
+                const response = await fetch(`/videos/${videoId}/preview`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const data = await response.json();
                     img.src = `data:image/jpeg;base64,${data.preview_data}`;
@@ -993,7 +999,9 @@
         // Load Image Analysis
         async function loadImageAnalysis() {
             try {
-                const response = await fetch(`/api/portraits/${portraitId}/analyze`);
+                const response = await fetch(`/portraits/${portraitId}/analyze`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const analysis = await response.json();
                     

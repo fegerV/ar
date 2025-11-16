@@ -959,7 +959,8 @@
             try {
                 const response = await fetch('/api/orders/create', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    credentials: 'include'
                 });
                 
                 clearInterval(progressInterval);
@@ -1007,7 +1008,9 @@
         async function loadStatistics() {
             try {
                 // Load portraits data for statistics
-                const portraitsResponse = await fetch('/api/portraits/admin/list-with-preview');
+                const portraitsResponse = await fetch('/portraits/admin/list-with-preview', {
+                    credentials: 'include'
+                });
                 if (portraitsResponse.ok) {
                     const portraitsData = await portraitsResponse.json();
                     const portraits = portraitsData.portraits || [];
@@ -1023,7 +1026,9 @@
                     }
                     
                     // Calculate storage used from system info
-                    const systemResponse = await fetch('/api/admin/system-info');
+                    const systemResponse = await fetch('/admin/system-info', {
+                        credentials: 'include'
+                    });
                     if (systemResponse.ok) {
                         const systemInfo = await systemResponse.json();
                         document.getElementById('storageUsed').textContent = systemInfo.storage_info.total_size;
@@ -1037,7 +1042,9 @@
         // Load System Information
         async function loadSystemInfo() {
             try {
-                const response = await fetch('/api/admin/system-info');
+                const response = await fetch('/admin/system-info', {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const info = await response.json();
                     
@@ -1067,7 +1074,9 @@
         // Load Records
         async function loadRecords() {
             try {
-                const response = await fetch('/api/portraits/admin/list-with-preview');
+                const response = await fetch('/portraits/admin/list-with-preview', {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const data = await response.json();
                     // Handle different response formats
