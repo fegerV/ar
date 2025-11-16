@@ -44,6 +44,7 @@ async def create_video(
     portrait_id: str = Form(...),
     video: UploadFile = File(...),
     is_active: bool = Form(False),
+    description: str = Form(None),
     username: str = Depends(get_current_user)
 ) -> VideoResponse:
     """Create a new video for a portrait."""
