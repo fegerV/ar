@@ -525,6 +525,14 @@ class Database:
         cursor = self._execute("DELETE FROM portraits WHERE id = ?", (portrait_id,))
         return cursor.rowcount > 0
     
+    def update_portrait_preview(self, portrait_id: str, preview_path: str) -> bool:
+        """Update portrait preview path."""
+        cursor = self._execute(
+            "UPDATE portraits SET image_preview_path = ? WHERE id = ?",
+            (preview_path, portrait_id),
+        )
+        return cursor.rowcount > 0
+    
     # Video methods
     def create_video(
         self,
@@ -600,6 +608,14 @@ class Database:
     def delete_video(self, video_id: str) -> bool:
         """Delete video."""
         cursor = self._execute("DELETE FROM videos WHERE id = ?", (video_id,))
+        return cursor.rowcount > 0
+    
+    def update_video_preview(self, video_id: str, preview_path: str) -> bool:
+        """Update video preview path."""
+        cursor = self._execute(
+            "UPDATE videos SET video_preview_path = ? WHERE id = ?",
+            (preview_path, video_id),
+        )
         return cursor.rowcount > 0
 
 
