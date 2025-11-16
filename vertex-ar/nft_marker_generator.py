@@ -319,17 +319,17 @@ class NFTMarkerGenerator:
                 
                 # Determine tracking quality
                 if contrast < 30:
-                    quality = "poor"
-                    recommendation = "Image has low contrast. Add more details or choose a different image."
+                    quality = "плохое"
+                    recommendation = "Изображение имеет низкий контраст. Добавьте больше деталей или выберите другое изображение."
                 elif contrast < 60:
-                    quality = "fair"
-                    recommendation = "Image should work but may have tracking issues in poor lighting."
+                    quality = "удовлетворительное"
+                    recommendation = "Изображение должно работать, но могут возникнуть проблемы с отслеживанием при плохом освещении."
                 elif contrast < 90:
-                    quality = "good"
-                    recommendation = "Image should track well in most conditions."
+                    quality = "хорошее"
+                    recommendation = "Изображение должно хорошо отслеживаться в большинстве условий."
                 else:
-                    quality = "excellent"
-                    recommendation = "Image has high contrast and should track very well."
+                    quality = "отличное"
+                    recommendation = "Изображение имеет высокий контраст и должно отслеживаться очень хорошо."
                 
                 return {
                     "width": width,
