@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Vertex AR - Управление клиентами">
+    <title>Управление клиентами - Vertex AR</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
+        }
+
+        /* Header Styles */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
+            border: none;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            color: var(--text-color);
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .nav-tab:hover {
+            border-bottom-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .nav-tab.active {
+            border-bottom-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background-color: var(--light-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* Clients Table */
+        .clients-section {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .clients-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .clients-table th,
+        .clients-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .clients-table th {
+            background-color: var(--bg-color);
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .clients-table tr:hover {
+            background-color: var(--bg-color);
+        }
+
+        .client-name {
+            color: var(--primary-color);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .client-name:hover {
+            text-decoration: underline;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-info {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .badge-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--light-color);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: var(--text-color);
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: var(--danger-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+
+        /* Client Detail View */
+        .client-detail {
+            margin-top: 1.5rem;
+        }
+
+        .client-info {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1.5rem;
+        }
+
+        .client-info-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .client-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .client-info-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .client-portraits {
+            margin-top: 2rem;
+        }
+
+        .portraits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .portrait-card {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: transform var(--transition-speed);
+        }
+
+        .portrait-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .portrait-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: var(--border-radius);
+            margin-bottom: 0.5rem;
+            background-color: var(--border-color);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .clients-table {
+                font-size: 0.85rem;
+            }
+
+            .clients-table th,
+            .clients-table td {
+                padding: 0.5rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 Управление клиентами</h1>
+            <div class="header-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">🌓</button>
+                <a href="/admin" class="btn btn-secondary">← Назад к Dashboard</a>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <a href="/admin" class="nav-tab">Dashboard</a>
+            <a href="/admin/clients" class="nav-tab active">Клиенты</a>
+            <a href="/admin/users" class="nav-tab">Пользователи</a>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Поиск по телефону или имени..." onkeyup="handleSearch()">
+            </div>
+            <button class="btn btn-success" onclick="openCreateModal()">
+                ➕ Создать клиента
+            </button>
+        </div>
+
+        <div class="clients-section">
+            <h2 style="margin-bottom: 1rem;">Список клиентов</h2>
+            <div id="clientsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка клиентов...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Client Modal -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Создать клиента</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <form id="clientForm" onsubmit="handleSubmit(event)">
+                <input type="hidden" id="clientId">
+                <div class="form-group">
+                    <label for="clientName">Имя клиента *</label>
+                    <input type="text" id="clientName" required>
+                </div>
+                <div class="form-group">
+                    <label for="clientPhone">Телефон *</label>
+                    <input type="tel" id="clientPhone" placeholder="+7 (999) 123-45-67" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+                    <button type="submit" class="btn btn-success" id="submitBtn">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Client Detail Modal -->
+    <div id="clientDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="detailModalTitle">Информация о клиенте</h2>
+                <button class="close-btn" onclick="closeDetailModal()">✕</button>
+            </div>
+            <div id="clientDetailContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка информации...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        © 2024 Vertex AR. Все права защищены. | Дополненная реальность для вашего бизнеса
+    </div>
+
+    <script>
+        let allClients = [];
+        let currentClientId = null;
+
+        // Theme toggle
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+
+        // Get auth token from cookie
+        function getAuthToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'authToken') {
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        // Load clients
+        async function loadClients() {
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = '/admin?error=unauthorized';
+                return;
+            }
+
+            try {
+                const response = await fetch('/clients/list', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load clients');
+                }
+
+                allClients = await response.json();
+                renderClients(allClients);
+            } catch (error) {
+                console.error('Error loading clients:', error);
+                document.getElementById('clientsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>Ошибка загрузки</h3>
+                        <p>Не удалось загрузить список клиентов</p>
+                        <button class="btn btn-primary" onclick="loadClients()">Попробовать снова</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Render clients table
+        function renderClients(clients) {
+            const container = document.getElementById('clientsContainer');
+            
+            if (clients.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>Нет клиентов</h3>
+                        <p>Начните с создания первого клиента</p>
+                        <button class="btn btn-success" onclick="openCreateModal()">➕ Создать клиента</button>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table class="clients-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Имя</th>
+                            <th>Телефон</th>
+                            <th>Портретов</th>
+                            <th>Дата создания</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            clients.forEach((client, index) => {
+                const date = new Date(client.created_at).toLocaleDateString('ru-RU');
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>
+                            <span class="client-name" onclick="viewClient('${client.id}')">
+                                ${client.name}
+                            </span>
+                        </td>
+                        <td>${client.phone}</td>
+                        <td>
+                            <span class="badge badge-info">${client.portraits_count || 0}</span>
+                        </td>
+                        <td>${date}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary action-btn" onclick="viewClient('${client.id}')">
+                                    👁️ Просмотр
+                                </button>
+                                <button class="btn btn-secondary action-btn" onclick="openEditModal('${client.id}')">
+                                    ✏️ Изменить
+                                </button>
+                                <button class="btn btn-danger action-btn" onclick="deleteClient('${client.id}', '${client.name}')">
+                                    🗑️ Удалить
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Search
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            if (!query) {
+                renderClients(allClients);
+                return;
+            }
+
+            const filtered = allClients.filter(client => 
+                client.name.toLowerCase().includes(query) ||
+                client.phone.toLowerCase().includes(query)
+            );
+            renderClients(filtered);
+        }
+
+        // Modal functions
+        function openCreateModal() {
+            document.getElementById('modalTitle').textContent = 'Создать клиента';
+            document.getElementById('clientId').value = '';
+            document.getElementById('clientName').value = '';
+            document.getElementById('clientPhone').value = '';
+            document.getElementById('submitBtn').textContent = 'Создать';
+            document.getElementById('clientModal').classList.add('active');
+        }
+
+        function openEditModal(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+
+            document.getElementById('modalTitle').textContent = 'Редактировать клиента';
+            document.getElementById('clientId').value = client.id;
+            document.getElementById('clientName').value = client.name;
+            document.getElementById('clientPhone').value = client.phone;
+            document.getElementById('submitBtn').textContent = 'Сохранить';
+            document.getElementById('clientModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('clientModal').classList.remove('active');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('clientDetailModal').classList.remove('active');
+        }
+
+        // Submit form
+        async function handleSubmit(event) {
+            event.preventDefault();
+            
+            const clientId = document.getElementById('clientId').value;
+            const name = document.getElementById('clientName').value;
+            const phone = document.getElementById('clientPhone').value;
+            const token = getAuthToken();
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Сохранение...';
+
+            try {
+                let response;
+                if (clientId) {
+                    // Update
+                    response = await fetch(`/clients/${clientId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, phone })
+                    });
+                } else {
+                    // Create
+                    response = await fetch('/clients/', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name, phone })
+                    });
+                }
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Ошибка сохранения');
+                }
+
+                closeModal();
+                await loadClients();
+                alert(clientId ? 'Клиент успешно обновлен!' : 'Клиент успешно создан!');
+            } catch (error) {
+                console.error('Error saving client:', error);
+                alert('Ошибка: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = clientId ? 'Сохранить' : 'Создать';
+            }
+        }
+
+        // Delete client
+        async function deleteClient(clientId, clientName) {
+            if (!confirm(`Вы уверены, что хотите удалить клиента "${clientName}"?\n\nВнимание: все портреты этого клиента также будут удалены!`)) {
+                return;
+            }
+
+            const token = getAuthToken();
+
+            try {
+                const response = await fetch(`/clients/${clientId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка удаления');
+                }
+
+                await loadClients();
+                alert('Клиент успешно удален!');
+            } catch (error) {
+                console.error('Error deleting client:', error);
+                alert('Ошибка удаления: ' + error.message);
+            }
+        }
+
+        // View client details
+        async function viewClient(clientId) {
+            document.getElementById('clientDetailModal').classList.add('active');
+            document.getElementById('clientDetailContent').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка информации...</p>
+                </div>
+            `;
+
+            const token = getAuthToken();
+
+            try {
+                // Load client data
+                const clientResponse = await fetch(`/clients/${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const client = await clientResponse.json();
+
+                // Load client's portraits
+                const portraitsResponse = await fetch(`/portraits?client_id=${clientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const portraits = await portraitsResponse.json();
+
+                // Render client detail
+                let html = `
+                    <div class="client-info">
+                        <div class="client-info-row">
+                            <div class="client-info-label">Имя:</div>
+                            <div>${client.name}</div>
+                        </div>
+                        <div class="client-info-row">
+                            <div class="client-info-label">Телефон:</div>
+                            <div>${client.phone}</div>
+                        </div>
+                        <div class="client-info-row">
+                            <div class="client-info-label">Дата создания:</div>
+                            <div>${new Date(client.created_at).toLocaleString('ru-RU')}</div>
+                        </div>
+                        <div class="client-info-row">
+                            <div class="client-info-label">Портретов:</div>
+                            <div><span class="badge badge-info">${portraits.length}</span></div>
+                        </div>
+                    </div>
+                `;
+
+                if (portraits.length > 0) {
+                    html += `
+                        <div class="client-portraits">
+                            <h3>Портреты клиента</h3>
+                            <div class="portraits-grid">
+                    `;
+
+                    portraits.forEach((portrait, index) => {
+                        const orderNumber = String(index + 1).padStart(6, '0');
+                        html += `
+                            <div class="portrait-card" onclick="window.location.href='/admin/order/${portrait.id}'">
+                                <div class="portrait-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                    #${orderNumber}
+                                </div>
+                                <div>Просмотров: ${portrait.view_count || 0}</div>
+                                <div style="font-size: 0.85rem; color: var(--secondary-color);">
+                                    ${new Date(portrait.created_at).toLocaleDateString('ru-RU')}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📸</div>
+                            <h3>Нет портретов</h3>
+                            <p>У этого клиента пока нет портретов</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('clientDetailContent').innerHTML = html;
+                document.getElementById('detailModalTitle').textContent = `Клиент: ${client.name}`;
+            } catch (error) {
+                console.error('Error loading client details:', error);
+                document.getElementById('clientDetailContent').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>Ошибка загрузки</h3>
+                        <p>Не удалось загрузить информацию о клиенте</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load clients on page load
+        loadClients();
+
+        // Close modals on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeDetailModal();
+            }
+        });
+    </script>
+</body>
+</html>
