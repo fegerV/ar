@@ -118,55 +118,6 @@ async def create_video(
     )
 
 
-@router.get("/{video_id}/preview")
-async def get_video_preview(
-    video_id: str,
-    _: str = Depends(require_admin)
-):
-    """Get video preview as base64 image."""
-    from logging_setup import get_logger
-    import base64
-    
-    logger = get_logger(__name__)
-    
-    database = get_database()
-    video = database.get_video(video_id)
-    
-    if not video:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Video not found"
-        )
-    
-    video_preview_path = video.get("video_preview_path")
-    if not video_preview_path:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Video preview not found"
-        )
-    
-    try:
-        from pathlib import Path
-        preview_path = Path(video_preview_path)
-        if not preview_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Video preview file not found"
-            )
-        
-        with open(preview_path, "rb") as f:
-            preview_data = base64.b64encode(f.read()).decode()
-        
-        return {"preview_data": preview_data}
-        
-    except Exception as e:
-        logger.error(f"Failed to load video preview for {video_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to load video preview"
-        )
-
-
 @router.get("/portrait/{portrait_id}", response_model=List[VideoResponse])
 async def list_videos(
     portrait_id: str,
@@ -294,8 +245,19 @@ async def get_video_preview(
     try:
         from pathlib import Path
         app = get_current_app()
-        storage_root = app.state.config["STORAGE_ROOT"]
-        preview_path = storage_root / video_preview_path
+        base_dir = app.state.config["BASE_DIR"]
+        
+        # Handle both relative and absolute preview paths
+        if video_preview_path.startswith("storage/"):
+            preview_path = base_dir / video_preview_path
+        elif video_preview_path.startswith("/"):
+            preview_path = Path(video_preview_path)
+        else:
+            # Relative path, assume it's relative to storage root
+            storage_root = app.state.config["STORAGE_ROOT"]
+            preview_path = storage_root / video_preview_path
+        
+        logger.info(f"Looking for video preview at: {preview_path}")
         
         if preview_path.exists():
             with open(preview_path, "rb") as f:
@@ -303,6 +265,7 @@ async def get_video_preview(
                 logger.info(f"Successfully loaded video preview for video {video_id}")
                 return {"preview_data": preview_data}
         else:
+            logger.error(f"Video preview file not found at {preview_path}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Video preview file not found"

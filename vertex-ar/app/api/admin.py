@@ -148,6 +148,8 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
             return path_str
         if path_str.startswith("/storage/"):
             return f"{base_url}{path_str}"
+        if path_str.startswith("storage/"):
+            return f"{base_url}/{path_str}"
         storage_segment = "/storage/"
         if storage_segment in path_str:
             return f"{base_url}{path_str[path_str.index(storage_segment):]}"
