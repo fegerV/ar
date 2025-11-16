@@ -220,37 +220,72 @@ class Database:
         )
         return cursor.rowcount > 0
     
-    def list_users(self, is_admin: Optional[bool] = None, is_active: Optional[bool] = None,
-                   limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+    def list_users(
+        self,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
         """List users with optional filters."""
         query = "SELECT * FROM users WHERE 1=1"
-        params = []
-        
+        params: List[Any] = []
+
         if is_admin is not None:
             query += " AND is_admin = ?"
             params.append(int(is_admin))
-        
+
         if is_active is not None:
             query += " AND is_active = ?"
             params.append(int(is_active))
-        
+
+        if search:
+            like = f"%{search}%"
+            query += " AND (username LIKE ? OR email LIKE ? OR full_name LIKE ?)"
+            params.extend([like, like, like])
+
         query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
-    
+
+    def count_users(
+        self,
+        is_admin: Optional[bool] = None,
+        is_active: Optional[bool] = None,
+        search: Optional[str] = None,
+    ) -> int:
+        """Count users with optional filters."""
+        query = "SELECT COUNT(*) as count FROM users WHERE 1=1"
+        params: List[Any] = []
+
+        if is_admin is not None:
+            query += " AND is_admin = ?"
+            params.append(int(is_admin))
+
+        if is_active is not None:
+            query += " AND is_active = ?"
+            params.append(int(is_active))
+
+        if search:
+            like = f"%{search}%"
+            query += " AND (username LIKE ? OR email LIKE ? OR full_name LIKE ?)"
+            params.extend([like, like, like])
+
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
     def search_users(self, query_str: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
-        """Search users by username, email, or full name."""
-        cursor = self._execute(
-            """
-            SELECT * FROM users 
-            WHERE (username LIKE ? OR email LIKE ? OR full_name LIKE ?) AND is_active = 1
-            ORDER BY username ASC LIMIT ? OFFSET ?
-            """,
-            (f"%{query_str}%", f"%{query_str}%", f"%{query_str}%", limit, offset)
+        """Search active users by username, email, or full name."""
+        return self.list_users(
+            search=query_str,
+            is_active=True,
+            limit=limit,
+            offset=offset,
         )
-        return [dict(row) for row in cursor.fetchall()]
     
     def update_last_login(self, username: str) -> None:
         """Update the last login timestamp for a user."""
@@ -274,10 +309,12 @@ class Database:
             "SELECT COUNT(*) as recent FROM users WHERE last_login >= datetime('now', '-7 days')"
         )
         recent_logins = cursor.fetchone()['recent']
+        inactive_users = max(total_users - active_users, 0)
         
         return {
             'total_users': total_users,
             'active_users': active_users,
+            'inactive_users': inactive_users,
             'admin_users': admin_users,
             'recent_logins': recent_logins
         }
@@ -422,19 +459,83 @@ class Database:
             return None
         return dict(row)
     
-    def search_clients(self, phone: str) -> List[Dict[str, Any]]:
-        """Search clients by phone (partial match)."""
+    def search_clients(self, query: str, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """Search clients by name or phone (partial match)."""
+        return self.list_clients(search=query, limit=limit, offset=offset)
+
+    def list_clients(
+        self,
+        search: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """Get list of clients with optional search and pagination."""
+        query = "SELECT * FROM clients"
+        params: List[Any] = []
+
+        if search:
+            like = f"%{search}%"
+            query += " WHERE phone LIKE ? OR name LIKE ?"
+            params.extend([like, like])
+
+        query += " ORDER BY created_at DESC"
+
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def count_clients(self, search: Optional[str] = None) -> int:
+        """Count clients with optional search."""
+        query = "SELECT COUNT(*) as count FROM clients"
+        params: List[Any] = []
+
+        if search:
+            like = f"%{search}%"
+            query += " WHERE phone LIKE ? OR name LIKE ?"
+            params.extend([like, like])
+
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def get_clients_by_ids(self, client_ids: List[str]) -> List[Dict[str, Any]]:
+        """Get multiple clients by their IDs."""
+        if not client_ids:
+            return []
+        placeholders = ",".join("?" for _ in client_ids)
         cursor = self._execute(
-            "SELECT * FROM clients WHERE phone LIKE ? ORDER BY created_at DESC",
-            (f"%{phone}%",),
+            f"SELECT * FROM clients WHERE id IN ({placeholders})",
+            tuple(client_ids),
         )
-        return [dict(row) for row in cursor.fetchall()]
-    
-    def list_clients(self) -> List[Dict[str, Any]]:
-        """Get list of all clients."""
-        cursor = self._execute("SELECT * FROM clients ORDER BY created_at DESC")
-        return [dict(row) for row in cursor.fetchall()]
-    
+        rows = [dict(row) for row in cursor.fetchall()]
+        by_id = {row["id"]: row for row in rows}
+        return [by_id[cid] for cid in client_ids if cid in by_id]
+
+    def get_portrait_counts(self, client_ids: List[str]) -> Dict[str, int]:
+        """Get number of portraits for the provided client IDs."""
+        if not client_ids:
+            return {}
+        placeholders = ",".join("?" for _ in client_ids)
+        cursor = self._execute(
+            f"SELECT client_id, COUNT(*) as count FROM portraits WHERE client_id IN ({placeholders}) GROUP BY client_id",
+            tuple(client_ids),
+        )
+        return {row["client_id"]: row["count"] for row in cursor.fetchall()}
+
+    def delete_clients_bulk(self, client_ids: List[str]) -> int:
+        """Delete multiple clients by their IDs."""
+        if not client_ids:
+            return 0
+        placeholders = ",".join("?" for _ in client_ids)
+        cursor = self._execute(
+            f"DELETE FROM clients WHERE id IN ({placeholders})",
+            tuple(client_ids),
+        )
+        return cursor.rowcount
+
     def update_client(self, client_id: str, phone: Optional[str] = None, name: Optional[str] = None) -> bool:
         """Update client data."""
         updates = []

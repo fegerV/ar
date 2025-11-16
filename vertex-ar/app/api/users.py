@@ -1,13 +1,27 @@
 """
 User management endpoints for Vertex AR API.
 """
+import csv
+from datetime import datetime
+from io import BytesIO, StringIO
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 
 from app.auth import _hash_password, _verify_password, TokenManager
 from app.database import Database
 from app.models import (
-    UserCreate, UserUpdate, UserResponse, UserProfile, UserStats,
-    PasswordChange, UserSearch, MessageResponse
+    BulkIdsRequest,
+    MessageResponse,
+    PaginatedUsersResponse,
+    PasswordChange,
+    UserCreate,
+    UserProfile,
+    UserResponse,
+    UserSearch,
+    UserStats,
+    UserUpdate,
 )
 from app.main import get_current_app
 from logging_setup import get_logger
@@ -21,6 +35,19 @@ def get_database() -> Database:
     """Get database instance."""
     app = get_current_app()
     return app.state.database
+
+
+def _user_to_response(user: Dict[str, Any]) -> UserResponse:
+    """Convert database row to user response model."""
+    return UserResponse(
+        username=user["username"],
+        email=user.get("email"),
+        full_name=user.get("full_name"),
+        is_admin=bool(user["is_admin"]),
+        is_active=bool(user["is_active"]),
+        created_at=user["created_at"],
+        last_login=user.get("last_login"),
+    )
 
 
 def get_token_manager():
@@ -150,6 +177,87 @@ async def change_password(
     return MessageResponse(message="Password changed successfully. Please login again.")
 
 
+@router.get("/users/paginated", response_model=PaginatedUsersResponse)
+async def list_users_paginated(
+    page: int = 1,
+    page_size: int = 25,
+    search: Optional[str] = None,
+    filter: str = "all",
+    admin_user: str = Depends(require_admin),
+) -> PaginatedUsersResponse:
+    """List users with pagination and optional filters (admin only)."""
+    database = get_database()
+
+    page = max(page, 1)
+    page_size = max(1, min(page_size, 100))
+
+    filter_value = (filter or "all").lower()
+    is_active_filter: Optional[bool] = None
+    is_admin_filter: Optional[bool] = None
+
+    if filter_value == "active":
+        is_active_filter = True
+    elif filter_value == "inactive":
+        is_active_filter = False
+    elif filter_value == "admin":
+        is_admin_filter = True
+
+    total = database.count_users(
+        is_admin=is_admin_filter,
+        is_active=is_active_filter,
+        search=search,
+    )
+
+    if total == 0:
+        logger.info(
+            "users_list_empty",
+            filter=filter_value,
+            search=search,
+            admin=admin_user,
+        )
+        return PaginatedUsersResponse(
+            items=[],
+            total=0,
+            page=1,
+            page_size=page_size,
+            total_pages=0,
+        )
+
+    total_pages = (total + page_size - 1) // page_size
+    if page > total_pages:
+        page = total_pages
+
+    offset = (page - 1) * page_size
+    users = database.list_users(
+        is_admin=is_admin_filter,
+        is_active=is_active_filter,
+        search=search,
+        limit=page_size,
+        offset=offset,
+    )
+
+    items = [_user_to_response(user) for user in users]
+
+    logger.info(
+        "users_list_paginated",
+        total=total,
+        page=page,
+        page_size=page_size,
+        returned=len(items),
+        filter=filter_value,
+        search=search,
+        admin=admin_user,
+    )
+
+    return PaginatedUsersResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
     is_admin: bool = None,
@@ -161,19 +269,8 @@ async def list_users(
     """List users (admin only)."""
     database = get_database()
     users = database.list_users(is_admin=is_admin, is_active=is_active, limit=limit, offset=offset)
-    
-    return [
-        UserResponse(
-            username=user["username"],
-            email=user.get("email"),
-            full_name=user.get("full_name"),
-            is_admin=bool(user["is_admin"]),
-            is_active=bool(user["is_active"]),
-            created_at=user["created_at"],
-            last_login=user.get("last_login")
-        )
-        for user in users
-    ]
+
+    return [_user_to_response(user) for user in users]
 
 
 @router.get("/users/search", response_model=list[UserResponse])
@@ -186,19 +283,8 @@ async def search_users(
     """Search users (admin only)."""
     database = get_database()
     users = database.search_users(query, limit=limit, offset=offset)
-    
-    return [
-        UserResponse(
-            username=user["username"],
-            email=user.get("email"),
-            full_name=user.get("full_name"),
-            is_admin=bool(user["is_admin"]),
-            is_active=bool(user["is_active"]),
-            created_at=user["created_at"],
-            last_login=user.get("last_login")
-        )
-        for user in users
-    ]
+
+    return [_user_to_response(user) for user in users]
 
 
 @router.put("/users/{username}", response_model=MessageResponse)
@@ -311,6 +397,201 @@ async def delete_user(
     )
     
     return MessageResponse(message=f"User {username} deactivated successfully")
+
+
+@router.post("/users/bulk-delete", response_model=MessageResponse)
+async def bulk_delete_users(
+    payload: BulkIdsRequest,
+    admin_user: str = Depends(require_admin),
+) -> MessageResponse:
+    """Bulk deactivate users (admin only)."""
+    database = get_database()
+    tokens = get_token_manager()
+
+    unique_usernames = [username for username in dict.fromkeys(payload.ids) if username]
+    if not unique_usernames:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No usernames provided")
+
+    skipped_self = False
+    skipped_admins: List[str] = []
+    deleted = 0
+
+    for username in unique_usernames:
+        if username == admin_user:
+            skipped_self = True
+            continue
+
+        user = database.get_user(username)
+        if not user:
+            continue
+
+        if user.get("is_admin"):
+            skipped_admins.append(username)
+            continue
+
+        if database.delete_user(username):
+            deleted += 1
+            tokens.revoke_user(username)
+
+    logger.info(
+        "users_bulk_delete",
+        requested=len(unique_usernames),
+        deleted=deleted,
+        skipped_admins=len(skipped_admins),
+        skipped_self=skipped_self,
+        admin=admin_user,
+    )
+
+    info_parts = []
+    if skipped_admins:
+        info_parts.append(f"администраторов пропущено: {len(skipped_admins)}")
+    if skipped_self:
+        info_parts.append("ваш аккаунт не может быть деактивирован")
+
+    if deleted == 0:
+        message = "Пользователи не найдены или уже деактивированы"
+        if info_parts:
+            message += f" ({'; '.join(info_parts)})"
+        return MessageResponse(message=message)
+
+    extra = f" ({'; '.join(info_parts)})" if info_parts else ""
+    return MessageResponse(message=f"Деактивировано пользователей: {deleted}{extra}")
+
+
+@router.get("/users/export")
+async def export_users(
+    format: str = "csv",
+    search: Optional[str] = None,
+    filter: str = "all",
+    ids: Optional[str] = None,
+    admin_user: str = Depends(require_admin),
+):
+    """Export users in CSV or Excel format."""
+    database = get_database()
+
+    filter_value = (filter or "all").lower()
+    is_active_filter: Optional[bool] = None
+    is_admin_filter: Optional[bool] = None
+
+    if filter_value == "active":
+        is_active_filter = True
+    elif filter_value == "inactive":
+        is_active_filter = False
+    elif filter_value == "admin":
+        is_admin_filter = True
+
+    selected_ids: List[str] = []
+    if ids:
+        selected_ids = [username.strip() for username in ids.split(",") if username.strip()]
+
+    if selected_ids:
+        users = [user for username in selected_ids if (user := database.get_user(username))]
+    else:
+        total = database.count_users(
+            is_admin=is_admin_filter,
+            is_active=is_active_filter,
+            search=search,
+        )
+        if total:
+            users = database.list_users(
+                is_admin=is_admin_filter,
+                is_active=is_active_filter,
+                search=search,
+                limit=total,
+                offset=0,
+            )
+        else:
+            users = []
+
+    export_rows = [
+        (
+            user["username"],
+            user.get("full_name") or "",
+            user.get("email") or "",
+            "Да" if user.get("is_admin") else "Нет",
+            "Да" if user.get("is_active") else "Нет",
+            user.get("created_at"),
+            user.get("last_login") or "",
+        )
+        for user in users
+    ]
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    format_lower = format.lower()
+
+    if format_lower == "csv":
+        text_buffer = StringIO()
+        text_buffer.write("\ufeff")
+        writer = csv.writer(text_buffer, delimiter=";")
+        writer.writerow([
+            "Имя пользователя",
+            "Полное имя",
+            "Email",
+            "Администратор",
+            "Активен",
+            "Создан",
+            "Последний вход",
+        ])
+        for row in export_rows:
+            writer.writerow(row)
+        byte_buffer = BytesIO(text_buffer.getvalue().encode("utf-8"))
+        byte_buffer.seek(0)
+        filename = f"users_{timestamp}.csv"
+        headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+        logger.info(
+            "users_export_csv",
+            total=len(export_rows),
+            search=search,
+            filter=filter_value,
+            ids=len(selected_ids) if selected_ids else None,
+            admin=admin_user,
+        )
+        return StreamingResponse(byte_buffer, media_type="text/csv; charset=utf-8", headers=headers)
+
+    if format_lower in {"xlsx", "excel"}:
+        try:
+            from openpyxl import Workbook
+        except ImportError as exc:
+            logger.error("openpyxl_not_installed", error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Excel export is not available",
+            ) from exc
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Users"
+        sheet.append([
+            "Имя пользователя",
+            "Полное имя",
+            "Email",
+            "Администратор",
+            "Активен",
+            "Создан",
+            "Последний вход",
+        ])
+        for row in export_rows:
+            sheet.append(row)
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        filename = f"users_{timestamp}.xlsx"
+        headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+        logger.info(
+            "users_export_excel",
+            total=len(export_rows),
+            search=search,
+            filter=filter_value,
+            ids=len(selected_ids) if selected_ids else None,
+            admin=admin_user,
+        )
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers=headers,
+        )
+
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported export format")
 
 
 @router.post("/users", response_model=MessageResponse)

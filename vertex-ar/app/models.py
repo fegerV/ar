@@ -89,6 +89,14 @@ class UserResponse(BaseModel):
     last_login: Optional[str]
 
 
+class PaginatedUsersResponse(BaseModel):
+    items: List[UserResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class UserProfile(BaseModel):
     username: str
     email: Optional[str]
@@ -100,6 +108,7 @@ class UserProfile(BaseModel):
 class UserStats(BaseModel):
     total_users: int
     active_users: int
+    inactive_users: int
     admin_users: int
     recent_logins: int
 
@@ -174,6 +183,18 @@ class ClientResponse(BaseModel):
     created_at: str
 
 
+class ClientListItem(ClientResponse):
+    portraits_count: int = 0
+
+
+class PaginatedClientsResponse(BaseModel):
+    items: List[ClientListItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 # Order models
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
@@ -228,3 +249,7 @@ class MessageResponse(BaseModel):
 
 class CountResponse(BaseModel):
     count: int
+
+
+class BulkIdsRequest(BaseModel):
+    ids: List[str] = Field(..., min_length=1)
