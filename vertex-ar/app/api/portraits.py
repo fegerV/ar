@@ -100,7 +100,6 @@ async def create_portrait(
     image_preview_path = None
     
     try:
-        # Генерируем оптимизированное превью с новым размером по умолчанию
         image_preview = PreviewGenerator.generate_image_preview(image_content)
         if image_preview:
             image_preview_path = client_storage / f"{portrait_id}_preview.jpg"
@@ -345,7 +344,6 @@ async def add_video_to_portrait(
     video_preview_path = None
     
     try:
-        # Генерируем оптимизированное превью видео с новым размером по умолчанию
         video_preview = PreviewGenerator.generate_video_preview(video_content)
         if video_preview:
             video_preview_path = portrait_storage / f"{video_id}_preview.jpg"
