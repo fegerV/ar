@@ -228,6 +228,24 @@
             font-size: 1.25rem;
             font-weight: bold;
             color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Progress bar for system items */
+        .progress-bar-small {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill-small {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            width: 0%;
+            transition: width 0.3s ease;
         }
 
         /* Create Order Section */
@@ -385,23 +403,28 @@
         }
 
         .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid var(--light-color);
-            border-top: 4px solid var(--primary-color);
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid var(--primary-color);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            text-align: center;
+            flex-shrink: 0;
         }
 
         .loading-text {
             color: var(--text-color);
-            margin-top: 1rem;
             font-size: 1.1rem;
+            font-weight: 500;
         }
 
         .loading-container {
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
         }
 
         @keyframes spin {
@@ -411,19 +434,21 @@
 
         /* Progress bar */
         .progress-bar {
-            width: 100%;
-            height: 6px;
-            background-color: var(--border-color);
-            border-radius: 3px;
+            width: 300px;
+            max-width: 90%;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
             overflow: hidden;
-            margin: 1rem 0;
+            margin-top: 1.5rem;
         }
 
         .progress-fill {
             height: 100%;
-            background-color: var(--primary-color);
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
             width: 0%;
             transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.6);
         }
 
         /* Content Records */
@@ -745,10 +770,16 @@
                 <div class="system-item">
                     <div class="label">Disk Usage</div>
                     <div class="value" id="diskUsage">0%</div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" id="diskUsageProgress"></div>
+                    </div>
                 </div>
                 <div class="system-item">
                     <div class="label">Storage Usage</div>
                     <div class="value" id="storageUsage">0 MB</div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" id="storageUsageProgress"></div>
+                    </div>
                 </div>
                 <div class="system-item">
                     <div class="label">Total Disk Space</div>
@@ -1058,6 +1089,7 @@
                     // Update disk usage information
                     if (info.disk_info) {
                         document.getElementById('diskUsage').textContent = info.disk_info.used_percent + '%';
+                        document.getElementById('diskUsageProgress').style.width = info.disk_info.used_percent + '%';
                         document.getElementById('totalDiskSpace').textContent = info.disk_info.total;
                         document.getElementById('usedDiskSpace').textContent = info.disk_info.used;
                         document.getElementById('freeDiskSpace').textContent = info.disk_info.free;
@@ -1067,6 +1099,16 @@
                     if (info.storage_info) {
                         document.getElementById('storageUsage').textContent = info.storage_info.formatted_size || info.storage_info.total_size;
                         document.getElementById('storageUsed').textContent = info.storage_info.formatted_size || info.storage_info.total_size;
+                        
+                        // Calculate storage usage percentage (estimate based on common sizes)
+                        const storageText = info.storage_info.formatted_size || info.storage_info.total_size;
+                        // Try to extract percentage from the text or estimate it
+                        let storagePercent = 0;
+                        if (info.storage_info.total_size && info.storage_info.total_size.includes('%')) {
+                            const match = info.storage_info.total_size.match(/(\d+)%/);
+                            if (match) storagePercent = parseInt(match[1]);
+                        }
+                        document.getElementById('storageUsageProgress').style.width = Math.min(storagePercent, 100) + '%';
                     }
                     
                     addLog('Системная информация обновлена', 'info');
