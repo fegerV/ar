@@ -1,6 +1,7 @@
 """
 Video management endpoints for Vertex AR API.
 """
+import base64
 import uuid
 from typing import Any, Dict, List
 
@@ -263,6 +264,55 @@ async def set_active_video(
         is_active=bool(updated_video["is_active"]),
         created_at=updated_video["created_at"]
     )
+
+
+@router.get("/{video_id}/preview")
+async def get_video_preview(
+    video_id: str,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Get video preview as base64 data."""
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    
+    database = get_database()
+    video = database.get_video(video_id)
+    
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found"
+        )
+    
+    video_preview_path = video.get("video_preview_path")
+    if not video_preview_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video preview not found"
+        )
+    
+    try:
+        from pathlib import Path
+        app = get_current_app()
+        storage_root = app.state.config["STORAGE_ROOT"]
+        preview_path = storage_root / video_preview_path
+        
+        if preview_path.exists():
+            with open(preview_path, "rb") as f:
+                preview_data = base64.b64encode(f.read()).decode()
+                logger.info(f"Successfully loaded video preview for video {video_id}")
+                return {"preview_data": preview_data}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Video preview file not found"
+            )
+    except Exception as e:
+        logger.error(f"Failed to load video preview for video {video_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load video preview"
+        )
 
 
 @router.get("/{video_id}", response_model=VideoResponse)

@@ -945,10 +945,17 @@
             const lightboxImage = document.getElementById('lightboxImage');
             const lightboxVideo = document.getElementById('lightboxVideo');
             
-            lightboxVideo.src = videoPath;
+            // Convert relative path to full URL
+            const fullVideoUrl = videoPath.startsWith('/') ? `${window.location.origin}${videoPath}` : `${window.location.origin}/storage/${videoPath}`;
+            lightboxVideo.src = fullVideoUrl;
             lightboxVideo.style.display = 'block';
             lightboxImage.style.display = 'none';
             lightbox.classList.add('active');
+            
+            // Auto-play video when lightbox opens
+            lightboxVideo.play().catch(e => {
+                console.log('Auto-play failed, user may need to click play button');
+            });
         }
 
         function closeLightbox() {
@@ -1043,5 +1050,10 @@
             return 'Контраст ≥ 90 → отличное';
         }
     </script>
+    
+    <!-- Footer -->
+    <footer style="background-color: var(--light-color); color: var(--text-color); text-align: center; padding: 20px; margin-top: 2rem; border-top: 1px solid var(--border-color);">
+        <p>&copy; 2024 Vertex AR. Все права защищены. | Дополненная реальность для вашего бизнеса</p>
+    </footer>
 </body>
 </html>
