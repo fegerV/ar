@@ -3,9 +3,12 @@ Main application factory for Vertex AR.
 Creates and configures the FastAPI application.
 """
 import sentry_sdk
+from pathlib import Path
+import fastapi
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
@@ -127,6 +130,9 @@ def create_app() -> FastAPI:
         from app.storage_local import LocalStorageAdapter
         app.state.storage = LocalStorageAdapter(settings.STORAGE_ROOT)
     
+    # Initialize templates
+    app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
+    
     # Register API routes
     from app.api import auth, ar, admin, clients, portraits, videos, health, users, notifications as notifications_api, orders
     
@@ -146,6 +152,46 @@ def create_app() -> FastAPI:
     @app.get("/")
     def read_root():
         return {"Hello": "Vertex AR (Simplified)", "version": settings.VERSION}
+    
+    # Public portrait viewer endpoint
+    @app.get("/portrait/{permanent_link}", response_class=fastapi.responses.HTMLResponse)
+    async def view_portrait(request: Request, permanent_link: str):
+        """Public endpoint to view AR portrait by permanent link."""
+        database = app.state.database
+        portrait = database.get_portrait_by_link(permanent_link)
+        
+        if not portrait:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND,
+                detail="Portrait not found"
+            )
+        
+        # Increment view count
+        database.increment_portrait_views(portrait["id"])
+        
+        # Get active video for this portrait
+        active_video = database.get_active_video(portrait["id"])
+        if not active_video:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_404_NOT_FOUND,
+                detail="No active video found for this portrait"
+            )
+        
+        # Prepare video URL
+        base_url = app.state.config["BASE_URL"]
+        storage_root = app.state.config["STORAGE_ROOT"]
+        video_url = f"{base_url}/storage/{Path(active_video['video_path']).relative_to(storage_root)}"
+        
+        # Prepare portrait data for AR viewer
+        portrait_data = {
+            "id": portrait["id"],
+            "permanent_link": portrait["permanent_link"],
+            "video_url": video_url,
+            "view_count": portrait["view_count"]
+        }
+        
+        templates = app.state.templates
+        return templates.TemplateResponse("ar_page.html", {"request": request, "record": portrait_data})
     
     # Store global app instance
     _app_instance = app

@@ -1028,5 +1028,37 @@ class NFTMarkerGenerator:
                 })
             except Exception as e:
                 logger.warning(f"Failed to read preset {preset_file}: {e}")
-        
+
         return presets
+
+
+def analyze_image(image_path: str | Path, use_cache: bool = True) -> Dict[str, Any]:
+    """
+    Analyze an image for NFT tracking suitability.
+    
+    This is a convenience function that creates an NFTMarkerGenerator instance
+    and analyzes the image. It's useful for standalone image analysis without
+    needing to initialize the generator manually.
+    
+    Args:
+        image_path: Path to image file
+        use_cache: Use cached results if available
+        
+    Returns:
+        Dictionary with analysis results including:
+        - valid: Whether the image is suitable for NFT marking
+        - message: Description of the analysis result
+        - width: Image width (if valid)
+        - height: Image height (if valid)
+        - brightness: Image brightness metric (if valid)
+        - contrast: Contrast metric (if valid)
+        - quality: Quality assessment (if valid)
+        - recommendation: Suggestions for improvement (if valid)
+    """
+    from pathlib import Path as PathlibPath
+    
+    image_path = PathlibPath(image_path)
+    storage_root = image_path.parent.parent.parent
+    
+    generator = NFTMarkerGenerator(storage_root)
+    return generator.analyze_image(image_path, use_cache=use_cache)
