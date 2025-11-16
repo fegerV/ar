@@ -317,7 +317,7 @@ class NFTMarkerGenerator:
                 variance = sum((p - avg_brightness) ** 2 for p in pixels) / len(pixels)
                 contrast = variance ** 0.5
                 
-                # Determine tracking quality
+                # Determine tracking quality - Russian language
                 if contrast < 30:
                     quality = "плохое"
                     recommendation = "Изображение имеет низкий контраст. Добавьте больше деталей или выберите другое изображение."
@@ -342,6 +342,68 @@ class NFTMarkerGenerator:
             
         except Exception as e:
             return {"error": str(e)}
+    
+    def _localize_analysis(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Localize analysis text to Russian if needed.
+        
+        Args:
+            analysis: Analysis results
+            
+        Returns:
+            Localized analysis results
+        """
+        if not isinstance(analysis, dict):
+            return analysis
+        
+        # Create a copy to avoid modifying the original
+        result = analysis.copy()
+        
+        # Map English quality levels to Russian
+        quality_map = {
+            "poor": "плохое",
+            "fair": "удовлетворительное",
+            "good": "хорошее",
+            "excellent": "отличное"
+        }
+        
+        # Localize quality if it's in English
+        if "quality" in result and isinstance(result["quality"], str):
+            quality_lower = result["quality"].lower()
+            if quality_lower in quality_map:
+                result["quality"] = quality_map[quality_lower]
+        
+        # Map English recommendations to Russian
+        recommendation_map = {
+            "image should work but may have tracking issues in poor lighting": 
+                "Изображение должно работать, но могут возникнуть проблемы с отслеживанием при плохом освещении.",
+            "image has low contrast. add more details or choose another image": 
+                "Изображение имеет низкий контраст. Добавьте больше деталей или выберите другое изображение.",
+            "image has low contrast. add more detail or choose a different image": 
+                "Изображение имеет низкий контраст. Добавьте больше деталей или выберите другое изображение.",
+            "image should track well in most conditions": 
+                "Изображение должно хорошо отслеживаться в большинстве условий.",
+            "image has high contrast and should track very well": 
+                "Изображение имеет высокий контраст и должно отслеживаться очень хорошо."
+        }
+        
+        # Localize recommendation if it's in English
+        recommendation_value = None
+        if isinstance(result.get("recommendation"), str):
+            recommendation_value = result["recommendation"]
+        elif isinstance(result.get("recommendations"), str):
+            recommendation_value = result["recommendations"]
+        
+        if recommendation_value:
+            rec_normalized = recommendation_value.lower().strip().rstrip('.')
+            localized_recommendation = recommendation_map.get(rec_normalized)
+            if localized_recommendation:
+                result["recommendation"] = localized_recommendation
+                result["recommendations"] = localized_recommendation
+            else:
+                result["recommendations"] = recommendation_value
+        
+        return result
     
     def _generate_fset(self, image_path: Path, output_path: Path, config: NFTMarkerConfig) -> bool:
         """
@@ -618,7 +680,10 @@ class NFTMarkerGenerator:
             if cached_result:
                 self.metrics['cache_hits'] += 1
                 logger.debug(f"Using cached analysis for {image_path}")
-                return cached_result
+                localized_cached = self._localize_analysis(cached_result)
+                if localized_cached != cached_result:
+                    self.cache.set(image_path, localized_cached)
+                return localized_cached
             self.metrics['cache_misses'] += 1
         
         # Validate image with default config
@@ -633,6 +698,8 @@ class NFTMarkerGenerator:
             # Add feature analysis
             features = self._analyze_image_features(image_path)
             result.update(features)
+        
+        result = self._localize_analysis(result)
         
         # Cache the result
         if use_cache and self.cache and is_valid:
