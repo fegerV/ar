@@ -33,6 +33,11 @@ legacy_router = APIRouter()
 
 
 def _validate_upload(file: UploadFile, expected_prefix: str, error_detail: str) -> None:
+    logger.info(f"File content_type: {file.content_type}, expected_prefix: {expected_prefix}")
+    # Allow both expected MIME types and octet-stream for video files (common issue)
+    if expected_prefix == "video/" and file.content_type == "application/octet-stream":
+        logger.warning(f"Accepting octet-stream as video file for {file.filename}")
+        return
     if not file.content_type or not file.content_type.startswith(expected_prefix):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
 
@@ -43,6 +48,7 @@ async def _create_order_workflow(
     image: UploadFile,
     video: UploadFile,
     username: str,
+    description: str | None = None,
     endpoint: str = "orders",
 ) -> OrderResponse:
     """Shared implementation for creating an order."""
@@ -168,6 +174,7 @@ async def _create_order_workflow(
             video_path=str(video_path),
             is_active=True,
             video_preview_path=str(video_preview_path) if video_preview_path else None,
+            description=description,
         )
 
         logger.info(
@@ -220,10 +227,11 @@ async def create_order(
     name: str = Form(...),
     image: UploadFile = File(...),
     video: UploadFile = File(...),
+    description: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Create a new order with client, portrait, and primary video."""
-    return await _create_order_workflow(phone, name, image, video, username, endpoint="orders")
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders")
 
 
 @legacy_router.post(
@@ -237,7 +245,8 @@ async def create_order_legacy(
     name: str = Form(...),
     image: UploadFile = File(...),
     video: UploadFile = File(...),
+    description: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Legacy compatibility endpoint for /api/orders/create."""
-    return await _create_order_workflow(phone, name, image, video, username, endpoint="api/orders")
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders")

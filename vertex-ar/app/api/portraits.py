@@ -173,10 +173,10 @@ async def list_portraits_legacy(
     return [_portrait_to_response(portrait) for portrait in portraits]
 
 
-@router.get("/admin/list-with-preview", response_model=List[Dict[str, Any]])
+@router.get("/admin/list-with-preview")
 async def list_portraits_with_preview(
     _: str = Depends(require_admin)
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """Get all portraits with preview images and video info for admin dashboard."""
     from logging_setup import get_logger
     logger = get_logger(__name__)
@@ -258,7 +258,8 @@ async def list_portraits_with_preview(
             logger.error(f"Error processing portrait {portrait.get('id')}: {e}")
             continue
     
-    return result
+    logger.info(f"Returning {len(result)} portraits with previews")
+    return {"portraits": result}
 
 
 @router.get("/{portrait_id}/analyze", response_model=Dict[str, Any])
