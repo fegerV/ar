@@ -37,6 +37,7 @@ def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
         video_path=video["video_path"],
         is_active=bool(video["is_active"]),
         created_at=video["created_at"],
+        file_size_mb=video.get("file_size_mb"),
     )
 
 
@@ -78,6 +79,12 @@ async def create_video(
     video_content = await video.read()
     video_path = portrait_storage / f"{video_id}.mp4"
     
+    # Calculate file size in MB
+    file_size_bytes = len(video_content)
+    file_size_mb = int(file_size_bytes / (1024 * 1024))  # Convert to MB and round down to integer
+    
+    logger.info(f"Video file size: {file_size_bytes} bytes = {file_size_mb} MB")
+    
     with open(video_path, "wb") as f:
         f.write(video_content)
     
@@ -100,6 +107,7 @@ async def create_video(
         logger.error(f"Error generating video preview: {e}")
     
     # Create video in database
+    logger.info(f"Creating video with file_size_mb: {file_size_mb}")
     db_video = database.create_video(
         video_id=video_id,
         portrait_id=portrait_id,
@@ -107,14 +115,18 @@ async def create_video(
         is_active=is_active,
         video_preview_path=str(video_preview_path) if video_preview_path else None,
         description=description,
+        file_size_mb=file_size_mb,
     )
+    
+    logger.info(f"Database returned video: {db_video}")
     
     return VideoResponse(
         id=db_video["id"],
         portrait_id=db_video["portrait_id"],
         video_path=db_video["video_path"],
         is_active=bool(db_video["is_active"]),
-        created_at=db_video["created_at"]
+        created_at=db_video["created_at"],
+        file_size_mb=db_video.get("file_size_mb"),
     )
 
 
@@ -142,7 +154,8 @@ async def list_videos(
             portrait_id=video["portrait_id"],
             video_path=video["video_path"],
             is_active=bool(video["is_active"]),
-            created_at=video["created_at"]
+            created_at=video["created_at"],
+            file_size_mb=video.get("file_size_mb"),
         )
         for video in videos
     ]
@@ -176,7 +189,8 @@ async def get_active_video(
         portrait_id=video["portrait_id"],
         video_path=video["video_path"],
         is_active=bool(video["is_active"]),
-        created_at=video["created_at"]
+        created_at=video["created_at"],
+        file_size_mb=video.get("file_size_mb"),
     )
 
 
@@ -213,7 +227,8 @@ async def set_active_video(
         portrait_id=updated_video["portrait_id"],
         video_path=updated_video["video_path"],
         is_active=bool(updated_video["is_active"]),
-        created_at=updated_video["created_at"]
+        created_at=updated_video["created_at"],
+        file_size_mb=updated_video.get("file_size_mb"),
     )
 
 
@@ -298,7 +313,8 @@ async def get_video(
         portrait_id=video["portrait_id"],
         video_path=video["video_path"],
         is_active=bool(video["is_active"]),
-        created_at=video["created_at"]
+        created_at=video["created_at"],
+        file_size_mb=video.get("file_size_mb"),
     )
 
 

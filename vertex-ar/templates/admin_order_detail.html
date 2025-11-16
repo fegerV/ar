@@ -340,6 +340,16 @@
             font-size: 0.9rem;
         }
 
+        .video-info {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background-color: var(--card-bg-color);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            color: var(--info-color);
+            font-weight: 500;
+        }
+
         .video-actions {
             display: flex;
             gap: 0.5rem;
@@ -736,6 +746,14 @@
                     {% endif %}
                     <div class="video-description">
                         <strong>Описание:</strong> {{ video.description or 'Нет описания' }}
+                    </div>
+                    <div class="video-info">
+                        <strong>Размер NFT маркера:</strong> 
+                        {% if video.file_size_mb %}
+                            {{ video.file_size_mb }} МБ
+                        {% else %}
+                            Неизвестно
+                        {% endif %}
                     </div>
                     <div class="video-actions">
                         {% if not video.is_active %}

@@ -229,6 +229,7 @@ class VideoResponse(BaseModel):
     video_path: str
     is_active: bool
     created_at: str
+    file_size_mb: Optional[int] = None
 
 
 class OrderResponse(BaseModel):
