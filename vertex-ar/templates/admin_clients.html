@@ -726,17 +726,6 @@
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
 
-        function getAuthToken() {
-            const cookies = document.cookie.split(';');
-            for (let cookie of cookies) {
-                const [name, value] = cookie.trim().split('=');
-                if (name === 'authToken') {
-                    return value;
-                }
-            }
-            return null;
-        }
-
         function escapeHtml(value) {
             if (value === null || value === undefined) {
                 return '';
@@ -750,12 +739,6 @@
         }
 
         async function loadClients(showLoader = true) {
-            const token = getAuthToken();
-            if (!token) {
-                window.location.href = '/admin?error=unauthorized';
-                return;
-            }
-
             const container = document.getElementById('clientsContainer');
             if (showLoader && container) {
                 container.innerHTML = `
@@ -776,9 +759,7 @@
                 }
 
                 const response = await fetch(`/clients/list?${params.toString()}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    credentials: 'include'
                 });
 
                 if (!response.ok) {
@@ -1057,17 +1038,11 @@
                 return;
             }
 
-            const token = getAuthToken();
-            if (!token) {
-                window.location.href = '/admin?error=unauthorized';
-                return;
-            }
-
             try {
                 const response = await fetch('/clients/bulk-delete', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ ids: Array.from(clientsState.selectedIds) })
@@ -1137,7 +1112,6 @@
             const clientId = document.getElementById('clientId').value;
             const name = document.getElementById('clientName').value;
             const phone = document.getElementById('clientPhone').value;
-            const token = getAuthToken();
 
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
@@ -1146,8 +1120,8 @@
             try {
                 const response = await fetch(clientId ? `/clients/${clientId}` : '/clients/', {
                     method: clientId ? 'PUT' : 'POST',
+                    credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ name, phone })
@@ -1177,14 +1151,10 @@
                 return;
             }
 
-            const token = getAuthToken();
-
             try {
                 const response = await fetch(`/clients/${clientId}`, {
                     method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    credentials: 'include'
                 });
 
                 if (!response.ok) {
@@ -1210,16 +1180,14 @@
                 </div>
             `;
 
-            const token = getAuthToken();
-
             try {
                 const clientResponse = await fetch(`/clients/${clientId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
                 const client = await clientResponse.json();
 
                 const portraitsResponse = await fetch(`/portraits?client_id=${clientId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
                 const portraits = await portraitsResponse.json();
 
