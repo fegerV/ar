@@ -143,8 +143,14 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     portrait["client_name"] = client["name"] if client else "N/A"
     portrait["client_phone"] = client["phone"] if client else "N/A"
     
-    # Generate order number (simplified - in production you'd have a proper order number system)
-    order_number = f"{hash(portrait_id) % 1000000:06d}"
+    # Generate order number based on portrait position in the list (consistent with Content Records)
+    all_portraits = database.list_ar_content()
+    portrait_index = next((i for i, p in enumerate(all_portraits) if p.get("id") == portrait_id), -1)
+    if portrait_index >= 0:
+        order_number = f"{portrait_index + 1:06d}"
+    else:
+        # Fallback if portrait not found in list
+        order_number = f"{hash(portrait_id) % 1000000:06d}"
     
     # Generate full URL
     from app.main import get_current_app
