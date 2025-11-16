@@ -723,11 +723,11 @@
                     <div class="active-badge">Активно</div>
                     {% endif %}
                     {% if video.video_preview_path %}
-                    <img src="" 
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMmEyYTJhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYThiM2MxIiBmb250LXNpemU9IjE0IiBmb250LWZhbWlseT0iQXJpYWwiPkxvYWRpbmcuLi48L3RleHQ+Cjwvc3ZnPgo=" 
                          class="video-preview" 
                          data-video-id="{{ video.id }}"
                          data-video-url="{{ video.public_url }}"
-                         onclick="showVideoLightbox({{ video.public_url|tojson }})"
+                         onclick="showVideoLightbox('{{ video.public_url }}')"
                          alt="Video Preview">
                     {% else %}
                     <div class="video-preview" style="display: flex; align-items: center; justify-content: center; background-color: var(--card-bg-color); color: var(--text-color);">
@@ -1012,6 +1012,8 @@
                 return;
             }
 
+            console.log('Opening video lightbox with URL:', resolvedUrl);
+
             lightboxImage.style.display = 'none';
             lightboxImage.src = '';
 
@@ -1019,9 +1021,11 @@
             lightboxVideo.src = resolvedUrl;
             lightbox.classList.add('active');
 
+            // Try to autoplay the video
             lightboxVideo.currentTime = 0;
-            lightboxVideo.play().catch(() => {
-                console.log('Auto-play failed, user may need to click play button');
+            lightboxVideo.play().catch(error => {
+                console.log('Auto-play failed, user may need to click play button:', error);
+                showToast('Нажмите на кнопку воспроизведения для просмотра видео', 'warning');
             });
         }
 
@@ -1030,11 +1034,18 @@
             const lightboxVideo = document.getElementById('lightboxVideo');
             const lightboxImage = document.getElementById('lightboxImage');
 
+            console.log('Closing lightbox');
+            
             lightbox.classList.remove('active');
-            lightboxImage.src = '';
+            
+            // Stop video and clean up
             lightboxVideo.pause();
+            lightboxVideo.currentTime = 0;
             lightboxVideo.removeAttribute('src');
             lightboxVideo.load();
+            
+            // Clear image
+            lightboxImage.src = '';
         }
 
         // Toast Notifications
@@ -1077,15 +1088,24 @@
         // Load Video Preview
         async function loadVideoPreview(img, videoId) {
             try {
+                console.log(`Loading video preview for video ${videoId}`);
                 const response = await fetch(`/videos/${videoId}/preview`, {
                     credentials: 'include'
                 });
+                
                 if (response.ok) {
                     const data = await response.json();
                     img.src = `data:image/jpeg;base64,${data.preview_data}`;
+                    console.log(`Successfully loaded preview for video ${videoId}`);
+                } else {
+                    console.error(`Failed to load video preview for ${videoId}: ${response.status}`);
+                    // Set a fallback image
+                    img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMmEyYTJhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYThiM2MxIiBmb250LXNpemU9IjEyIiBmb250LWZhbWlseT0iQXJpYWwiPk5vIHByZXZpZXc8L3RleHQ+Cjwvc3ZnPgo=";
                 }
             } catch (error) {
                 console.error('Failed to load video preview:', error);
+                // Set a fallback image
+                img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMmEyYTJhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYThiM2MxIiBmb250LXNpemU9IjEyIiBmb250LWZhbWlseT0iQXJpYWwiPk5vIHByZXZpZXc8L3RleHQ+Cjwvc3ZnPgo=";
             }
         }
 

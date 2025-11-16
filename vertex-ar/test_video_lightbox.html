@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Lightbox Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .video-preview { 
+            width: 300px; 
+            height: 200px; 
+            cursor: pointer; 
+            border: 2px solid #ccc; 
+            object-fit: cover; 
+        }
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .lightbox.active {
+            display: flex;
+        }
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Lightbox Test</h1>
+    <p>Click on the video preview to test the lightbox:</p>
+    
+    <img src="" 
+         class="video-preview" 
+         data-video-id="60b1fd21-8f1d-4538-b8fd-3fca95e27151"
+         data-video-url="http://localhost:8000/storage/portraits/86118e8f-95ba-4b3e-80be-fa658d098079/d8bc792d-e91b-4916-b803-b7bd4babac58/a83c1dae-b048-4fea-a12f-9dd7c9d55c4a.mp4"
+         onclick="showVideoLightbox('http://localhost:8000/storage/portraits/86118e8f-95ba-4b3e-80be-fa658d098079/d8bc792d-e91b-4916-b803-b7bd4babac58/a83c1dae-b048-4fea-a12f-9dd7c9d55c4a.mp4')"
+         alt="Video Preview">
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightboxImage">
+        <video class="lightbox-content" id="lightboxVideo" controls style="display: none;"></video>
+    </div>
+
+    <script>
+        function resolveMediaUrl(path) {
+            if (!path) {
+                return '';
+            }
+            let value = typeof path === 'string' ? path : String(path);
+            if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+                return value;
+            }
+            if (value.startsWith('/storage/')) {
+                return `${window.location.origin}${value}`;
+            }
+            const storageSegment = '/storage/';
+            const storageIndex = value.indexOf(storageSegment);
+            if (storageIndex !== -1) {
+                return `${window.location.origin}${value.slice(storageIndex)}`;
+            }
+            if (value.startsWith('/')) {
+                return `${window.location.origin}${value}`;
+            }
+            return `${window.location.origin}/storage/${value.replace(/^\/?/, '')}`;
+        }
+
+        function showVideoLightbox(videoUrl) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightboxImage');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+
+            const resolvedUrl = resolveMediaUrl(videoUrl);
+
+            if (!resolvedUrl) {
+                alert('Видео недоступно');
+                return;
+            }
+
+            console.log('Opening video lightbox with URL:', resolvedUrl);
+
+            lightboxImage.style.display = 'none';
+            lightboxImage.src = '';
+
+            lightboxVideo.style.display = 'block';
+            lightboxVideo.src = resolvedUrl;
+            lightbox.classList.add('active');
+
+            // Try to autoplay the video
+            lightboxVideo.currentTime = 0;
+            lightboxVideo.play().catch(error => {
+                console.log('Auto-play failed, user may need to click play button:', error);
+                alert('Нажмите на кнопку воспроизведения для просмотра видео');
+            });
+        }
+
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+            const lightboxImage = document.getElementById('lightboxImage');
+
+            console.log('Closing lightbox');
+            
+            lightbox.classList.remove('active');
+            
+            // Stop video and clean up
+            lightboxVideo.pause();
+            lightboxVideo.currentTime = 0;
+            lightboxVideo.removeAttribute('src');
+            lightboxVideo.load();
+            
+            // Clear image
+            lightboxImage.src = '';
+        }
+
+        // Load video preview
+        async function loadVideoPreview(img, videoId) {
+            try {
+                console.log(`Loading video preview for video ${videoId}`);
+                const response = await fetch(`/videos/${videoId}/preview`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    img.src = `data:image/jpeg;base64,${data.preview_data}`;
+                    console.log(`Successfully loaded preview for video ${videoId}`);
+                } else {
+                    console.error(`Failed to load video preview for ${videoId}: ${response.status}`);
+                    img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMmEyYTJhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYThiM2MxIiBmb250LXNpemU9IjEyIiBmb250LWZhbWlseT0iQXJpYWwiPk5vIHByZXZpZXc8L3RleHQ+Cjwvc3ZnPgo=";
+                }
+            } catch (error) {
+                console.error('Failed to load video preview:', error);
+                img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMmEyYTJhIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYThiM2MxIiBmb250LXNpemU9IjEyIiBmb250LWZhbWlseT0iQXJpYWwiPk5vIHByZXZpZXc8L3RleHQ+Cjwvc3ZnPgo=";
+            }
+        }
+
+        // Load preview on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const img = document.querySelector('.video-preview[data-video-id]');
+            if (img) {
+                loadVideoPreview(img, img.getAttribute('data-video-id'));
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>
