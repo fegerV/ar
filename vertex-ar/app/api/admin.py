@@ -1,6 +1,7 @@
 """
 Admin panel endpoints for Vertex AR API.
 """
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
@@ -111,6 +112,35 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     
     templates = get_templates()
     database = get_database()
+    app = get_current_app()
+    base_url = app.state.config["BASE_URL"]
+    storage_root = Path(app.state.config["STORAGE_ROOT"])
+    
+    def build_public_url(path: Optional[str]) -> str:
+        if not path:
+            return ""
+        path_str = str(path)
+        if path_str.startswith(("http://", "https://", "data:")):
+            return path_str
+        if path_str.startswith("/storage/"):
+            return f"{base_url}{path_str}"
+        storage_segment = "/storage/"
+        if storage_segment in path_str:
+            return f"{base_url}{path_str[path_str.index(storage_segment):]}"
+        path_obj = Path(path_str)
+        try:
+            if path_obj.is_absolute():
+                relative_path = path_obj.relative_to(storage_root)
+            else:
+                relative_path = path_obj
+            return f"{base_url}/storage/{relative_path.as_posix().lstrip('/')}"
+        except ValueError:
+            cleaned = path_str.lstrip("/")
+            return f"{base_url}/storage/{cleaned}"
+        except Exception as exc:
+            logger.warning(f"Failed to build public URL for path {path_str}: {exc}")
+            cleaned = path_str.lstrip("/")
+            return f"{base_url}/storage/{cleaned}"
     
     # Get portrait information
     portrait = database.get_portrait(portrait_id)
@@ -122,7 +152,6 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     image_preview_path = portrait.get("image_preview_path")
     if image_preview_path:
         try:
-            from pathlib import Path
             import base64
             preview_path = Path(image_preview_path)
             if preview_path.exists():
@@ -132,19 +161,22 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
             logger.warning(f"Failed to load portrait preview: {e}")
     
     portrait["image_preview_data"] = image_preview_data
+    portrait_preview_url = f"data:image/jpeg;base64,{image_preview_data}" if image_preview_data else None
     
     # Get client information
     client = database.get_client(portrait["client_id"])
     
     # Get videos for this portrait
     videos = database.get_videos_by_portrait(portrait_id)
+    for video in videos:
+        video["public_url"] = build_public_url(video.get("video_path"))
     
     # Enhance portrait with client info for template
     portrait["client_name"] = client["name"] if client else "N/A"
     portrait["client_phone"] = client["phone"] if client else "N/A"
     
     # Generate order number based on portrait position in the list (consistent with Content Records)
-    all_portraits = database.list_ar_content()
+    all_portraits = database.list_portraits()
     portrait_index = next((i for i, p in enumerate(all_portraits) if p.get("id") == portrait_id), -1)
     if portrait_index >= 0:
         order_number = f"{portrait_index + 1:06d}"
@@ -153,10 +185,10 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
         order_number = f"{hash(portrait_id) % 1000000:06d}"
     
     # Generate full URL
-    from app.main import get_current_app
-    app = get_current_app()
-    base_url = app.state.config["BASE_URL"]
     full_url = f"{base_url}/portrait/{portrait['permanent_link']}"
+    
+    # Generate portrait image URL
+    portrait_image_url = build_public_url(portrait['image_path'])
     
     context = {
         "request": request,
@@ -166,6 +198,8 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
         "client": client,
         "videos": videos,
         "full_url": full_url,
+        "portrait_image_url": portrait_image_url,
+        "portrait_preview_url": portrait_preview_url,
         "image_analysis": {}  # Will be loaded via AJAX
     }
     return templates.TemplateResponse("admin_order_detail.html", context)

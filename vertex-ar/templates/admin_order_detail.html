@@ -14,7 +14,7 @@
             --danger-color: #dc3545;
             --warning-color: #ffc107;
             --info-color: #17a2b8;
-            --light-color: #f8f9fa;
+            --light-color: #2a2a2a;
             --dark-color: #343a40;
             --bg-color: #1a1a1a;
             --text-color: #e0e0e0;
@@ -23,6 +23,10 @@
             --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             --transition-speed: 0.3s;
             --header-height: 70px;
+            --section-bg-color: #2a2a2a;
+            --card-bg-color: #1f1f1f;
+            --muted-text-color: #a8b3c1;
+            --input-bg-color: #1a1f24;
         }
 
         [data-theme="light"] {
@@ -32,10 +36,10 @@
             --light-color: #ffffff;
             --dark-color: #343a40;
             --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        [data-theme="light"] .section {
-            background-color: #ffffff;
+            --section-bg-color: #ffffff;
+            --card-bg-color: #f8f9fa;
+            --muted-text-color: #6c757d;
+            --input-bg-color: #ffffff;
         }
 
         * {
@@ -147,7 +151,7 @@
         }
 
         .section {
-            background-color: var(--light-color);
+            background-color: var(--section-bg-color);
             padding: 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -185,13 +189,13 @@
 
         .info-item {
             padding: 0.75rem;
-            background-color: var(--bg-color);
+            background-color: var(--card-bg-color);
             border-radius: var(--border-radius);
         }
 
         .info-item .label {
             font-size: 0.85rem;
-            color: var(--secondary-color);
+            color: var(--muted-text-color);
             margin-bottom: 0.25rem;
         }
 
@@ -210,14 +214,14 @@
             display: flex;
             justify-content: space-between;
             padding: 0.75rem;
-            background-color: var(--bg-color);
+            background-color: var(--card-bg-color);
             border-radius: var(--border-radius);
             margin-bottom: 0.5rem;
         }
 
         .client-info-item .label {
             font-weight: 500;
-            color: var(--secondary-color);
+            color: var(--muted-text-color);
         }
 
         .client-info-item .value {
@@ -234,7 +238,7 @@
             gap: 0.5rem;
             align-items: center;
             padding: 0.75rem;
-            background-color: var(--bg-color);
+            background-color: var(--card-bg-color);
             border-radius: var(--border-radius);
             word-break: break-all;
         }
@@ -291,7 +295,7 @@
         }
 
         .video-card {
-            background-color: var(--bg-color);
+            background-color: var(--card-bg-color);
             border-radius: var(--border-radius);
             padding: 1rem;
             position: relative;
@@ -331,7 +335,7 @@
         .video-description {
             margin-bottom: 1rem;
             padding: 0.75rem;
-            background-color: var(--light-color);
+            background-color: var(--card-bg-color);
             border-radius: var(--border-radius);
             font-size: 0.9rem;
         }
@@ -376,7 +380,7 @@
 
         /* Add Video Section */
         .add-video-section {
-            background-color: var(--light-color);
+            background-color: var(--section-bg-color);
             padding: 1.5rem;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -428,9 +432,9 @@
             border: 1px solid var(--border-color);
             border-radius: var(--border-radius);
             font-size: 1rem;
-            background-color: var(--bg-color);
+            background-color: var(--input-bg-color);
             color: var(--text-color);
-            transition: border-color var(--transition-speed);
+            transition: border-color var(--transition-speed), background-color var(--transition-speed);
         }
 
         .form-group input:focus,
@@ -605,12 +609,12 @@
                 {% if portrait.image_preview_data %}
                 <img src="data:image/jpeg;base64,{{ portrait.image_preview_data }}" 
                      class="portrait-image" 
-                     onclick="showLightbox('{{ portrait.image_path }}')"
+                     onclick="showPortraitLightbox()"
                      alt="Portrait">
                 {% else %}
-                <img src="{{ portrait.image_path }}" 
+                <img src="{{ portrait_image_url }}" 
                      class="portrait-image" 
-                     onclick="showLightbox('{{ portrait.image_path }}')"
+                     onclick="showPortraitLightbox()"
                      alt="Portrait">
                 {% endif %}
                 
@@ -682,7 +686,7 @@
                          onclick="showLightbox('data:image/png;base64,{{ portrait.qr_code }}')"
                          alt="QR Code">
                     {% else %}
-                    <div style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; background-color: var(--bg-color); color: var(--text-color); border-radius: var(--border-radius);">
+                    <div style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; background-color: var(--card-bg-color); color: var(--text-color); border-radius: var(--border-radius);">
                         Нет QR-кода
                     </div>
                     {% endif %}
@@ -722,10 +726,11 @@
                     <img src="" 
                          class="video-preview" 
                          data-video-id="{{ video.id }}"
-                         onclick="showVideoLightbox('{{ video.video_path }}')"
+                         data-video-url="{{ video.public_url }}"
+                         onclick="showVideoLightbox({{ video.public_url|tojson }})"
                          alt="Video Preview">
                     {% else %}
-                    <div class="video-preview" style="display: flex; align-items: center; justify-content: center; background-color: var(--bg-color); color: var(--text-color);">
+                    <div class="video-preview" style="display: flex; align-items: center; justify-content: center; background-color: var(--card-bg-color); color: var(--text-color);">
                         Нет превью
                     </div>
                     {% endif %}
@@ -762,8 +767,10 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        const portraitId = '{{ portrait.id }}';
+        const portraitId = {{ portrait.id|tojson }};
         const baseUrl = window.location.origin;
+        const portraitImageUrl = {{ portrait_image_url|tojson }};
+        const portraitImagePreview = {{ portrait_preview_url|tojson }};
 
         // Theme Toggle
         document.getElementById('themeToggle').addEventListener('click', function() {
@@ -928,32 +935,92 @@
             });
         }
 
+        function resolveMediaUrl(path) {
+            if (!path) {
+                return '';
+            }
+            let value = typeof path === 'string' ? path : String(path);
+            if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+                return value;
+            }
+            if (value.startsWith('/storage/')) {
+                return `${window.location.origin}${value}`;
+            }
+            const storageSegment = '/storage/';
+            const storageIndex = value.indexOf(storageSegment);
+            if (storageIndex !== -1) {
+                return `${window.location.origin}${value.slice(storageIndex)}`;
+            }
+            if (value.startsWith('/')) {
+                return `${window.location.origin}${value}`;
+            }
+            return `${window.location.origin}/storage/${value.replace(/^\/?/, '')}`;
+        }
+
         // Lightbox
         function showLightbox(imageSrc) {
             const lightbox = document.getElementById('lightbox');
             const lightboxImage = document.getElementById('lightboxImage');
             const lightboxVideo = document.getElementById('lightboxVideo');
-            
+
+            if (!imageSrc) {
+                showToast('Изображение недоступно', 'warning');
+                return;
+            }
+
+            lightboxVideo.pause();
+            lightboxVideo.removeAttribute('src');
+            lightboxVideo.load();
+
             lightboxImage.src = imageSrc;
             lightboxImage.style.display = 'block';
             lightboxVideo.style.display = 'none';
             lightbox.classList.add('active');
         }
 
-        function showVideoLightbox(videoPath) {
+        function showPortraitLightbox() {
             const lightbox = document.getElementById('lightbox');
             const lightboxImage = document.getElementById('lightboxImage');
             const lightboxVideo = document.getElementById('lightboxVideo');
-            
-            // Convert relative path to full URL
-            const fullVideoUrl = videoPath.startsWith('/') ? `${window.location.origin}${videoPath}` : `${window.location.origin}/storage/${videoPath}`;
-            lightboxVideo.src = fullVideoUrl;
-            lightboxVideo.style.display = 'block';
-            lightboxImage.style.display = 'none';
+
+            const resolvedUrl = resolveMediaUrl(portraitImageUrl) || portraitImagePreview;
+
+            if (!resolvedUrl) {
+                showToast('Изображение недоступно', 'warning');
+                return;
+            }
+
+            lightboxVideo.pause();
+            lightboxVideo.removeAttribute('src');
+            lightboxVideo.load();
+
+            lightboxImage.src = resolvedUrl;
+            lightboxImage.style.display = 'block';
+            lightboxVideo.style.display = 'none';
             lightbox.classList.add('active');
-            
-            // Auto-play video when lightbox opens
-            lightboxVideo.play().catch(e => {
+        }
+
+        function showVideoLightbox(videoUrl) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightboxImage');
+            const lightboxVideo = document.getElementById('lightboxVideo');
+
+            const resolvedUrl = resolveMediaUrl(videoUrl);
+
+            if (!resolvedUrl) {
+                showToast('Видео недоступно', 'error');
+                return;
+            }
+
+            lightboxImage.style.display = 'none';
+            lightboxImage.src = '';
+
+            lightboxVideo.style.display = 'block';
+            lightboxVideo.src = resolvedUrl;
+            lightbox.classList.add('active');
+
+            lightboxVideo.currentTime = 0;
+            lightboxVideo.play().catch(() => {
                 console.log('Auto-play failed, user may need to click play button');
             });
         }
@@ -961,9 +1028,13 @@
         function closeLightbox() {
             const lightbox = document.getElementById('lightbox');
             const lightboxVideo = document.getElementById('lightboxVideo');
-            
+            const lightboxImage = document.getElementById('lightboxImage');
+
             lightbox.classList.remove('active');
+            lightboxImage.src = '';
             lightboxVideo.pause();
+            lightboxVideo.removeAttribute('src');
+            lightboxVideo.load();
         }
 
         // Toast Notifications
@@ -1052,7 +1123,7 @@
     </script>
     
     <!-- Footer -->
-    <footer style="background-color: var(--light-color); color: var(--text-color); text-align: center; padding: 20px; margin-top: 2rem; border-top: 1px solid var(--border-color);">
+    <footer style="background-color: var(--section-bg-color); color: var(--text-color); text-align: center; padding: 20px; margin-top: 2rem; border-top: 1px solid var(--border-color);">
         <p>&copy; 2024 Vertex AR. Все права защищены. | Дополненная реальность для вашего бизнеса</p>
     </footer>
 </body>
