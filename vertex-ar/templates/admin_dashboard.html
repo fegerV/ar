@@ -207,6 +207,7 @@
         .system-item {
             padding: 1rem;
             background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
             border-radius: var(--border-radius);
         }
 
@@ -358,6 +359,66 @@
             cursor: not-allowed;
         }
 
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--light-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            text-align: center;
+        }
+
+        .loading-text {
+            color: var(--text-color);
+            margin-top: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .loading-container {
+            text-align: center;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
         /* Content Records */
         .content-records {
             background-color: var(--light-color);
@@ -461,7 +522,7 @@
             transition: all var(--transition-speed);
         }
 
-        .pagination button:hover {
+        .pagination button:hover:not(:disabled) {
             background-color: var(--primary-color);
             color: white;
         }
@@ -473,7 +534,9 @@
 
         .pagination button:disabled {
             background-color: var(--secondary-color);
+            color: var(--text-color);
             cursor: not-allowed;
+            opacity: 0.5;
         }
 
         /* Logs Section */
@@ -762,6 +825,17 @@
         </section>
     </div>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loadingText">Создание NFT маркера...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Logs Section -->
     <aside class="logs-section">
         <h3>Логи</h3>
@@ -790,6 +864,13 @@
             loadSystemInfo();
             loadRecords();
             addLog('Админ панель загружена', 'info');
+            
+            // Auto-refresh data every 30 seconds
+            setInterval(() => {
+                loadStatistics();
+                loadSystemInfo();
+                addLog('Данные обновлены автоматически', 'info');
+            }, 30000);
         });
 
         // Theme Toggle
@@ -845,15 +926,45 @@
             
             const formData = new FormData(event.target);
             const submitBtn = document.getElementById('uploadBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const progressFill = document.getElementById('progressFill');
             
+            // Show loading animation
+            loadingOverlay.classList.add('active');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Создание...';
+            
+            // Simulate progress steps
+            const steps = [
+                { progress: 20, text: 'Загрузка файлов...' },
+                { progress: 40, text: 'Создание клиента...' },
+                { progress: 60, text: 'Генерация превью...' },
+                { progress: 80, text: 'Создание NFT маркера...' },
+                { progress: 95, text: 'Финализация заказа...' }
+            ];
+            
+            let currentStep = 0;
+            const progressInterval = setInterval(() => {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    progressFill.style.width = step.progress + '%';
+                    loadingText.textContent = step.text;
+                    currentStep++;
+                } else {
+                    clearInterval(progressInterval);
+                }
+            }, 500);
             
             try {
                 const response = await fetch('/api/orders/create', {
                     method: 'POST',
                     body: formData
                 });
+                
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                loadingText.textContent = 'Завершение...';
                 
                 if (response.ok) {
                     const result = await response.json();
@@ -865,17 +976,27 @@
                     document.getElementById('imagePreview').classList.remove('active');
                     toggleCreateOrder();
                     
-                    // Reload records
-                    loadRecords();
-                    loadStatistics();
+                    // Reload records and statistics
+                    setTimeout(() => {
+                        loadRecords();
+                        loadStatistics();
+                        loadingOverlay.classList.remove('active');
+                        progressFill.style.width = '0%';
+                        loadingText.textContent = 'Создание NFT маркера...';
+                    }, 1000);
                 } else {
                     const error = await response.json();
                     showToast(`Ошибка: ${error.detail || 'Не удалось создать заказ'}`, 'error');
                     addLog(`Ошибка создания заказа: ${error.detail || 'Unknown error'}`, 'error');
+                    loadingOverlay.classList.remove('active');
+                    progressFill.style.width = '0%';
                 }
             } catch (error) {
+                clearInterval(progressInterval);
                 showToast('Ошибка сети', 'error');
                 addLog(`Сетевая ошибка: ${error.message}`, 'error');
+                loadingOverlay.classList.remove('active');
+                progressFill.style.width = '0%';
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Upload & Create NFT';
@@ -885,18 +1006,27 @@
         // Load Statistics
         async function loadStatistics() {
             try {
-                const response = await fetch('/api/admin/content-stats');
-                if (response.ok) {
-                    const stats = await response.json();
+                // Load portraits data for statistics
+                const portraitsResponse = await fetch('/api/portraits/admin/list-with-preview');
+                if (portraitsResponse.ok) {
+                    const portraitsData = await portraitsResponse.json();
+                    const portraits = portraitsData.portraits || [];
                     
-                    document.getElementById('totalRecords').textContent = stats.length || 0;
-                    document.getElementById('activeContent').textContent = stats.filter(s => s.views > 0).length || 0;
+                    document.getElementById('totalRecords').textContent = portraits.length;
+                    document.getElementById('activeContent').textContent = portraits.filter(p => p.view_count > 0).length;
                     
-                    if (stats.length > 0) {
-                        const latestUpload = stats.reduce((latest, current) => 
+                    if (portraits.length > 0) {
+                        const latestUpload = portraits.reduce((latest, current) => 
                             new Date(current.created_at) > new Date(latest.created_at) ? current : latest
                         );
                         document.getElementById('lastUpload').textContent = new Date(latestUpload.created_at).toLocaleDateString('ru-RU');
+                    }
+                    
+                    // Calculate storage used from system info
+                    const systemResponse = await fetch('/api/admin/system-info');
+                    if (systemResponse.ok) {
+                        const systemInfo = await systemResponse.json();
+                        document.getElementById('storageUsed').textContent = systemInfo.storage_info.total_size;
                     }
                 }
             } catch (error) {
@@ -911,12 +1041,23 @@
                 if (response.ok) {
                     const info = await response.json();
                     
-                    document.getElementById('diskUsage').textContent = info.disk_info.used_percent + '%';
-                    document.getElementById('storageUsage').textContent = info.storage_info.total_size;
-                    document.getElementById('totalDiskSpace').textContent = info.disk_info.total;
-                    document.getElementById('usedDiskSpace').textContent = info.disk_info.used;
-                    document.getElementById('freeDiskSpace').textContent = info.disk_info.free;
-                    document.getElementById('storageUsed').textContent = info.storage_info.total_size;
+                    // Update disk usage information
+                    if (info.disk_info) {
+                        document.getElementById('diskUsage').textContent = info.disk_info.used_percent + '%';
+                        document.getElementById('totalDiskSpace').textContent = info.disk_info.total;
+                        document.getElementById('usedDiskSpace').textContent = info.disk_info.used;
+                        document.getElementById('freeDiskSpace').textContent = info.disk_info.free;
+                    }
+                    
+                    // Update storage information
+                    if (info.storage_info) {
+                        document.getElementById('storageUsage').textContent = info.storage_info.formatted_size || info.storage_info.total_size;
+                        document.getElementById('storageUsed').textContent = info.storage_info.formatted_size || info.storage_info.total_size;
+                    }
+                    
+                    addLog('Системная информация обновлена', 'info');
+                } else {
+                    addLog(`Ошибка загрузки системной информации: ${response.status}`, 'error');
                 }
             } catch (error) {
                 addLog(`Ошибка загрузки системной информации: ${error.message}`, 'error');
@@ -929,8 +1070,12 @@
                 const response = await fetch('/api/portraits/admin/list-with-preview');
                 if (response.ok) {
                     const data = await response.json();
-                    allRecords = data.portraits || [];
+                    // Handle different response formats
+                    allRecords = data.portraits || data || [];
                     displayRecords();
+                    addLog(`Загружено ${allRecords.length} записей`, 'info');
+                } else {
+                    addLog(`Ошибка загрузки записей: ${response.status}`, 'error');
                 }
             } catch (error) {
                 addLog(`Ошибка загрузки записей: ${error.message}`, 'error');
