@@ -252,7 +252,7 @@ async def list_portraits_with_preview(
                 "client_phone": client["phone"] if client else "N/A",
                 "active_video_description": active_video_description,
                 "image_preview_data": preview_data or "",
-                "qr_code_base64": portrait.get("qr_code", "")
+                "qr_code_base64": f"data:image/png;base64,{portrait.get('qr_code', '')}" if portrait.get('qr_code') else ""
             })
         except Exception as e:
             logger.error(f"Error processing portrait {portrait.get('id')}: {e}")

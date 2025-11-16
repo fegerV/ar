@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
@@ -147,6 +148,16 @@ def create_app() -> FastAPI:
     app.include_router(orders.legacy_router, prefix="/api/orders", tags=["orders"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
+    
+    # Favicon endpoint
+    @app.get("/favicon.ico")
+    async def favicon():
+        """Serve favicon.ico file."""
+        favicon_path = settings.STATIC_ROOT / "favicon.ico"
+        if favicon_path.exists():
+            return FileResponse(str(favicon_path))
+        # Return empty response if favicon doesn't exist
+        return fastapi.Response(status_code=204)
     
     # Root endpoint
     @app.get("/")

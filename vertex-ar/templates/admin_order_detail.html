@@ -34,6 +34,10 @@
             --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
+        [data-theme="light"] .section {
+            background-color: #ffffff;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -601,7 +605,7 @@
                 {% if portrait.image_preview_data %}
                 <img src="data:image/jpeg;base64,{{ portrait.image_preview_data }}" 
                      class="portrait-image" 
-                     onclick="showLightbox('data:image/jpeg;base64,{{ portrait.image_preview_data }}')"
+                     onclick="showLightbox('{{ portrait.image_path }}')"
                      alt="Portrait">
                 {% else %}
                 <img src="{{ portrait.image_path }}" 
@@ -717,7 +721,7 @@
                     {% if video.video_preview_path %}
                     <img src="" 
                          class="video-preview" 
-                         onload="loadVideoPreview(this, '{{ video.id }}')"
+                         data-video-id="{{ video.id }}"
                          onclick="showVideoLightbox('{{ video.video_path }}')"
                          alt="Video Preview">
                     {% else %}
@@ -979,7 +983,18 @@
         // Load image analysis on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadImageAnalysis();
+            loadAllVideoPreviews();
         });
+
+        // Load All Video Previews
+        async function loadAllVideoPreviews() {
+            const videoPreviewElements = document.querySelectorAll('.video-preview[data-video-id]');
+            
+            for (const img of videoPreviewElements) {
+                const videoId = img.getAttribute('data-video-id');
+                await loadVideoPreview(img, videoId);
+            }
+        }
 
         // Load Video Preview
         async function loadVideoPreview(img, videoId) {
@@ -1022,10 +1037,10 @@
         function getCriteriaText(contrast) {
             if (!contrast) return 'N/A';
             
-            if (contrast < 30) return 'Контраст < 30 → poor';
-            if (contrast < 60) return '30 ≤ Контраст < 60 → fair';
-            if (contrast < 90) return '60 ≤ Контраст < 90 → good';
-            return 'Контраст ≥ 90 → excellent';
+            if (contrast < 30) return 'Контраст < 30 → плохое';
+            if (contrast < 60) return '30 ≤ Контраст < 60 → удовлетворительное';
+            if (contrast < 90) return '60 ≤ Контраст < 90 → хорошее';
+            return 'Контраст ≥ 90 → отличное';
         }
     </script>
 </body>
