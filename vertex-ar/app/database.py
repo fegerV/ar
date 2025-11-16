@@ -126,6 +126,10 @@ class Database:
                 self._connection.execute("ALTER TABLE videos ADD COLUMN description TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN file_size_mb INTEGER")
+            except sqlite3.OperationalError:
+                pass
             # Create index for phone search
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
@@ -635,15 +639,16 @@ class Database:
         is_active: bool = False,
         video_preview_path: Optional[str] = None,
         description: Optional[str] = None,
+        file_size_mb: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Create a new video."""
         self._execute(
             """
             INSERT INTO videos (
-                id, portrait_id, video_path, video_preview_path, description, is_active
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                id, portrait_id, video_path, video_preview_path, description, is_active, file_size_mb
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (video_id, portrait_id, video_path, video_preview_path, description, int(is_active)),
+            (video_id, portrait_id, video_path, video_preview_path, description, int(is_active), file_size_mb),
         )
         return self.get_video(video_id)
     

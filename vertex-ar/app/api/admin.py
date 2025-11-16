@@ -196,6 +196,18 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     videos = database.get_videos_by_portrait(portrait_id)
     for video in videos:
         video["public_url"] = build_public_url(video.get("video_path"))
+        # Calculate file size if not stored in database
+        if not video.get("file_size_mb") and video.get("video_path"):
+            try:
+                video_path = Path(video["video_path"])
+                if video_path.exists():
+                    file_size_bytes = video_path.stat().st_size
+                    video["file_size_mb"] = int(file_size_bytes / (1024 * 1024))
+                else:
+                    video["file_size_mb"] = None
+            except Exception as e:
+                logger.warning(f"Failed to calculate file size for video {video.get('id')}: {e}")
+                video["file_size_mb"] = None
     
     # Enhance portrait with client info for template
     portrait["client_name"] = client["name"] if client else "N/A"
