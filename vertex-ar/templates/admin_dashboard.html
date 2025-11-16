@@ -1114,7 +1114,7 @@
                 row.innerHTML = `
                     <td><a href="/admin/order/${record.id}" class="order-number">${orderNumber}</a></td>
                     <td>
-                        <img src="${record.image_preview_data || record.preview || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRUVFIi8+CjxwYXRoIGQ9Ik0yNSAzNUMzMC41MjI4IDM1IDM1IDMwLjUyMjggMzUgMjVDMzUgMTkuNDc3MiAzMC41MjI4IDE1IDI1IDE1QzE5LjQ3NzIgMTUgMTUgMTkuNDc3MiAxNSAyNUMxNSAzMC41MjI4IDE5LjQ3NzIgMzUgMjUgMzVaIiBmaWxsPSIjOTk5Ii8+Cjwvc3ZnPgo='}"
+                        <img src="${record.image_preview_data ? (record.image_preview_data.startsWith('data:') ? record.image_preview_data : `data:image/jpeg;base64,${record.image_preview_data}`) : (record.preview ? (record.preview.startsWith('data:') ? record.preview : `data:image/jpeg;base64,${record.preview}`) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRUVFIi8+CjxwYXRoIGQ9Ik0yNSAzNUMzMC41MjI4IDM1IDM1IDMwLjUyMjggMzUgMjVDMzUgMTkuNDc3MiAzMC41MjI4IDE1IDI1IDE1QzE5LjQ3NzIgMTUgMTUgMTkuNDc3MiAxNSAyNUMxNSAzMC41MjI4IDE5LjQ3NzIgMzUgMjUgMzVaIiBmaWxsPSIjOTk5Ii8+Cjwvc3ZnPgo=')}"
                              class="portrait-preview"
                              onclick="showLightbox('${record.image_preview_data || record.preview || ''}')"
                              alt="Portrait">
@@ -1252,5 +1252,10 @@
             }
         });
     </script>
+    
+    <!-- Footer -->
+    <footer style="background-color: var(--light-color); color: var(--text-color); text-align: center; padding: 20px; margin-top: 2rem; border-top: 1px solid var(--border-color);">
+        <p>&copy; 2024 Vertex AR. Все права защищены. | Дополненная реальность для вашего бизнеса</p>
+    </footer>
 </body>
 </html>

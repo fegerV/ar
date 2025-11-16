@@ -237,7 +237,7 @@ async def list_portraits_with_preview(
                     "id": v["id"],
                     "is_active": bool(v["is_active"]),
                     "created_at": v.get("created_at"),
-                    "preview": video_preview_data or ""
+                    "preview": f"data:image/jpeg;base64,{video_preview_data}" if video_preview_data else ""
                 })
             
             result.append({
@@ -251,7 +251,7 @@ async def list_portraits_with_preview(
                 "client_name": client["name"] if client else "N/A",
                 "client_phone": client["phone"] if client else "N/A",
                 "active_video_description": active_video_description,
-                "image_preview_data": preview_data or "",
+                "image_preview_data": f"data:image/jpeg;base64,{preview_data}" if preview_data else "",
                 "qr_code_base64": f"data:image/png;base64,{portrait.get('qr_code', '')}" if portrait.get('qr_code') else ""
             })
         except Exception as e:
