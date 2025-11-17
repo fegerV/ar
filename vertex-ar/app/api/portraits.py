@@ -155,16 +155,49 @@ async def create_portrait(
     return _portrait_to_response(db_portrait)
 
 
-@router.get("/", response_model=List[PortraitResponse])
+@router.get("/")
 async def list_portraits(
     client_id: Optional[str] = None,
+    include_preview: bool = False,
     username: str = Depends(get_current_user)
-) -> List[PortraitResponse]:
-    """Get list of portraits (optionally filtered by client)."""
+) -> List[Dict[str, Any]]:
+    """Get list of portraits (optionally filtered by client) with optional preview data."""
     database = get_database()
     portraits = database.list_portraits(client_id)
     
-    return [_portrait_to_response(portrait) for portrait in portraits]
+    if not include_preview:
+        return [_portrait_to_response(portrait).dict() for portrait in portraits]
+    
+    # Include preview data
+    from logging_setup import get_logger
+    logger = get_logger(__name__)
+    from pathlib import Path
+    
+    result = []
+    for portrait in portraits:
+        portrait_dict = _portrait_to_response(portrait).dict()
+        
+        # Add preview data if available
+        preview_data = None
+        image_preview_path = portrait.get("image_preview_path")
+        if image_preview_path:
+            try:
+                preview_path = Path(image_preview_path)
+                if preview_path.exists():
+                    with open(preview_path, "rb") as f:
+                        preview_content = base64.b64encode(f.read()).decode()
+                        # Determine format from file extension
+                        if image_preview_path.endswith('.webp'):
+                            preview_data = f"data:image/webp;base64,{preview_content}"
+                        else:
+                            preview_data = f"data:image/jpeg;base64,{preview_content}"
+            except Exception as e:
+                logger.warning(f"Failed to load preview for portrait {portrait['id']}: {e}")
+        
+        portrait_dict['image_preview_data'] = preview_data
+        result.append(portrait_dict)
+    
+    return result
 
 
 @router.get("/list", response_model=List[PortraitResponse])

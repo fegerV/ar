@@ -1183,18 +1183,26 @@
             const tbody = document.getElementById('recordsTableBody');
             const startIndex = (currentPage - 1) * recordsPerPage;
             const endIndex = startIndex + recordsPerPage;
-            const pageRecords = allRecords.slice(startIndex, endIndex);
+            
+            // Sort all records by created_at descending ONCE before slicing
+            const sortedRecords = [...allRecords].sort((a, b) => 
+                new Date(b.created_at || 0) - new Date(a.created_at || 0)
+            );
+            
+            // Create a map for quick order position lookup
+            const orderPositionMap = new Map();
+            sortedRecords.forEach((record, index) => {
+                orderPositionMap.set(record.id, index + 1);
+            });
+            
+            // Now slice for the current page
+            const pageRecords = sortedRecords.slice(startIndex, endIndex);
             
             tbody.innerHTML = '';
             
             pageRecords.forEach((record, index) => {
-                // Use global position for order number, not page position
-                const globalIndex = startIndex + index;
-                // Sort records by created_at descending to get correct order
-                const sortedRecords = [...allRecords].sort((a, b) => 
-                    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-                );
-                const orderPosition = sortedRecords.findIndex(r => r.id === record.id) + 1;
+                // Get order position from the pre-built map
+                const orderPosition = orderPositionMap.get(record.id) || 1;
                 const orderNumber = String(orderPosition).padStart(6, '0');
 
                 const row = document.createElement('tr');
