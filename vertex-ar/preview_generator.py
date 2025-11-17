@@ -69,6 +69,12 @@ class PreviewGenerator:
     @staticmethod
     def generate_video_preview(video_content: bytes, size=(300, 300), frame_time=None, format='webp') -> Optional[bytes]:
         """Генерирует превью для видео с улучшенным качеством и поддержкой WebP"""
+        
+        # Validate input
+        if not video_content or len(video_content) == 0:
+            logger.error("Пустое видео содержимое")
+            return PreviewGenerator.generate_video_preview_stub(size, format)
+        
         logger.info(f"Начинаем генерацию превью для видео, размер: {len(video_content)} байт, целевой размер: {size}, формат: {format}")
         
         try:
@@ -165,9 +171,15 @@ class PreviewGenerator:
                     preview.save(buffer, format='JPEG', quality=92, optimize=True)
                 
                 buffer.seek(0)
+                preview_bytes = buffer.getvalue()
                 
-                logger.info(f"Превью видео успешно сгенерировано из кадра {middle_frame}, формат: {format}, размер превью: {len(buffer.getvalue())} байт")
-                return buffer.getvalue()
+                # Validate the generated preview
+                if len(preview_bytes) == 0:
+                    logger.error("Сгенерированное превью видео имеет нулевой размер")
+                    return PreviewGenerator.generate_video_preview_stub(size, format)
+                
+                logger.info(f"Превью видео успешно сгенерировано из кадра {middle_frame}, формат: {format}, размер превью: {len(preview_bytes)} байт")
+                return preview_bytes
                 
             finally:
                 # Освобождаем ресурсы
@@ -214,8 +226,14 @@ class PreviewGenerator:
                 preview.save(buffer, format='JPEG', quality=92, optimize=True)
             
             buffer.seek(0)
+            preview_bytes = buffer.getvalue()
             
-            return buffer.getvalue()
+            # Validate the generated stub
+            if len(preview_bytes) == 0:
+                logger.error("Заглушка превью видео имеет нулевой размер")
+                return None
+            
+            return preview_bytes
         except Exception as e:
             logger.error(f"Ошибка при генерации заглушки превью видео: {e}")
             return None
