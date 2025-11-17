@@ -1,6 +1,7 @@
 """
 Admin panel endpoints for Vertex AR API.
 """
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,7 @@ from app.models import ARContentResponse
 from app.rate_limiter import create_rate_limit_dependency
 from app.auth import _verify_password
 from logging_setup import get_logger
+from nft_marker_generator import analyze_image
 from utils import format_bytes, get_disk_usage, get_storage_usage
 
 logger = get_logger(__name__)
@@ -139,6 +141,58 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     app = get_current_app()
     base_url = app.state.config["BASE_URL"]
     storage_root = Path(app.state.config["STORAGE_ROOT"])
+
+    def format_size(bytes_value: Optional[int]) -> str:
+        if not bytes_value or bytes_value <= 0:
+            return "Неизвестно"
+        human_readable = format_bytes(bytes_value)
+        replacements = {
+            " B": " Б",
+            " KB": " КБ",
+            " MB": " МБ",
+            " GB": " ГБ",
+            " TB": " ТБ",
+            " PB": " ПБ",
+        }
+        for eng, ru in replacements.items():
+            human_readable = human_readable.replace(eng, ru)
+        return human_readable
+
+    def get_file_stats(path_value: Optional[str]) -> tuple[Optional[int], Optional[float]]:
+        if not path_value:
+            return None, None
+        candidates = []
+        path_obj = Path(path_value)
+        candidates.append(path_obj)
+        if not path_obj.is_absolute():
+            candidates.append(storage_root / path_obj)
+        else:
+            try:
+                relative = path_obj.relative_to(storage_root)
+                candidates.append(storage_root / relative)
+            except ValueError:
+                pass
+        for candidate in candidates:
+            try:
+                if candidate.exists():
+                    stat_result = candidate.stat()
+                    return stat_result.st_size, stat_result.st_mtime
+            except OSError as exc:
+                logger.warning("Failed to stat file %s: %s", candidate, exc)
+        return None, None
+
+    def get_criteria_text(contrast_value: Any) -> str:
+        try:
+            contrast_float = float(contrast_value)
+        except (TypeError, ValueError):
+            return "N/A"
+        if contrast_float < 30:
+            return "Контраст < 30 → плохое"
+        if contrast_float < 60:
+            return "30 ≤ Контраст < 60 → удовлетворительное"
+        if contrast_float < 90:
+            return "60 ≤ Контраст < 90 → хорошее"
+        return "Контраст ≥ 90 → отличное"
     
     def build_public_url(path: Optional[str]) -> str:
         if not path:
@@ -191,54 +245,131 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     
     # Get client information
     client = database.get_client(portrait["client_id"])
-    
+
     # Get videos for this portrait
     videos = database.get_videos_by_portrait(portrait_id)
     for video in videos:
-        video["public_url"] = build_public_url(video.get("video_path"))
-        # Calculate file size if not stored in database
-        if not video.get("file_size_mb") and video.get("video_path"):
+        video_path_value = video.get("video_path")
+        video["public_url"] = build_public_url(video_path_value)
+        size_bytes, _ = get_file_stats(video_path_value)
+        if size_bytes is None and video.get("file_size_mb"):
             try:
-                video_path = Path(video["video_path"])
-                if video_path.exists():
-                    file_size_bytes = video_path.stat().st_size
-                    video["file_size_mb"] = int(file_size_bytes / (1024 * 1024))
-                else:
-                    video["file_size_mb"] = None
-            except Exception as e:
-                logger.warning(f"Failed to calculate file size for video {video.get('id')}: {e}")
-                video["file_size_mb"] = None
-    
+                size_bytes = int(video["file_size_mb"]) * 1024 * 1024
+            except (TypeError, ValueError):
+                size_bytes = None
+        video["file_size_bytes"] = size_bytes
+        video["file_size_display"] = format_size(size_bytes)
+        if size_bytes is not None:
+            video["file_size_mb_precise"] = round(size_bytes / (1024 * 1024), 2)
+        else:
+            video["file_size_mb_precise"] = None
+
     # Enhance portrait with client info for template
     portrait["client_name"] = client["name"] if client else "N/A"
     portrait["client_phone"] = client["phone"] if client else "N/A"
-    
+
+    # Preload image analysis data for initial render
+    image_analysis_data: Dict[str, Any] = {}
+    try:
+        analysis = analyze_image(portrait["image_path"])
+        if isinstance(analysis, dict):
+            image_analysis_data.update({
+                "width": analysis.get("width"),
+                "height": analysis.get("height"),
+                "brightness": analysis.get("brightness"),
+                "contrast": analysis.get("contrast"),
+                "quality": analysis.get("quality"),
+                "valid": analysis.get("valid", True),
+            })
+            if analysis.get("message"):
+                image_analysis_data["message"] = analysis.get("message")
+            recommendation_value = analysis.get("recommendation") or analysis.get("recommendations")
+            if recommendation_value:
+                image_analysis_data["recommendation"] = recommendation_value
+                image_analysis_data["recommendations"] = recommendation_value
+            image_analysis_data["criteria"] = get_criteria_text(analysis.get("contrast"))
+    except Exception as exc:
+        logger.warning("Failed to preload image analysis for portrait %s: %s", portrait_id, exc)
+    if "recommendations" not in image_analysis_data and image_analysis_data.get("recommendation"):
+        image_analysis_data["recommendations"] = image_analysis_data["recommendation"]
+
+    # Prepare marker file information
+    marker_files_specs = [
+        ("fset", portrait.get("marker_fset"), ".fset"),
+        ("fset3", portrait.get("marker_fset3"), ".fset3"),
+        ("iset", portrait.get("marker_iset"), ".iset"),
+    ]
+    marker_files: List[Dict[str, Any]] = []
+    marker_total_size = 0
+    marker_updated_ts: Optional[float] = None
+
+    for type_name, path_value, extension in marker_files_specs:
+        size_bytes, mtime = get_file_stats(path_value)
+        if size_bytes:
+            marker_total_size += size_bytes
+        if mtime:
+            marker_updated_ts = max(marker_updated_ts or mtime, mtime)
+        marker_files.append({
+            "type": type_name,
+            "label": extension,
+            "url": build_public_url(path_value),
+            "size_bytes": size_bytes,
+            "size_display": format_size(size_bytes),
+            "exists": bool(size_bytes),
+            "download_name": f"{portrait_id}{extension}",
+        })
+
+    marker_updated_at_iso: Optional[str] = None
+    marker_updated_at_display = "—"
+    if marker_updated_ts:
+        updated_dt = datetime.fromtimestamp(marker_updated_ts)
+        marker_updated_at_iso = updated_dt.isoformat()
+        marker_updated_at_display = updated_dt.strftime("%d.%m.%Y %H:%M:%S")
+
+    marker_info = {
+        "files": marker_files,
+        "total_size_bytes": marker_total_size,
+        "total_size_display": format_size(marker_total_size),
+        "updated_at": marker_updated_at_iso,
+        "updated_at_display": marker_updated_at_display,
+        "has_files": any(file_info["exists"] for file_info in marker_files),
+    }
+    if marker_total_size:
+        marker_info["total_size_mb"] = round(marker_total_size / (1024 * 1024), 2)
+
     # Generate order number based on portrait position in the list (consistent with Content Records)
     all_portraits = database.list_portraits()
     portrait_index = next((i for i, p in enumerate(all_portraits) if p.get("id") == portrait_id), -1)
+    order_position: Optional[int] = None
     if portrait_index >= 0:
-        order_number = f"{portrait_index + 1:06d}"
+        order_position = len(all_portraits) - portrait_index
+        order_number = f"{order_position:06d}"
     else:
         # Fallback if portrait not found in list
         order_number = f"{hash(portrait_id) % 1000000:06d}"
-    
+
     # Generate full URL
     full_url = f"{base_url}/portrait/{portrait['permanent_link']}"
-    
+
     # Generate portrait image URL
     portrait_image_url = build_public_url(portrait['image_path'])
-    
+    portrait_preview_download_url = build_public_url(image_preview_path)
+
     context = {
         "request": request,
         "username": username,
         "order_number": order_number,
+        "order_position": order_position,
         "portrait": portrait,
         "client": client,
         "videos": videos,
         "full_url": full_url,
         "portrait_image_url": portrait_image_url,
         "portrait_preview_url": portrait_preview_url,
-        "image_analysis": {}  # Will be loaded via AJAX
+        "portrait_preview_download_url": portrait_preview_download_url,
+        "portrait_preview_filename": f"{portrait_id}_preview.jpg",
+        "image_analysis": image_analysis_data,
+        "marker_info": marker_info,
     }
     return templates.TemplateResponse("admin_order_detail.html", context)
 
