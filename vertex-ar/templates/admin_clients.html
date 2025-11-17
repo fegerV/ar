@@ -1191,7 +1191,7 @@
                 });
                 const client = await clientResponse.json();
 
-                const portraitsResponse = await fetch(`/portraits?client_id=${clientId}`, {
+                const portraitsResponse = await fetch(`/portraits?client_id=${clientId}&include_preview=true`, {
                     credentials: 'include'
                 });
                 const portraits = await portraitsResponse.json();
@@ -1226,11 +1226,11 @@
 
                     portraits.forEach((portrait, index) => {
                         const orderNumber = String(index + 1).padStart(6, '0');
+                        const previewSrc = portrait.image_preview_data || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNFRUUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
                         html += `
                             <div class="portrait-card" onclick="window.location.href='/admin/order/${portrait.id}'">
-                                <div class="portrait-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                    #${orderNumber}
-                                </div>
+                                <img src="${previewSrc}" class="portrait-preview" alt="Portrait #${orderNumber}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNFRUUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+'">
+                                <div style="margin-top: 0.5rem; font-weight: 600;">#${orderNumber}</div>
                                 <div>Просмотров: ${portrait.view_count || 0}</div>
                                 <div style="font-size: 0.85rem; color: var(--secondary-color);">
                                     ${portrait.created_at ? new Date(portrait.created_at).toLocaleDateString('ru-RU') : '-'}
