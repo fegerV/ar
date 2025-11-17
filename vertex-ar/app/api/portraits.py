@@ -242,7 +242,7 @@ async def list_portraits_with_preview(
                     "id": v["id"],
                     "is_active": bool(v["is_active"]),
                     "created_at": v.get("created_at"),
-                    "preview": f"data:image/jpeg;base64,{video_preview_data}" if video_preview_data else ""
+                    "preview": f"data:image/webp;base64,{video_preview_data}" if video_preview_data and video_preview_path and video_preview_path.endswith('.webp') else f"data:image/jpeg;base64,{video_preview_data}" if video_preview_data else ""
                 })
             
             result.append({
@@ -256,7 +256,7 @@ async def list_portraits_with_preview(
                 "client_name": client["name"] if client else "N/A",
                 "client_phone": client["phone"] if client else "N/A",
                 "active_video_description": active_video_description,
-                "image_preview_data": f"data:image/webp;base64,{preview_data}" if preview_data else "",
+                "image_preview_data": f"data:image/webp;base64,{preview_data}" if preview_data and image_preview_path and image_preview_path.endswith('.webp') else f"data:image/jpeg;base64,{preview_data}" if preview_data else "",
                 "qr_code_base64": f"data:image/png;base64,{portrait.get('qr_code', '')}" if portrait.get('qr_code') else ""
             })
         except Exception as e:
@@ -504,12 +504,14 @@ async def add_video_to_portrait(
     video_preview_path = None
     
     try:
-        video_preview = PreviewGenerator.generate_video_preview(video_content)
-        if video_preview:
-            video_preview_path = portrait_storage / f"{video_id}_preview.jpg"
+        video_preview = PreviewGenerator.generate_video_preview(video_content, size=(300, 300), format='webp')
+        if video_preview and len(video_preview) > 0:
+            video_preview_path = portrait_storage / f"{video_id}_preview.webp"
             with open(video_preview_path, "wb") as f:
                 f.write(video_preview)
-            logger.info(f"Video preview created: {video_preview_path}")
+            logger.info(f"Video preview created: {video_preview_path}, size: {len(video_preview)} bytes")
+        else:
+            logger.warning(f"Failed to generate video preview for video {video_id}")
     except Exception as e:
         logger.error(f"Error generating video preview: {e}")
     

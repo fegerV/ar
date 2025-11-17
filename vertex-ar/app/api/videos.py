@@ -11,6 +11,9 @@ from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import VideoResponse
 from app.main import get_current_app
+from logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -94,16 +97,14 @@ async def create_video(
     
     try:
         video_preview = PreviewGenerator.generate_video_preview(video_content, size=(300, 300), format='webp')
-        if video_preview:
+        if video_preview and len(video_preview) > 0:
             video_preview_path = portrait_storage / f"{video_id}_preview.webp"
             with open(video_preview_path, "wb") as f:
                 f.write(video_preview)
-            from logging_setup import get_logger
-            logger = get_logger(__name__)
-            logger.info(f"Video preview created: {video_preview_path}")
+            logger.info(f"Video preview created: {video_preview_path}, size: {len(video_preview)} bytes")
+        else:
+            logger.warning(f"Failed to generate video preview for video {video_id}")
     except Exception as e:
-        from logging_setup import get_logger
-        logger = get_logger(__name__)
         logger.error(f"Error generating video preview: {e}")
     
     # Create video in database
@@ -238,9 +239,6 @@ async def get_video_preview(
     _: str = Depends(require_admin)
 ) -> Dict[str, Any]:
     """Get video preview as base64 data."""
-    from logging_setup import get_logger
-    logger = get_logger(__name__)
-    
     database = get_database()
     video = database.get_video(video_id)
     
@@ -276,8 +274,29 @@ async def get_video_preview(
         
         if preview_path.exists():
             with open(preview_path, "rb") as f:
-                preview_data = base64.b64encode(f.read()).decode()
-                logger.info(f"Successfully loaded video preview for video {video_id}")
+                preview_bytes = f.read()
+                
+                # Check if file is not empty
+                if len(preview_bytes) == 0:
+                    logger.error(f"Video preview file is empty: {preview_path}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Video preview file is empty"
+                    )
+                
+                # Encode to base64
+                preview_data = base64.b64encode(preview_bytes).decode('utf-8')
+                
+                # Verify the base64 data is valid
+                if not preview_data:
+                    logger.error(f"Failed to encode video preview to base64: {preview_path}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Failed to encode video preview"
+                    )
+                
+                logger.info(f"Successfully loaded preview for video {video_id}, size: {len(preview_bytes)} bytes")
+                
                 # Determine format from file extension
                 if video_preview_path.endswith('.webp'):
                     return {"preview_data": f"data:image/webp;base64,{preview_data}"}
@@ -289,6 +308,9 @@ async def get_video_preview(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Video preview file not found"
             )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.error(f"Failed to load video preview for video {video_id}: {e}")
         raise HTTPException(
@@ -328,9 +350,6 @@ async def activate_video_admin(
     username: str = Depends(require_admin)
 ) -> VideoResponse:
     """Activate video for its portrait (admin only)."""
-    from logging_setup import get_logger
-    logger = get_logger(__name__)
-    
     database = get_database()
     
     # Check if video exists
@@ -364,7 +383,6 @@ async def delete_video_admin(
     username: str = Depends(require_admin)
 ):
     """Delete video (admin only)."""
-    from logging_setup import get_logger
     import shutil
     logger = get_logger(__name__)
     
