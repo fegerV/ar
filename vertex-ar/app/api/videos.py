@@ -88,14 +88,14 @@ async def create_video(
     with open(video_path, "wb") as f:
         f.write(video_content)
     
-    # Generate video preview
+    # Generate video preview with improved quality and WebP support
     from preview_generator import PreviewGenerator
     video_preview_path = None
     
     try:
-        video_preview = PreviewGenerator.generate_video_preview(video_content)
+        video_preview = PreviewGenerator.generate_video_preview(video_content, size=(300, 300), format='webp')
         if video_preview:
-            video_preview_path = portrait_storage / f"{video_id}_preview.jpg"
+            video_preview_path = portrait_storage / f"{video_id}_preview.webp"
             with open(video_preview_path, "wb") as f:
                 f.write(video_preview)
             from logging_setup import get_logger
@@ -278,7 +278,11 @@ async def get_video_preview(
             with open(preview_path, "rb") as f:
                 preview_data = base64.b64encode(f.read()).decode()
                 logger.info(f"Successfully loaded video preview for video {video_id}")
-                return {"preview_data": preview_data}
+                # Determine format from file extension
+                if video_preview_path.endswith('.webp'):
+                    return {"preview_data": f"data:image/webp;base64,{preview_data}"}
+                else:
+                    return {"preview_data": f"data:image/jpeg;base64,{preview_data}"}
         else:
             logger.error(f"Video preview file not found at {preview_path}")
             raise HTTPException(

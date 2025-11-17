@@ -464,6 +464,17 @@ async def get_system_info(_: str = Depends(require_admin)) -> Dict[str, Any]:
     }
 
 
+@router.get("/logout")
+async def admin_logout(request: Request) -> RedirectResponse:
+    """Handle admin logout and redirect to login page."""
+    response = RedirectResponse(
+        url="/admin",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.delete_cookie("authToken")
+    return response
+
+
 @router.get("/content-stats")
 async def get_content_stats(_: str = Depends(require_admin)) -> List[Dict[str, Any]]:
     """Return aggregated AR content statistics for the admin dashboard."""
