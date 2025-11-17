@@ -1260,7 +1260,7 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    img.src = `data:image/jpeg;base64,${data.preview_data}`;
+                    img.src = data.preview_data;
                     console.log(`Successfully loaded preview for video ${videoId}`);
                 } else {
                     console.error(`Failed to load video preview for ${videoId}: ${response.status}`);
