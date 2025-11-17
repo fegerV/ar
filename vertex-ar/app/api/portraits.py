@@ -100,14 +100,14 @@ async def create_portrait(
     with open(image_path, "wb") as f:
         f.write(image_content)
     
-    # Generate image preview
+    # Generate image preview with improved quality and WebP support
     from preview_generator import PreviewGenerator
     image_preview_path = None
     
     try:
-        image_preview = PreviewGenerator.generate_image_preview(image_content)
+        image_preview = PreviewGenerator.generate_image_preview(image_content, size=(300, 300), format='webp')
         if image_preview:
-            image_preview_path = client_storage / f"{portrait_id}_preview.jpg"
+            image_preview_path = client_storage / f"{portrait_id}_preview.webp"
             with open(image_preview_path, "wb") as f:
                 f.write(image_preview)
             from logging_setup import get_logger
@@ -256,7 +256,7 @@ async def list_portraits_with_preview(
                 "client_name": client["name"] if client else "N/A",
                 "client_phone": client["phone"] if client else "N/A",
                 "active_video_description": active_video_description,
-                "image_preview_data": f"data:image/jpeg;base64,{preview_data}" if preview_data else "",
+                "image_preview_data": f"data:image/webp;base64,{preview_data}" if preview_data else "",
                 "qr_code_base64": f"data:image/png;base64,{portrait.get('qr_code', '')}" if portrait.get('qr_code') else ""
             })
         except Exception as e:

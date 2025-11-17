@@ -18,18 +18,24 @@ class PreviewGenerator:
     """Класс для генерации превью для различных типов файлов"""
     
     @staticmethod
-    def generate_image_preview(image_content: bytes, size=(120, 120)) -> Optional[bytes]:
-        """Генерирует превью для изображений с уменьшенным размером"""
-        logger.info(f"Начинаем генерацию превью для изображения, размер: {len(image_content)} байт, целевой размер: {size}")
+    def generate_image_preview(image_content: bytes, size=(300, 300), format='webp') -> Optional[bytes]:
+        """Генерирует превью для изображений с улучшенным качеством и поддержкой WebP"""
+        logger.info(f"Начинаем генерацию превью для изображения, размер: {len(image_content)} байт, целевой размер: {size}, формат: {format}")
         try:
             # Открываем изображение
             image = Image.open(BytesIO(image_content))
-            logger.info(f"Изображение успешно открыто, размеры: {image.size}")
+            logger.info(f"Изображение успешно открыто, размеры: {image.size}, формат: {image.format}")
             
-            # Сохраняем оригинальные размеры
-            original_width, original_height = image.size
+            # Конвертируем в RGB если необходимо
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # Создаем белый фон для полупрозрачных изображений
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                image = background
             
-            # Создаем превью с сохранением пропорций
+            # Создаем превью с сохранением пропорций и высоким качеством
             image.thumbnail(size, Image.Resampling.LANCZOS)
             
             # Создаем новое изображение с белым фоном
@@ -42,21 +48,28 @@ class PreviewGenerator:
             # Вставляем изображение в центр
             preview.paste(image, (x, y))
             
-            # Сохраняем превью в байтовый буфер с высоким качеством
+            # Сохраняем превью в байтовый буфер с оптимальными настройками
             buffer = BytesIO()
-            preview.save(buffer, format='JPEG', quality=90)
+            
+            if format.lower() == 'webp':
+                # WebP с лучшим сжатием
+                preview.save(buffer, format='WEBP', quality=85, method=6)
+            else:
+                # JPEG с высоким качеством
+                preview.save(buffer, format='JPEG', quality=92, optimize=True)
+            
             buffer.seek(0)
             
-            logger.info(f"Превью изображения успешно сгенерировано, размер превью: {len(buffer.getvalue())} байт")
+            logger.info(f"Превью изображения успешно сгенерировано, формат: {format}, размер превью: {len(buffer.getvalue())} байт")
             return buffer.getvalue()
         except Exception as e:
             logger.exception(f"Ошибка при генерации превью изображения: {e}")
             return None
     
     @staticmethod
-    def generate_video_preview(video_content: bytes, size=(120, 120), frame_time=None) -> Optional[bytes]:
-        """Генерирует превью для видео, извлекая кадр из середины"""
-        logger.info(f"Начинаем генерацию превью для видео, размер: {len(video_content)} байт, целевой размер: {size}")
+    def generate_video_preview(video_content: bytes, size=(300, 300), frame_time=None, format='webp') -> Optional[bytes]:
+        """Генерирует превью для видео с улучшенным качеством и поддержкой WebP"""
+        logger.info(f"Начинаем генерацию превью для видео, размер: {len(video_content)} байт, целевой размер: {size}, формат: {format}")
         
         try:
             # Сохраняем видео во временный файл
@@ -70,7 +83,7 @@ class PreviewGenerator:
                 
                 if not cap.isOpened():
                     logger.error("Не удалось открыть видео с помощью OpenCV")
-                    return PreviewGenerator.generate_video_preview_stub(size)
+                    return PreviewGenerator.generate_video_preview_stub(size, format)
                 
                 # Получаем общее количество кадров
                 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -80,7 +93,7 @@ class PreviewGenerator:
                 
                 if total_frames <= 0:
                     logger.error("Видео не содержит кадров")
-                    return PreviewGenerator.generate_video_preview_stub(size)
+                    return PreviewGenerator.generate_video_preview_stub(size, format)
                 
                 # Вычисляем номер кадра из середины видео
                 middle_frame = total_frames // 2
@@ -98,9 +111,12 @@ class PreviewGenerator:
                     ret, frame = cap.read()
                     if not ret or frame is None:
                         logger.error("Не удалось прочитать даже первый кадр")
-                        return PreviewGenerator.generate_video_preview_stub(size)
+                        return PreviewGenerator.generate_video_preview_stub(size, format)
                 
                 logger.info(f"Кадр успешно извлечен, размер: {frame.shape}")
+                
+                # Применяем небольшой размытие для уменьшения артефактов сжатия
+                frame = cv2.GaussianBlur(frame, (3, 3), 0)
                 
                 # Конвертируем BGR (OpenCV) в RGB (PIL)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -140,10 +156,17 @@ class PreviewGenerator:
                 
                 # Сохраняем превью в байтовый буфер
                 buffer = BytesIO()
-                preview.save(buffer, format='JPEG', quality=85)
+                
+                if format.lower() == 'webp':
+                    # WebP с лучшим сжатием
+                    preview.save(buffer, format='WEBP', quality=85, method=6)
+                else:
+                    # JPEG с высоким качеством
+                    preview.save(buffer, format='JPEG', quality=92, optimize=True)
+                
                 buffer.seek(0)
                 
-                logger.info(f"Превью видео успешно сгенерировано из кадра {middle_frame}, размер превью: {len(buffer.getvalue())} байт")
+                logger.info(f"Превью видео успешно сгенерировано из кадра {middle_frame}, формат: {format}, размер превью: {len(buffer.getvalue())} байт")
                 return buffer.getvalue()
                 
             finally:
@@ -159,11 +182,11 @@ class PreviewGenerator:
         except Exception as e:
             logger.exception(f"Ошибка при генерации превью видео: {e}")
             logger.info("Используем заглушку для превью видео")
-            return PreviewGenerator.generate_video_preview_stub(size)
+            return PreviewGenerator.generate_video_preview_stub(size, format)
     
     @staticmethod
-    def generate_video_preview_stub(size=(120, 120)) -> Optional[bytes]:
-        """Создает заглушку для превью видео"""
+    def generate_video_preview_stub(size=(300, 300), format='webp') -> Optional[bytes]:
+        """Создает заглушку для превью видео с поддержкой WebP"""
         try:
             # Создаем стандартное изображение-заглушку для видео
             preview = Image.new('RGB', size, (30, 30, 30))  # Темный фон
@@ -184,7 +207,12 @@ class PreviewGenerator:
             
             # Сохраняем превью в байтовый буфер
             buffer = BytesIO()
-            preview.save(buffer, format='JPEG', quality=85)
+            
+            if format.lower() == 'webp':
+                preview.save(buffer, format='WEBP', quality=85, method=6)
+            else:
+                preview.save(buffer, format='JPEG', quality=92, optimize=True)
+            
             buffer.seek(0)
             
             return buffer.getvalue()
@@ -224,12 +252,12 @@ class PreviewGenerator:
             return None
     
     @staticmethod
-    def generate_preview(file_content: bytes, file_type: str, size=(120, 120)) -> Optional[bytes]:
-        """Основной метод для генерации превью в зависимости от типа файла"""
+    def generate_preview(file_content: bytes, file_type: str, size=(300, 300), format='webp') -> Optional[bytes]:
+        """Основной метод для генерации превью в зависимости от типа файла с поддержкой WebP"""
         if file_type.startswith('image/'):
-            return PreviewGenerator.generate_image_preview(file_content, size)
+            return PreviewGenerator.generate_image_preview(file_content, size, format)
         elif file_type.startswith('video/'):
-            return PreviewGenerator.generate_video_preview(file_content, size)
+            return PreviewGenerator.generate_video_preview(file_content, size, format=format)
         elif file_type in ['application/pdf', 'application/msword',
                           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                           'application/vnd.ms-powerpoint',
@@ -243,24 +271,28 @@ class PreviewGenerator:
             return PreviewGenerator.generate_document_preview(file_content, size)
 
 
-def generate_and_save_preview(file_content: bytes, file_type: str, record_id: str, preview_type: str = "thumbnail") -> Optional[str]:
-    """Генерирует и сохраняет превью в хранилище"""
+def generate_and_save_preview(file_content: bytes, file_type: str, record_id: str, preview_type: str = "thumbnail", size=(300, 300), format='webp') -> Optional[str]:
+    """Генерирует и сохраняет превью в хранилище с поддержкой WebP"""
     try:
-        logger.info(f"Начинаем генерацию превью для {record_id}, тип: {file_type}, подтип: {preview_type}")
+        logger.info(f"Начинаем генерацию превью для {record_id}, тип: {file_type}, подтип: {preview_type}, размер: {size}, формат: {format}")
         
         # Генерируем превью
-        preview_content = PreviewGenerator.generate_preview(file_content, file_type)
+        preview_content = PreviewGenerator.generate_preview(file_content, file_type, size, format)
         
         if preview_content:
             logger.info(f"Превью успешно сгенерировано для {record_id}, размер: {len(preview_content)} байт")
             
-            # Определяем имя объекта для превью
-            preview_filename = f"previews/{record_id}_{preview_type}.jpg"
+            # Определяем имя объекта для превью с правильным расширением
+            extension = 'webp' if format.lower() == 'webp' else 'jpg'
+            preview_filename = f"previews/{record_id}_{preview_type}.{extension}"
             logger.info(f"Пытаемся сохранить превью с именем: {preview_filename}")
+            
+            # Определяем MIME тип
+            mime_type = "image/webp" if format.lower() == 'webp' else "image/jpeg"
             
             # Загружаем превью в хранилище
             storage = get_storage()
-            result = storage.upload_file(preview_content, preview_filename, "image/jpeg")
+            result = storage.upload_file(preview_content, preview_filename, mime_type)
             
             if result:
                 logger.info(f"Превью успешно сохранено: {preview_filename}")

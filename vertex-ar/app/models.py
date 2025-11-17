@@ -185,6 +185,7 @@ class ClientResponse(BaseModel):
 
 class ClientListItem(ClientResponse):
     portraits_count: int = 0
+    latest_portrait_preview: Optional[str] = None  # Base64 encoded preview of latest portrait
 
 
 class PaginatedClientsResponse(BaseModel):

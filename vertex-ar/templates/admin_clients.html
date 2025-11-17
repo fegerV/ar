@@ -830,6 +830,9 @@
                 const portraitsCount = client.portraits_count ?? 0;
                 const isChecked = clientsState.selectedIds.has(client.id) ? 'checked' : '';
                 const safeNameParam = JSON.stringify(client.name || '');
+                const previewHtml = client.latest_portrait_preview 
+                    ? `<img src="${client.latest_portrait_preview}" class="client-preview" onclick="viewClient('${client.id}')" style="cursor: pointer; width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" alt="Preview">`
+                    : '<div class="no-preview" style="width: 50px; height: 50px; background: #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 12px;">Нет</div>';
 
                 rows += `
                     <tr>
@@ -843,6 +846,7 @@
                             </span>
                         </td>
                         <td>${escapeHtml(client.phone)}</td>
+                        <td>${previewHtml}</td>
                         <td>
                             <span class="badge badge-info">${portraitsCount}</span>
                         </td>
@@ -874,6 +878,7 @@
                             <th>№</th>
                             <th>Имя</th>
                             <th>Телефон</th>
+                            <th>Превью</th>
                             <th>Портретов</th>
                             <th>Дата создания</th>
                             <th>Действия</th>

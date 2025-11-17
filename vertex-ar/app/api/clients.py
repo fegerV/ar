@@ -1,6 +1,7 @@
 """
 Client management endpoints for Vertex AR API.
 """
+import base64
 import csv
 import uuid
 from datetime import datetime
@@ -155,6 +156,29 @@ async def list_clients_admin(
     clients = database.list_clients(search=search, limit=page_size, offset=offset)
     client_ids = [client["id"] for client in clients]
     portrait_counts = database.get_portrait_counts(client_ids)
+    
+    # Get latest portrait previews for each client
+    latest_previews = {}
+    for client_id in client_ids:
+        portraits = database.list_portraits(client_id)
+        if portraits:
+            # Sort by created_at to get the latest
+            latest_portrait = max(portraits, key=lambda p: p.get('created_at', ''))
+            preview_path = latest_portrait.get('image_preview_path')
+            if preview_path:
+                try:
+                    from pathlib import Path
+                    preview_file = Path(preview_path)
+                    if preview_file.exists():
+                        with open(preview_file, "rb") as f:
+                            preview_data = base64.b64encode(f.read()).decode()
+                            # Determine format from file extension
+                            if preview_path.endswith('.webp'):
+                                latest_previews[client_id] = f"data:image/webp;base64,{preview_data}"
+                            else:
+                                latest_previews[client_id] = f"data:image/jpeg;base64,{preview_data}"
+                except Exception as e:
+                    logger.warning(f"Failed to load preview for client {client_id}: {e}")
 
     items = [
         ClientListItem(
@@ -163,6 +187,7 @@ async def list_clients_admin(
             name=client["name"],
             created_at=client["created_at"],
             portraits_count=portrait_counts.get(client["id"], 0),
+            latest_portrait_preview=latest_previews.get(client_id)
         )
         for client in clients
     ]
