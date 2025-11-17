@@ -3,6 +3,7 @@ Authentication endpoints for Vertex AR API.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from typing import Optional
 
 from app.auth import AuthSecurityManager, TokenManager, _hash_password, _verify_password
 from app.database import Database
@@ -15,7 +16,7 @@ from logging_setup import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter()
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def get_database() -> Database:
@@ -37,20 +38,29 @@ def get_auth_security() -> AuthSecurityManager:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """Get current authenticated user."""
+    token = credentials.credentials if credentials else None
+    if not token:
+        token = request.cookies.get("authToken")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     tokens = get_token_manager()
-    username = tokens.verify_token(credentials.credentials)
+    username = tokens.verify_token(token)
     if username is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
-    
-    # Get user details from database
+
     database = get_database()
     user = database.get_user(username)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    
+
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is deactivated")
+
     return user
 
 

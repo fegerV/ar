@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import math
 import shutil
 import uuid
 from io import BytesIO
@@ -92,6 +93,14 @@ async def _create_order_workflow(
         with open(video_path, "wb") as video_file:
             video_file.write(video_content)
 
+        video_file_size_mb: int | None = None
+        try:
+            video_size_bytes = video_path.stat().st_size
+            if video_size_bytes:
+                video_file_size_mb = max(1, math.ceil(video_size_bytes / (1024 * 1024)))
+        except OSError:
+            video_file_size_mb = None
+
         image_preview_path: Path | None = None
         video_preview_path: Path | None = None
 
@@ -175,6 +184,7 @@ async def _create_order_workflow(
             is_active=True,
             video_preview_path=str(video_preview_path) if video_preview_path else None,
             description=description,
+            file_size_mb=video_file_size_mb,
         )
 
         logger.info(

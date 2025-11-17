@@ -2,7 +2,10 @@
 Portrait management endpoints for Vertex AR API.
 """
 import base64
+import math
+import shutil
 import uuid
+from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +16,8 @@ from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import ClientResponse, PortraitResponse, VideoResponse
 from app.main import get_current_app
+from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
+from utils import format_bytes
 
 router = APIRouter()
 
@@ -296,6 +301,153 @@ async def analyze_portrait_image(
         )
 
 
+@router.post("/{portrait_id}/regenerate-marker")
+async def regenerate_portrait_marker(
+    portrait_id: str,
+    _: str = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Regenerate NFT marker files for a portrait and remove outdated ones."""
+    from logging_setup import get_logger
+
+    logger = get_logger(__name__)
+    database = get_database()
+
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portrait not found",
+        )
+
+    image_path_value = portrait.get("image_path")
+    if not image_path_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Portrait image path is missing")
+
+    image_path = Path(image_path_value)
+    if not image_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portrait image file not found")
+
+    app = get_current_app()
+    storage_root: Path = app.state.config["STORAGE_ROOT"]
+    marker_name = portrait_id
+    marker_dir = storage_root / "nft_markers" / marker_name
+
+    backup_dir: Optional[Path] = None
+    if marker_dir.exists():
+        backup_suffix = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        backup_dir = marker_dir.parent / f"{marker_name}_backup_{backup_suffix}"
+        try:
+            shutil.move(str(marker_dir), str(backup_dir))
+        except Exception as exc:
+            logger.error("Failed to backup existing marker directory %s: %s", marker_dir, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to backup existing marker files",
+            ) from exc
+
+    nft_generator = NFTMarkerGenerator(storage_root)
+    marker_config = NFTMarkerConfig(
+        feature_density="high",
+        levels=3,
+        max_image_size=8192,
+        max_image_area=50_000_000,
+    )
+
+    try:
+        marker_result = nft_generator.generate_marker(image_path, marker_name, marker_config)
+        database.update_portrait_marker_paths(
+            portrait_id=portrait_id,
+            marker_fset=marker_result.fset_path,
+            marker_fset3=marker_result.fset3_path,
+            marker_iset=marker_result.iset_path,
+        )
+    except Exception as exc:
+        logger.error("Failed to regenerate NFT markers for portrait %s: %s", portrait_id, exc)
+        if marker_dir.exists():
+            shutil.rmtree(marker_dir, ignore_errors=True)
+        if backup_dir and backup_dir.exists():
+            try:
+                shutil.move(str(backup_dir), str(marker_dir))
+            except Exception as restore_exc:
+                logger.error("Failed to restore marker backup for portrait %s: %s", portrait_id, restore_exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to regenerate NFT markers",
+        ) from exc
+    else:
+        if backup_dir and backup_dir.exists():
+            shutil.rmtree(backup_dir, ignore_errors=True)
+
+    def format_size_response(bytes_value: Optional[int]) -> str:
+        if not bytes_value or bytes_value <= 0:
+            return "Неизвестно"
+        human_readable = format_bytes(bytes_value)
+        replacements = {
+            " B": " Б",
+            " KB": " КБ",
+            " MB": " МБ",
+            " GB": " ГБ",
+            " TB": " ТБ",
+            " PB": " ПБ",
+        }
+        for eng, ru in replacements.items():
+            human_readable = human_readable.replace(eng, ru)
+        return human_readable
+
+    marker_files = [
+        ("fset", marker_result.fset_path, ".fset"),
+        ("fset3", marker_result.fset3_path, ".fset3"),
+        ("iset", marker_result.iset_path, ".iset"),
+    ]
+
+    total_size = 0
+    marker_updated_ts: Optional[float] = None
+    marker_files_payload: List[Dict[str, Any]] = []
+
+    for file_type, path_value, extension in marker_files:
+        path_obj = Path(path_value)
+        size_bytes = None
+        modified_ts = None
+        try:
+            if path_obj.exists():
+                stat_result = path_obj.stat()
+                size_bytes = stat_result.st_size
+                modified_ts = stat_result.st_mtime
+        except OSError as exc:
+            logger.warning("Failed to stat regenerated marker file %s: %s", path_obj, exc)
+        if size_bytes:
+            total_size += size_bytes
+        if modified_ts:
+            marker_updated_ts = max(marker_updated_ts or modified_ts, modified_ts)
+        marker_files_payload.append({
+            "type": file_type,
+            "path": path_value,
+            "size_bytes": size_bytes,
+            "size_display": format_size_response(size_bytes),
+            "download_name": f"{portrait_id}{extension}",
+        })
+
+    updated_at_iso: Optional[str] = None
+    updated_at_display = None
+    if marker_updated_ts:
+        updated_dt = datetime.fromtimestamp(marker_updated_ts)
+        updated_at_iso = updated_dt.isoformat()
+        updated_at_display = updated_dt.strftime("%d.%m.%Y %H:%M:%S")
+
+    response_payload: Dict[str, Any] = {
+        "message": "NFT маркеры успешно перегенерированы",
+        "marker_size_bytes": total_size,
+        "marker_size_display": format_size_response(total_size),
+        "marker_size_mb": round(total_size / (1024 * 1024), 2) if total_size else None,
+        "updated_at": updated_at_iso,
+        "updated_at_display": updated_at_display,
+        "files": marker_files_payload,
+        "has_files": any(item.get("size_bytes") for item in marker_files_payload),
+    }
+
+    return response_payload
+
+
 @router.post("/{portrait_id}/videos", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
 async def add_video_to_portrait(
     portrait_id: str,
@@ -339,6 +491,14 @@ async def add_video_to_portrait(
     with open(video_path, "wb") as f:
         f.write(video_content)
     
+    video_file_size_mb: int | None = None
+    try:
+        video_size_bytes = video_path.stat().st_size
+        if video_size_bytes:
+            video_file_size_mb = max(1, math.ceil(video_size_bytes / (1024 * 1024)))
+    except OSError:
+        video_file_size_mb = None
+    
     # Generate video preview
     from preview_generator import PreviewGenerator
     video_preview_path = None
@@ -361,6 +521,7 @@ async def add_video_to_portrait(
         is_active=False,  # New videos are not active by default
         video_preview_path=str(video_preview_path) if video_preview_path else None,
         description=description,
+        file_size_mb=video_file_size_mb,
     )
     
     logger.info(f"Video added to portrait {portrait_id}: {video_id}")

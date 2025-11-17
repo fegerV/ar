@@ -591,6 +591,34 @@ class Database:
         )
         return self.get_portrait(portrait_id)
     
+    def update_portrait_marker_paths(
+        self,
+        portrait_id: str,
+        marker_fset: Optional[str] = None,
+        marker_fset3: Optional[str] = None,
+        marker_iset: Optional[str] = None,
+    ) -> bool:
+        """Update portrait marker file paths."""
+        updates = []
+        params: List[Any] = []
+        if marker_fset is not None:
+            updates.append("marker_fset = ?")
+            params.append(marker_fset)
+        if marker_fset3 is not None:
+            updates.append("marker_fset3 = ?")
+            params.append(marker_fset3)
+        if marker_iset is not None:
+            updates.append("marker_iset = ?")
+            params.append(marker_iset)
+
+        if not updates:
+            return False
+
+        params.append(portrait_id)
+        query = f"UPDATE portraits SET {', '.join(updates)} WHERE id = ?"
+        cursor = self._execute(query, tuple(params))
+        return cursor.rowcount > 0
+    
     def get_portrait(self, portrait_id: str) -> Optional[Dict[str, Any]]:
         """Get portrait by ID."""
         cursor = self._execute("SELECT * FROM portraits WHERE id = ?", (portrait_id,))

@@ -193,6 +193,153 @@
             border-radius: var(--border-radius);
         }
 
+        .portrait-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            background-color: var(--info-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color var(--transition-speed);
+        }
+
+        .download-btn:hover {
+            background-color: #138496;
+        }
+
+        .download-btn.secondary {
+            background-color: var(--secondary-color);
+        }
+
+        .download-btn.secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .marker-info {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: var(--card-bg-color);
+            border-radius: var(--border-radius);
+        }
+
+        .marker-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .marker-info-header h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-color);
+        }
+
+        .marker-regenerate-btn {
+            background-color: var(--warning-color);
+            color: #212529;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .marker-regenerate-btn:hover {
+            background-color: #e0a800;
+        }
+
+        .marker-regenerate-btn:disabled {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            cursor: not-allowed;
+        }
+
+        .marker-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .marker-summary-item {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+        }
+
+        .marker-summary-item .label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--muted-text-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .marker-summary-item .value {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .marker-files {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .marker-file {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+        }
+
+        .marker-file-label {
+            font-weight: 600;
+            color: var(--text-color);
+            min-width: 80px;
+        }
+
+        .marker-file-size {
+            font-size: 0.9rem;
+            color: var(--muted-text-color);
+            white-space: nowrap;
+        }
+
+        .marker-download-link {
+            background-color: var(--success-color);
+            color: white;
+            padding: 0.4rem 0.75rem;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            transition: background-color var(--transition-speed);
+        }
+
+        .marker-download-link:hover {
+            background-color: #218838;
+        }
+
+        .marker-download-link.disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .info-item .label {
             font-size: 0.85rem;
             color: var(--muted-text-color);
