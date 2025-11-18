@@ -1,0 +1,120 @@
+# Example crontab configuration for Vertex AR backups
+# 
+# To install these cron jobs:
+# 1. Edit this file with your actual paths
+# 2. Install: crontab backup.cron.example
+# 
+# To edit existing crontab:
+# crontab -e
+#
+# To view current crontab:
+# crontab -l
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=admin@example.com
+
+# Vertex AR backup configuration
+BACKUP_DIR=/var/backups/vertex-ar
+MAX_BACKUPS=7
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+
+# =============================================================================
+# RECOMMENDED SCHEDULE
+# =============================================================================
+
+# Full backup daily at 2:00 AM
+0 2 * * * cd /path/to/vertex-ar && ./backup.sh --type full --max-backups 7 >> /var/log/vertex-ar-backup.log 2>&1
+
+# Database backup every 6 hours (at 00:00, 06:00, 12:00, 18:00)
+0 */6 * * * cd /path/to/vertex-ar && ./backup.sh --type database --max-backups 14 >> /var/log/vertex-ar-backup.log 2>&1
+
+# Storage backup weekly on Sunday at 3:00 AM
+0 3 * * 0 cd /path/to/vertex-ar && ./backup.sh --type storage --max-backups 4 >> /var/log/vertex-ar-backup.log 2>&1
+
+# Rotate old backups daily at 4:00 AM
+0 4 * * * cd /path/to/vertex-ar && python3 backup_cli.py rotate --max-backups 7 >> /var/log/vertex-ar-backup.log 2>&1
+
+# =============================================================================
+# ALTERNATIVE SCHEDULES
+# =============================================================================
+
+# Conservative (less frequent, saves disk space):
+# Full backup weekly on Sunday at 2:00 AM
+# 0 2 * * 0 cd /path/to/vertex-ar && ./backup.sh --type full
+
+# Database backup daily at 2:00 AM
+# 0 2 * * * cd /path/to/vertex-ar && ./backup.sh --type database
+
+# Aggressive (more frequent, better recovery options):
+# Full backup daily at 2:00 AM
+# 0 2 * * * cd /path/to/vertex-ar && ./backup.sh --type full --max-backups 14
+
+# Database backup every 3 hours
+# 0 */3 * * * cd /path/to/vertex-ar && ./backup.sh --type database --max-backups 28
+
+# Storage backup twice a week (Monday and Thursday at 3:00 AM)
+# 0 3 * * 1,4 cd /path/to/vertex-ar && ./backup.sh --type storage
+
+# =============================================================================
+# MONITORING & MAINTENANCE
+# =============================================================================
+
+# Check backup status daily at 5:00 AM and send alert if backup is old
+# 0 5 * * * cd /path/to/vertex-ar && python3 -c "from backup_manager import create_backup_manager; import sys; stats = create_backup_manager().get_backup_stats(); sys.exit(0 if stats['latest_backup'] else 1)" || echo "WARNING: No recent backups found" | mail -s "Vertex AR Backup Alert" admin@example.com
+
+# Clean up old log files monthly (first day of month at 5:00 AM)
+# 0 5 1 * * find /var/log -name "vertex-ar-backup*.log" -mtime +90 -delete
+
+# Send backup statistics report weekly (Monday at 9:00 AM)
+# 0 9 * * 1 cd /path/to/vertex-ar && python3 backup_cli.py stats | mail -s "Vertex AR Backup Report" admin@example.com
+
+# =============================================================================
+# OFFSITE BACKUP SYNC
+# =============================================================================
+
+# Sync backups to remote server daily at 6:00 AM
+# 0 6 * * * rsync -avz --delete /path/to/vertex-ar/backups/ user@backup-server:/backups/vertex-ar/ >> /var/log/vertex-ar-sync.log 2>&1
+
+# Sync to AWS S3 daily at 6:00 AM
+# 0 6 * * * aws s3 sync /path/to/vertex-ar/backups/ s3://my-bucket/vertex-ar-backups/ --delete >> /var/log/vertex-ar-s3-sync.log 2>&1
+
+# Sync to Google Cloud Storage daily at 6:00 AM
+# 0 6 * * * gsutil -m rsync -r -d /path/to/vertex-ar/backups/ gs://my-bucket/vertex-ar-backups/ >> /var/log/vertex-ar-gcs-sync.log 2>&1
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# 
+# Cron time format:
+# * * * * * command
+# │ │ │ │ │
+# │ │ │ │ └─── Day of week (0-7, 0 and 7 are Sunday)
+# │ │ │ └───── Month (1-12)
+# │ │ └─────── Day of month (1-31)
+# │ └───────── Hour (0-23)
+# └─────────── Minute (0-59)
+#
+# Special characters:
+# * = any value
+# , = list of values (1,3,5)
+# - = range of values (1-5)
+# / = step values (*/6 = every 6 hours)
+#
+# Examples:
+# 0 2 * * *       = Every day at 2:00 AM
+# 0 */6 * * *     = Every 6 hours
+# 0 2 * * 0       = Every Sunday at 2:00 AM
+# 0 2 1 * *       = First day of each month at 2:00 AM
+# 0 2 * * 1-5     = Every weekday at 2:00 AM
+#
+# Log output:
+# >> /var/log/file.log 2>&1  = Append stdout and stderr to log file
+# > /var/log/file.log 2>&1   = Overwrite log file
+# 2>&1                       = Redirect stderr to stdout
+#
+# Environment variables in cron:
+# Define at the top of crontab file (before cron jobs)
+# Use $VAR_NAME in commands

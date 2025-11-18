@@ -18,6 +18,7 @@ Vertex AR — серверное приложение на FastAPI для ожи
 - NFT-маркеры: генерация, batch-режим, аналитика и очистка
 - Централизованная валидация (email, телефон, URL, файлы, UUID)
 - Структурированные JSON-логи с request ID и метриками ошибок
+- **Система бэкапов**: автоматическое резервное копирование БД и файлов с ротацией
 
 ---
 
@@ -72,9 +73,31 @@ docker-compose up --build -d
   - `/api/users/*` — управление пользователями и статистикой
   - `/api/clients/*`, `/api/portraits/*`, `/api/videos/*` — контент
   - `/api/nft-markers/*` — генерация и аналитика маркеров
+  - `/backups/*` — управление резервным копированием
   - `/ar/*`, `/qr/*` — публичный просмотр сцен
 
 Подробная документация: `../docs/api/endpoints.md`.
+
+---
+
+## Система бэкапов
+
+Vertex AR включает полнофункциональную систему резервного копирования:
+
+```bash
+# Быстрый старт
+./backup.sh                    # Создать полный бэкап
+python3 backup_cli.py stats    # Посмотреть статистику
+python3 backup_cli.py list     # Список бэкапов
+
+# Восстановление
+python3 backup_cli.py restore backups/database/db_backup_TIMESTAMP.db
+```
+
+**Документация:**
+- Быстрый старт: [BACKUP_README.md](BACKUP_README.md)
+- Полное руководство: [docs/BACKUP_SYSTEM.md](docs/BACKUP_SYSTEM.md)
+- Пример cron: [backup.cron.example](backup.cron.example)
 
 ---
 
