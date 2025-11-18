@@ -361,6 +361,11 @@ docs/_templates/
 *.rar
 *.7z
 
+# Backup system directories
+vertex-ar/backups/
+backups/
+!vertex-ar/backups/.gitkeep
+
 # Large media files (examples, should be in separate storage)
 # Uncomment if needed
 # *.mp4
