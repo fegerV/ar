@@ -23,6 +23,8 @@ class Database:
         self._lock = threading.Lock()
         self._connection = sqlite3.connect(str(self.path), check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
+        # Enable foreign key constraints for cascade delete
+        self._connection.execute("PRAGMA foreign_keys = ON")
         self._initialise_schema()
     
     def _initialise_schema(self) -> None:
@@ -62,14 +64,28 @@ class Database:
                 )
                 """
             )
+            # Create companies table
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS companies (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            
             # Create new tables for clients, portraits and videos
             self._connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS clients (
                     id TEXT PRIMARY KEY,
-                    phone TEXT NOT NULL UNIQUE,
+                    company_id TEXT NOT NULL,
+                    phone TEXT NOT NULL,
                     name TEXT NOT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                    UNIQUE(company_id, phone)
                 )
                 """
             )
@@ -105,6 +121,32 @@ class Database:
                 )
                 """
             )
+            # Ensure default company exists
+            try:
+                cursor = self._connection.execute("SELECT id FROM companies WHERE name = 'Vertex AR' LIMIT 1")
+                if not cursor.fetchone():
+                    self._connection.execute(
+                        "INSERT INTO companies (id, name) VALUES (?, ?)",
+                        ("vertex-ar-default", "Vertex AR")
+                    )
+                    self._connection.commit()
+                    logger.info("Created default company 'Vertex AR'")
+            except sqlite3.OperationalError as e:
+                logger.warning(f"Error ensuring default company: {e}")
+            
+            # Migrate existing clients to default company if needed
+            try:
+                cursor = self._connection.execute("SELECT COUNT(*) FROM clients WHERE company_id IS NULL")
+                if cursor.fetchone()[0] > 0:
+                    # Add company_id column if it doesn't exist
+                    self._connection.execute(
+                        "UPDATE clients SET company_id = 'vertex-ar-default' WHERE company_id IS NULL"
+                    )
+                    self._connection.commit()
+                    logger.info("Migrated existing clients to default company")
+            except sqlite3.OperationalError:
+                pass
+            
             # Add columns to existing tables if they don't exist
             try:
                 self._connection.execute("ALTER TABLE ar_content ADD COLUMN image_preview_path TEXT")
@@ -439,11 +481,11 @@ class Database:
         return cursor.rowcount > 0
     
     # Client methods
-    def create_client(self, client_id: str, phone: str, name: str) -> Dict[str, Any]:
+    def create_client(self, client_id: str, phone: str, name: str, company_id: str = "vertex-ar-default") -> Dict[str, Any]:
         """Create a new client."""
         self._execute(
-            "INSERT INTO clients (id, phone, name) VALUES (?, ?, ?)",
-            (client_id, phone, name),
+            "INSERT INTO clients (id, company_id, phone, name) VALUES (?, ?, ?, ?)",
+            (client_id, company_id, phone, name),
         )
         return self.get_client(client_id)
     
@@ -455,9 +497,12 @@ class Database:
             return None
         return dict(row)
     
-    def get_client_by_phone(self, phone: str) -> Optional[Dict[str, Any]]:
-        """Get client by phone number."""
-        cursor = self._execute("SELECT * FROM clients WHERE phone = ?", (phone,))
+    def get_client_by_phone(self, phone: str, company_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get client by phone number, optionally filtered by company."""
+        if company_id:
+            cursor = self._execute("SELECT * FROM clients WHERE phone = ? AND company_id = ?", (phone, company_id))
+        else:
+            cursor = self._execute("SELECT * FROM clients WHERE phone = ?", (phone,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -472,14 +517,19 @@ class Database:
         search: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        company_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Get list of clients with optional search and pagination."""
-        query = "SELECT * FROM clients"
+        """Get list of clients with optional search, pagination, and company filter."""
+        query = "SELECT * FROM clients WHERE 1=1"
         params: List[Any] = []
+
+        if company_id:
+            query += " AND company_id = ?"
+            params.append(company_id)
 
         if search:
             like = f"%{search}%"
-            query += " WHERE phone LIKE ? OR name LIKE ?"
+            query += " AND (phone LIKE ? OR name LIKE ?)"
             params.extend([like, like])
 
         query += " ORDER BY created_at DESC"
@@ -491,14 +541,18 @@ class Database:
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
-    def count_clients(self, search: Optional[str] = None) -> int:
-        """Count clients with optional search."""
-        query = "SELECT COUNT(*) as count FROM clients"
+    def count_clients(self, search: Optional[str] = None, company_id: Optional[str] = None) -> int:
+        """Count clients with optional search and company filter."""
+        query = "SELECT COUNT(*) as count FROM clients WHERE 1=1"
         params: List[Any] = []
+
+        if company_id:
+            query += " AND company_id = ?"
+            params.append(company_id)
 
         if search:
             like = f"%{search}%"
-            query += " WHERE phone LIKE ? OR name LIKE ?"
+            query += " AND (phone LIKE ? OR name LIKE ?)"
             params.extend([like, like])
 
         cursor = self._execute(query, tuple(params))
@@ -735,6 +789,64 @@ class Database:
         """Delete video."""
         cursor = self._execute("DELETE FROM videos WHERE id = ?", (video_id,))
         return cursor.rowcount > 0
+    
+    # Company methods
+    def create_company(self, company_id: str, name: str) -> None:
+        """Create a new company."""
+        try:
+            self._execute(
+                "INSERT INTO companies (id, name) VALUES (?, ?)",
+                (company_id, name),
+            )
+            logger.info(f"Created company: {name}")
+        except sqlite3.IntegrityError as exc:
+            logger.error(f"Failed to create company: {exc}")
+            raise ValueError("company_already_exists") from exc
+    
+    def get_company(self, company_id: str) -> Optional[Dict[str, Any]]:
+        """Get company by ID."""
+        cursor = self._execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    
+    def get_company_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get company by name."""
+        cursor = self._execute("SELECT * FROM companies WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    
+    def list_companies(self) -> List[Dict[str, Any]]:
+        """Get all companies."""
+        cursor = self._execute("SELECT * FROM companies ORDER BY name ASC")
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def delete_company(self, company_id: str) -> bool:
+        """Delete company and all related data (clients, portraits, videos)."""
+        try:
+            # This will cascade delete clients, portraits, and videos due to ON DELETE CASCADE
+            cursor = self._execute("DELETE FROM companies WHERE id = ?", (company_id,))
+            if cursor.rowcount > 0:
+                logger.info(f"Deleted company: {company_id}")
+                return True
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to delete company: {exc}")
+            return False
+    
+    def get_companies_with_client_count(self) -> List[Dict[str, Any]]:
+        """Get all companies with count of clients in each."""
+        cursor = self._execute("""
+            SELECT c.id, c.name, c.created_at, COUNT(cl.id) as client_count
+            FROM companies c
+            LEFT JOIN clients cl ON c.id = cl.company_id
+            GROUP BY c.id
+            ORDER BY c.name ASC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
 
 
 def ensure_default_admin_user(database: "Database") -> None:

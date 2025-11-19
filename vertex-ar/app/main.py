@@ -135,12 +135,13 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, portraits, videos, health, users, notifications as notifications_api, orders, backups
+    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(ar.router, prefix="/ar", tags=["ar"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
+    app.include_router(companies.router, tags=["companies"])
     app.include_router(clients.router, prefix="/clients", tags=["clients"])
     app.include_router(portraits.router, prefix="/portraits", tags=["portraits"])
     app.include_router(videos.router, prefix="/videos", tags=["videos"])
