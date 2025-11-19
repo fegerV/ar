@@ -678,6 +678,205 @@
             cursor: pointer;
         }
 
+        /* Company Management */
+        .company-management {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .company-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .company-header h2 {
+            color: var(--text-color);
+            margin: 0;
+        }
+
+        .company-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .company-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .company-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+
+        .company-select {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: border-color var(--transition-speed);
+        }
+
+        .company-select:hover {
+            border-color: var(--primary-color);
+        }
+
+        .company-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .company-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color var(--transition-speed);
+            min-width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .company-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .company-btn.delete {
+            background-color: var(--danger-color);
+        }
+
+        .company-btn.delete:hover {
+            background-color: #c82333;
+        }
+
+        .company-input-group {
+            display: none;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .company-input-group.active {
+            display: flex;
+        }
+
+        .company-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .company-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* Modal Dialog */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--light-color);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            min-width: 300px;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        .modal-body {
+            margin-bottom: 1.5rem;
+            color: var(--text-color);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color var(--transition-speed);
+        }
+
+        .modal-btn.confirm {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background-color: #c82333;
+        }
+
+        .modal-btn.cancel {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .modal-btn.cancel:hover {
+            background-color: #5a6268;
+        }
+
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -801,37 +1000,65 @@
             </div>
         </section>
 
-        <!-- System Information -->
+        <!-- System Information and Company Management -->
         <section class="system-info">
-            <h2>System Information</h2>
-            <div class="system-grid">
-                <div class="system-item">
-                    <div class="label">Disk Usage</div>
-                    <div class="value" id="diskUsage">0%</div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" id="diskUsageProgress"></div>
+            <div class="system-grid" style="margin-bottom: 2rem;">
+                <div>
+                    <h2 style="margin-bottom: 1rem;">System Information</h2>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="system-item">
+                            <div class="label">Disk Usage</div>
+                            <div class="value" id="diskUsage">0%</div>
+                            <div class="progress-bar-small">
+                                <div class="progress-fill-small" id="diskUsageProgress"></div>
+                            </div>
+                        </div>
+                        <div class="system-item">
+                            <div class="label">Storage Usage</div>
+                            <div class="value" id="storageUsage">0 MB</div>
+                            <div class="progress-bar-small">
+                                <div class="progress-fill-small" id="storageUsageProgress"></div>
+                            </div>
+                        </div>
+                        <div class="system-item">
+                            <div class="label">Total Disk Space</div>
+                            <div class="value" id="totalDiskSpace">0 GB</div>
+                        </div>
+                        <div class="system-item">
+                            <div class="label">Used Disk Space</div>
+                            <div class="value" id="usedDiskSpace">0 GB</div>
+                        </div>
+                        <div class="system-item">
+                            <div class="label">Free Disk Space</div>
+                            <div class="value" id="freeDiskSpace">0 GB</div>
+                        </div>
                     </div>
-                </div>
-                <div class="system-item">
-                    <div class="label">Storage Usage</div>
-                    <div class="value" id="storageUsage">0 MB</div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" id="storageUsageProgress"></div>
-                    </div>
-                </div>
-                <div class="system-item">
-                    <div class="label">Total Disk Space</div>
-                    <div class="value" id="totalDiskSpace">0 GB</div>
-                </div>
-                <div class="system-item">
-                    <div class="label">Used Disk Space</div>
-                    <div class="value" id="usedDiskSpace">0 GB</div>
-                </div>
-                <div class="system-item">
-                    <div class="label">Free Disk Space</div>
-                    <div class="value" id="freeDiskSpace">0 GB</div>
                 </div>
             </div>
+
+            <!-- Company Management Block -->
+            <section class="company-management" id="companyManagement">
+                <div class="company-header">
+                    <h2>Компания</h2>
+                </div>
+
+                <div class="company-selector">
+                    <div class="company-display">
+                        <span class="company-name" id="currentCompanyName">Vertex AR</span>
+                    </div>
+                    <select class="company-select" id="companySelect" onchange="switchCompany()">
+                        <option value="">Select Company...</option>
+                    </select>
+                    <button class="company-btn" id="addCompanyBtn" onclick="showAddCompanyForm()" title="Добавить компанию">+</button>
+                    <button class="company-btn delete" id="deleteCompanyBtn" onclick="showDeleteCompanyModal()" title="Удалить компанию">🗑</button>
+                </div>
+
+                <div class="company-input-group" id="companyInputGroup">
+                    <input type="text" class="company-input" id="companyNameInput" placeholder="Введите название компании" maxlength="255">
+                    <button class="company-btn" onclick="createCompany()" title="Создать">✓</button>
+                    <button class="company-btn" style="background-color: var(--secondary-color);" onclick="hideAddCompanyForm()" title="Отменить">✕</button>
+                </div>
+            </section>
         </section>
 
         <!-- Create Order Section -->
@@ -933,18 +1160,27 @@
         let currentPage = 1;
         const recordsPerPage = 10;
         let allRecords = [];
+        
+        // Company management
+        let currentCompany = {
+            id: 'vertex-ar-default',
+            name: 'Vertex AR'
+        };
+        let selectedCompanyToDelete = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadStatistics();
             loadSystemInfo();
             loadRecords();
+            loadCompanies();
             addLog('Админ панель загружена', 'info');
             
             // Auto-refresh data every 30 seconds
             setInterval(() => {
                 loadStatistics();
                 loadSystemInfo();
+                loadCompanies();
                 addLog('Данные обновлены автоматически', 'info');
             }, 30000);
         });
@@ -1346,11 +1582,233 @@
                 closeLightbox();
             }
         });
+        
+        // Company Management Functions
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/companies', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const companies = data.items || [];
+                    
+                    // Update select dropdown
+                    const select = document.getElementById('companySelect');
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">Select Company...</option>';
+                    
+                    companies.forEach(company => {
+                        const option = document.createElement('option');
+                        option.value = company.id;
+                        option.textContent = `${company.name} (${company.client_count} clients)`;
+                        select.appendChild(option);
+                    });
+                    
+                    // Set current company
+                    if (currentCompany.id === 'vertex-ar-default') {
+                        document.getElementById('currentCompanyName').textContent = 'Vertex AR';
+                    }
+                    
+                    addLog(`Загружено ${companies.length} компаний`, 'info');
+                } else {
+                    addLog(`Ошибка загрузки компаний: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки компаний: ${error.message}`, 'error');
+            }
+        }
+        
+        function showAddCompanyForm() {
+            const inputGroup = document.getElementById('companyInputGroup');
+            const input = document.getElementById('companyNameInput');
+            inputGroup.classList.add('active');
+            input.focus();
+            addLog('Форма добавления компании открыта', 'info');
+        }
+        
+        function hideAddCompanyForm() {
+            const inputGroup = document.getElementById('companyInputGroup');
+            const input = document.getElementById('companyNameInput');
+            inputGroup.classList.remove('active');
+            input.value = '';
+            addLog('Форма добавления компании закрыта', 'info');
+        }
+        
+        async function createCompany() {
+            const input = document.getElementById('companyNameInput');
+            const name = input.value.trim();
+            
+            if (!name) {
+                showToast('Пожалуйста, введите название компании', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/companies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name }),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const company = await response.json();
+                    showToast(`Компания '${company.name}' создана!`, 'success');
+                    addLog(`Создана новая компания: ${company.name}`, 'success');
+                    
+                    hideAddCompanyForm();
+                    loadCompanies();
+                } else if (response.status === 409) {
+                    showToast('Компания с таким названием уже существует', 'error');
+                    addLog('Ошибка: Компания уже существует', 'error');
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось создать компанию'}`, 'error');
+                    addLog(`Ошибка создания компании: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+                addLog(`Ошибка сети при создании компании: ${error.message}`, 'error');
+            }
+        }
+        
+        function switchCompany() {
+            const select = document.getElementById('companySelect');
+            const companyId = select.value;
+            
+            if (!companyId) {
+                showToast('Пожалуйста, выберите компанию', 'warning');
+                return;
+            }
+            
+            // Find company name from options
+            const selectedOption = select.options[select.selectedIndex];
+            const companyName = selectedOption.textContent.split(' (')[0];
+            
+            currentCompany.id = companyId;
+            currentCompany.name = companyName;
+            
+            document.getElementById('currentCompanyName').textContent = companyName;
+            document.getElementById('companySelect').value = '';
+            
+            showToast(`Переключились на компанию: ${companyName}`, 'success');
+            addLog(`Выбрана компания: ${companyName}`, 'info');
+            
+            // Reload records for this company
+            loadRecords();
+            loadStatistics();
+        }
+        
+        function showDeleteCompanyModal() {
+            const select = document.getElementById('companySelect');
+            
+            if (currentCompany.id === 'vertex-ar-default') {
+                showToast('Нельзя удалить компанию по умолчанию', 'error');
+                return;
+            }
+            
+            if (currentCompany.id !== 'vertex-ar-default') {
+                selectedCompanyToDelete = currentCompany;
+                const message = document.getElementById('deleteCompanyMessage');
+                message.textContent = `Вы уверены, что хотите удалить компанию "${currentCompany.name}"? Все данные (клиенты, портреты, видео) будут удалены безвозвратно.`;
+                
+                const modal = document.getElementById('deleteCompanyModal');
+                modal.classList.add('active');
+                addLog('Модальное окно удаления компании открыто', 'info');
+            }
+        }
+        
+        function hideDeleteCompanyModal() {
+            const modal = document.getElementById('deleteCompanyModal');
+            modal.classList.remove('active');
+            selectedCompanyToDelete = null;
+            addLog('Модальное окно закрыто', 'info');
+        }
+        
+        async function confirmDeleteCompany() {
+            if (!selectedCompanyToDelete) {
+                showToast('Нет выбранной компании', 'error');
+                return;
+            }
+            
+            if (selectedCompanyToDelete.id === 'vertex-ar-default') {
+                showToast('Нельзя удалить компанию по умолчанию', 'error');
+                hideDeleteCompanyModal();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/companies/${selectedCompanyToDelete.id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showToast(result.message, 'success');
+                    addLog(`Компания удалена: ${selectedCompanyToDelete.name}`, 'success');
+                    
+                    hideDeleteCompanyModal();
+                    
+                    // Reset to default company
+                    currentCompany.id = 'vertex-ar-default';
+                    currentCompany.name = 'Vertex AR';
+                    document.getElementById('currentCompanyName').textContent = 'Vertex AR';
+                    
+                    loadCompanies();
+                    loadRecords();
+                    loadStatistics();
+                } else if (response.status === 403) {
+                    showToast('Нельзя удалить компанию по умолчанию', 'error');
+                    addLog('Ошибка: Попытка удаления компании по умолчанию', 'error');
+                } else {
+                    const error = await response.json();
+                    showToast(`Ошибка: ${error.detail || 'Не удалось удалить компанию'}`, 'error');
+                    addLog(`Ошибка удаления компании: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showToast('Ошибка сети', 'error');
+                addLog(`Ошибка сети при удалении компании: ${error.message}`, 'error');
+            }
+        }
+        
+        // Handle Enter key in company input
+        document.addEventListener('DOMContentLoaded', function() {
+            const companyInput = document.getElementById('companyNameInput');
+            if (companyInput) {
+                companyInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        createCompany();
+                    }
+                });
+            }
+        });
     </script>
     
+    <!-- Delete Company Modal -->
+    <div class="modal" id="deleteCompanyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Удалить компанию</h2>
+                <button class="modal-close" onclick="hideDeleteCompanyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteCompanyMessage">Вы уверены, что хотите удалить компанию? Все данные (клиенты, портреты, видео) будут удалены безвозвратно.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" onclick="hideDeleteCompanyModal()">Отмена</button>
+                <button class="modal-btn confirm" onclick="confirmDeleteCompany()">Удалить</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer style="background-color: var(--light-color); color: var(--text-color); text-align: center; padding: 20px; margin-top: 2rem; border-top: 1px solid var(--border-color);">
         <p>&copy; 2025 Vertex AR. Все права защищены. | Дополненная реальность для вашего бизнеса</p>
     </footer>
-</body>
-</html>
+    </body>
+    </html>

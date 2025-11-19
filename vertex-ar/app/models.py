@@ -141,6 +141,31 @@ class ARContentResponse(BaseModel):
     created_at: str
 
 
+# Company models
+class CompanyCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    
+    @field_validator('name')
+    @classmethod
+    def validate_company_name(cls, v: str) -> str:
+        return validate_name(v)
+
+
+class CompanyResponse(BaseModel):
+    id: str
+    name: str
+    created_at: str
+
+
+class CompanyListItem(CompanyResponse):
+    client_count: int = 0
+
+
+class PaginatedCompaniesResponse(BaseModel):
+    items: List[CompanyListItem]
+    total: int
+
+
 # Client models
 class ClientCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
