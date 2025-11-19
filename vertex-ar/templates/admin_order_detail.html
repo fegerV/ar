@@ -436,9 +436,13 @@
 
         .videos-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 1.5rem;
             margin-bottom: 1rem;
+        }
+
+        .videos-grid.single-video {
+            grid-template-columns: 1fr 2fr 1fr;
         }
 
         .video-card {
@@ -626,6 +630,8 @@
         .delete-order-section {
             grid-column: 1 / -1;
             text-align: center;
+            margin-top: 3rem;
+            margin-bottom: 2rem;
         }
 
         .delete-order-btn {
@@ -642,6 +648,20 @@
 
         .delete-order-btn:hover {
             background-color: #c82333;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav-section {
+            grid-column: 1 / -1;
+            text-align: left;
+            margin-top: 2rem;
+            padding: 1rem 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .bottom-back-btn {
+            display: inline-block;
+            margin-bottom: 2rem;
         }
 
         /* Lightbox */
@@ -918,6 +938,11 @@
             <button class="delete-order-btn" onclick="deleteOrder()">
                 Удалить заказ
             </button>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav-section">
+            <a href="/admin" class="back-btn bottom-back-btn">← Назад</a>
         </div>
     </div>
 
@@ -1305,6 +1330,23 @@
             if (contrast < 90) return '60 ≤ Контраст < 90 → хорошее';
             return 'Контраст ≥ 90 → отличное';
         }
+
+        // Initialize video grid layout
+        function initializeVideoGrid() {
+            const videosGrid = document.getElementById('videosGrid');
+            const videoCards = videosGrid ? videosGrid.querySelectorAll('.video-card') : [];
+            
+            if (videoCards.length === 1) {
+                videosGrid.classList.add('single-video');
+            } else {
+                videosGrid.classList.remove('single-video');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeVideoGrid();
+        });
     </script>
     
     <!-- Footer -->
