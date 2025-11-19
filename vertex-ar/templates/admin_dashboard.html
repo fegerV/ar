@@ -923,28 +923,15 @@
         }
 
         /* Extended Metrics Section */
-        .extended-metrics {
-            background-color: var(--light-color);
-            padding: 1.5rem;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            margin-bottom: 2rem;
-        }
-
-        .extended-metrics h2 {
-            margin-bottom: 1rem;
-            color: var(--text-color);
-        }
-
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
         }
 
         .metric-card {
             background-color: var(--bg-color);
-            padding: 1.5rem;
+            padding: 1rem;
             border-radius: var(--border-radius);
             border: 1px solid var(--border-color);
             transition: all var(--transition-speed);
@@ -956,27 +943,27 @@
         }
 
         .metric-card h3 {
-            font-size: 0.9rem;
+            font-size: 0.75rem;
             color: var(--secondary-color);
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .metric-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: bold;
             color: var(--primary-color);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
 
         .metric-subtitle {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: var(--secondary-color);
         }
 
         .metric-chart {
-            margin-top: 1rem;
+            margin-top: 0.75rem;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -989,14 +976,14 @@
         }
 
         .metric-bar-label {
-            min-width: 100px;
-            font-size: 0.85rem;
+            min-width: 60px;
+            font-size: 0.75rem;
             color: var(--text-color);
         }
 
         .metric-bar-fill {
             flex: 1;
-            height: 24px;
+            height: 20px;
             background-color: var(--border-color);
             border-radius: 4px;
             overflow: hidden;
@@ -1011,7 +998,7 @@
             align-items: center;
             justify-content: flex-end;
             padding-right: 0.5rem;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: white;
             font-weight: bold;
         }
@@ -1167,12 +1154,11 @@
                     <button class="company-btn" style="background-color: var(--secondary-color);" onclick="hideAddCompanyForm()" title="Отменить">✕</button>
                 </div>
             </section>
-        </section>
 
-        <!-- Extended Metrics Section -->
-        <section class="extended-metrics">
-            <h2>📊 Расширенная статистика</h2>
-            <div class="metrics-grid">
+            <!-- Extended Metrics Block -->
+            <div style="margin-top: 2rem;">
+                <h2 style="margin-bottom: 1rem;">📊 Расширенная статистика</h2>
+                <div class="metrics-grid">
                 <div class="metric-card">
                     <h3>Активность просмотров</h3>
                     <div class="metric-value" id="metricTotalViews">0</div>
@@ -1221,6 +1207,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </section>
@@ -1839,8 +1826,9 @@
                     addLog('Ошибка: Компания уже существует', 'error');
                 } else {
                     const error = await response.json();
-                    showToast(`Ошибка: ${error.detail || 'Не удалось создать компанию'}`, 'error');
-                    addLog(`Ошибка создания компании: ${error.detail}`, 'error');
+                    const errorMessage = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail);
+                    showToast(`Ошибка: ${errorMessage || 'Не удалось создать компанию'}`, 'error');
+                    addLog(`Ошибка создания компании: ${errorMessage}`, 'error');
                 }
             } catch (error) {
                 showToast('Ошибка сети', 'error');

@@ -93,7 +93,7 @@ async def create_backup(
     try:
         manager = create_backup_manager()
         
-        logger.info("Creating backup", backup_type=request.type, admin=_admin.get("username"))
+        logger.info("Creating backup", backup_type=request.type, admin=_admin)
         
         if request.type == "database":
             result = manager.backup_database()
@@ -206,7 +206,7 @@ async def restore_backup(
         logger.warning(
             "Restoring from backup",
             backup_path=str(backup_path),
-            admin=_admin.get("username")
+            admin=_admin
         )
         
         # Detect backup type
@@ -255,7 +255,7 @@ async def rotate_backups(
     try:
         manager = create_backup_manager(max_backups=max_backups)
         
-        logger.info("Rotating backups", max_backups=max_backups, admin=_admin.get("username"))
+        logger.info("Rotating backups", max_backups=max_backups, admin=_admin)
         
         removed = manager.rotate_backups()
         
