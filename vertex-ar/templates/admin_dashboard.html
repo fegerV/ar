@@ -915,6 +915,343 @@
             }
         }
 
+        /* Backup Management Section */
+        .backup-management {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .backup-management h2 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .backup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .backup-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .backup-stat-item {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .backup-stat-item .label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .backup-stat-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .backup-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .backup-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .backup-btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .backup-btn.database {
+            background-color: #17a2b8;
+        }
+
+        .backup-btn.database:hover {
+            background-color: #138496;
+        }
+
+        .backup-btn.storage {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .backup-btn.storage:hover {
+            background-color: #e0a800;
+        }
+
+        .backup-btn.full {
+            background-color: var(--success-color);
+        }
+
+        .backup-btn.full:hover {
+            background-color: #218838;
+        }
+
+        .backup-btn.rotate {
+            background-color: var(--warning-color);
+            color: #212529;
+        }
+
+        .backup-btn.rotate:hover {
+            background-color: #e0a800;
+        }
+
+        .backup-btn.list {
+            background-color: var(--secondary-color);
+        }
+
+        .backup-btn.list:hover {
+            background-color: #545b62;
+        }
+
+        .backup-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .backup-list {
+            margin-top: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .backup-list.active {
+            display: block;
+        }
+
+        .backup-item {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition-speed);
+        }
+
+        .backup-item:hover {
+            border-color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .backup-item-info {
+            flex: 1;
+        }
+
+        .backup-item-type {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .backup-item-type.database {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .backup-item-type.storage {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .backup-item-type.full {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .backup-item-details {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+
+        .backup-item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .backup-item-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all var(--transition-speed);
+        }
+
+        .backup-item-btn:hover {
+            background-color: #c82333;
+        }
+
+        .backup-item-btn.restore {
+            background-color: var(--success-color);
+        }
+
+        .backup-item-btn.restore:hover {
+            background-color: #218838;
+        }
+
+        .backup-status {
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .backup-status.success {
+            background-color: rgba(40, 167, 69, 0.1);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            display: block;
+        }
+
+        .backup-status.error {
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            display: block;
+        }
+
+        .backup-status.info {
+            background-color: rgba(23, 162, 184, 0.1);
+            border: 1px solid var(--info-color);
+            color: var(--info-color);
+            display: block;
+        }
+
+        /* Extended Metrics Section */
+        .extended-metrics {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .extended-metrics h2 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background-color: var(--bg-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition-speed);
+        }
+
+        .metric-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .metric-card h3 {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-subtitle {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+        }
+
+        .metric-chart {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metric-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metric-bar-label {
+            min-width: 100px;
+            font-size: 0.85rem;
+            color: var(--text-color);
+        }
+
+        .metric-bar-fill {
+            flex: 1;
+            height: 24px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .metric-bar-value {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
+            font-size: 0.75rem;
+            color: white;
+            font-weight: bold;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
@@ -940,6 +1277,19 @@
 
             .logs-section {
                 display: none;
+            }
+
+            .backup-actions {
+                flex-direction: column;
+            }
+
+            .backup-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -1061,6 +1411,123 @@
             </section>
         </section>
 
+        <!-- Backup Management Section -->
+        <section class="backup-management">
+            <h2>🔒 Управление бэкапами</h2>
+            
+            <!-- Backup Status Message -->
+            <div class="backup-status" id="backupStatus"></div>
+            
+            <!-- Backup Statistics -->
+            <div class="backup-stats">
+                <div class="backup-stat-item">
+                    <div class="label">Database Backups</div>
+                    <div class="value" id="backupDatabaseCount">-</div>
+                </div>
+                <div class="backup-stat-item">
+                    <div class="label">Storage Backups</div>
+                    <div class="value" id="backupStorageCount">-</div>
+                </div>
+                <div class="backup-stat-item">
+                    <div class="label">Full Backups</div>
+                    <div class="value" id="backupFullCount">-</div>
+                </div>
+                <div class="backup-stat-item">
+                    <div class="label">Total Size</div>
+                    <div class="value" id="backupTotalSize">-</div>
+                </div>
+                <div class="backup-stat-item">
+                    <div class="label">Latest Backup</div>
+                    <div class="value" id="backupLatestDate" style="font-size: 1rem;">-</div>
+                </div>
+            </div>
+            
+            <!-- Backup Actions -->
+            <div class="backup-header">
+                <div class="backup-actions">
+                    <button class="backup-btn database" onclick="createBackup('database')">
+                        💾 Database Backup
+                    </button>
+                    <button class="backup-btn storage" onclick="createBackup('storage')">
+                        📁 Storage Backup
+                    </button>
+                    <button class="backup-btn full" onclick="createBackup('full')">
+                        🔄 Full Backup
+                    </button>
+                    <button class="backup-btn list" onclick="toggleBackupList()">
+                        📋 Show Backups
+                    </button>
+                    <button class="backup-btn rotate" onclick="rotateBackups()">
+                        🗑️ Clean Old
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Backup List -->
+            <div class="backup-list" id="backupList">
+                <h3 style="margin-bottom: 1rem; color: var(--text-color);">Доступные бэкапы</h3>
+                <div id="backupListContainer">
+                    <!-- Backup items will be loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Extended Metrics Section -->
+        <section class="extended-metrics">
+            <h2>📊 Расширенная статистика</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Активность просмотров</h3>
+                    <div class="metric-value" id="metricTotalViews">0</div>
+                    <div class="metric-subtitle">Всего просмотров контента</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Средние просмотры</h3>
+                    <div class="metric-value" id="metricAvgViews">0</div>
+                    <div class="metric-subtitle">Просмотров на портрет</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Клиенты всего</h3>
+                    <div class="metric-value" id="metricTotalClients">0</div>
+                    <div class="metric-subtitle">Уникальных клиентов</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Видео контент</h3>
+                    <div class="metric-value" id="metricTotalVideos">0</div>
+                    <div class="metric-subtitle">Всего видео</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Топ портретов</h3>
+                    <div class="metric-chart" id="topPortraitsChart">
+                        <!-- Top portraits will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Использование хранилища</h3>
+                    <div class="metric-value" id="metricStorageSize">0 MB</div>
+                    <div class="metric-chart">
+                        <div class="metric-bar">
+                            <span class="metric-bar-label">Images</span>
+                            <div class="metric-bar-fill">
+                                <div class="metric-bar-value" id="metricImagesBar" style="width: 0%;">0</div>
+                            </div>
+                        </div>
+                        <div class="metric-bar">
+                            <span class="metric-bar-label">Videos</span>
+                            <div class="metric-bar-fill">
+                                <div class="metric-bar-value" id="metricVideosBar" style="width: 0%;">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Create Order Section -->
         <section class="create-order-section collapsed" id="createOrderSection">
             <button class="create-ar-btn" id="createArBtn" onclick="toggleCreateOrder()">
@@ -1169,11 +1636,12 @@
         let selectedCompanyToDelete = null;
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        function initializeDashboard() {
             loadStatistics();
             loadSystemInfo();
             loadRecords();
             loadCompanies();
+            loadBackupStats();
             addLog('Админ панель загружена', 'info');
             
             // Auto-refresh data every 30 seconds
@@ -1181,9 +1649,16 @@
                 loadStatistics();
                 loadSystemInfo();
                 loadCompanies();
+                loadBackupStats();
                 addLog('Данные обновлены автоматически', 'info');
             }, 30000);
-        });
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeDashboard);
+        } else {
+            initializeDashboard();
+        }
 
         // Theme Toggle
         document.getElementById('themeToggle').addEventListener('click', function() {
@@ -1787,6 +2262,338 @@
                 });
             }
         });
+        
+        // ============================================
+        // BACKUP MANAGEMENT FUNCTIONS
+        // ============================================
+        
+        // Load Backup Statistics
+        async function loadBackupStats() {
+            try {
+                const response = await fetch('/backups/stats', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const stats = await response.json();
+                    
+                    document.getElementById('backupDatabaseCount').textContent = stats.database_backups;
+                    document.getElementById('backupStorageCount').textContent = stats.storage_backups;
+                    document.getElementById('backupFullCount').textContent = stats.full_backups;
+                    document.getElementById('backupTotalSize').textContent = stats.total_size_mb + ' MB';
+                    
+                    if (stats.latest_backup) {
+                        const date = new Date(stats.latest_backup.created_at);
+                        document.getElementById('backupLatestDate').textContent = date.toLocaleString('ru-RU');
+                    } else {
+                        document.getElementById('backupLatestDate').textContent = 'Нет бэкапов';
+                    }
+                    
+                    addLog('Статистика бэкапов загружена', 'info');
+                } else {
+                    addLog(`Ошибка загрузки статистики бэкапов: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки статистики бэкапов: ${error.message}`, 'error');
+            }
+        }
+        
+        // Create Backup
+        async function createBackup(type) {
+            const buttons = document.querySelectorAll('.backup-btn');
+            buttons.forEach(btn => btn.disabled = true);
+            
+            showBackupStatus(`Создание ${type} бэкапа...`, 'info');
+            addLog(`Начато создание ${type} бэкапа`, 'info');
+            
+            try {
+                const response = await fetch('/backups/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ type }),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    const backup = result.backup;
+                    
+                    showBackupStatus(
+                        `✓ Бэкап успешно создан! Размер: ${formatBytes(backup.file_size || 0)}`,
+                        'success'
+                    );
+                    showToast('Бэкап успешно создан!', 'success');
+                    addLog(`Бэкап создан: ${backup.type} (${formatBytes(backup.file_size || 0)})`, 'success');
+                    
+                    // Reload stats
+                    setTimeout(() => {
+                        loadBackupStats();
+                        hideBackupStatus();
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
+                    showToast('Ошибка создания бэкапа', 'error');
+                    addLog(`Ошибка создания бэкапа: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
+                showToast('Сетевая ошибка', 'error');
+                addLog(`Сетевая ошибка при создании бэкапа: ${error.message}`, 'error');
+            } finally {
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
+        // Toggle Backup List
+        async function toggleBackupList() {
+            const list = document.getElementById('backupList');
+            
+            if (list.classList.contains('active')) {
+                list.classList.remove('active');
+                addLog('Список бэкапов скрыт', 'info');
+            } else {
+                list.classList.add('active');
+                await loadBackupList();
+            }
+        }
+        
+        // Load Backup List
+        async function loadBackupList() {
+            const container = document.getElementById('backupListContainer');
+            container.innerHTML = '<p style="text-align: center; color: var(--secondary-color);">Загрузка...</p>';
+            
+            try {
+                const response = await fetch('/backups/list?backup_type=all', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const backups = data.backups || [];
+                    
+                    if (backups.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: var(--secondary-color);">Нет доступных бэкапов</p>';
+                        addLog('Нет доступных бэкапов', 'info');
+                        return;
+                    }
+                    
+                    container.innerHTML = '';
+                    backups.forEach(backup => {
+                        const item = document.createElement('div');
+                        item.className = 'backup-item';
+                        
+                        const date = new Date(backup.created_at);
+                        const fileSize = formatBytes(backup.file_size || 0);
+                        
+                        item.innerHTML = `
+                            <div class="backup-item-info">
+                                <div>
+                                    <span class="backup-item-type ${backup.type}">${backup.type}</span>
+                                    <strong>${backup.timestamp}</strong>
+                                </div>
+                                <div class="backup-item-details">
+                                    ${date.toLocaleString('ru-RU')} • ${fileSize}
+                                    ${backup.file_count ? ` • ${backup.file_count} файлов` : ''}
+                                </div>
+                            </div>
+                        `;
+                        
+                        container.appendChild(item);
+                    });
+                    
+                    addLog(`Загружено ${backups.length} бэкапов`, 'info');
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Ошибка загрузки бэкапов</p>';
+                    addLog(`Ошибка загрузки списка бэкапов: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Сетевая ошибка</p>';
+                addLog(`Сетевая ошибка при загрузке бэкапов: ${error.message}`, 'error');
+            }
+        }
+        
+        // Rotate Backups
+        async function rotateBackups() {
+            if (!confirm('Удалить старые бэкапы? Будут оставлены только последние 7.')) {
+                return;
+            }
+            
+            const buttons = document.querySelectorAll('.backup-btn');
+            buttons.forEach(btn => btn.disabled = true);
+            
+            showBackupStatus('Удаление старых бэкапов...', 'info');
+            addLog('Начата ротация бэкапов', 'info');
+            
+            try {
+                const response = await fetch('/backups/rotate', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    const total = result.total_removed || 0;
+                    
+                    showBackupStatus(`✓ Удалено ${total} старых бэкапов`, 'success');
+                    showToast(`Удалено ${total} старых бэкапов`, 'success');
+                    addLog(`Ротация завершена: удалено ${total} бэкапов`, 'success');
+                    
+                    setTimeout(() => {
+                        loadBackupStats();
+                        if (document.getElementById('backupList').classList.contains('active')) {
+                            loadBackupList();
+                        }
+                        hideBackupStatus();
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
+                    showToast('Ошибка ротации бэкапов', 'error');
+                    addLog(`Ошибка ротации: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
+                showToast('Сетевая ошибка', 'error');
+                addLog(`Сетевая ошибка при ротации: ${error.message}`, 'error');
+            } finally {
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
+        // Show/Hide Backup Status
+        function showBackupStatus(message, type) {
+            const status = document.getElementById('backupStatus');
+            status.textContent = message;
+            status.className = `backup-status ${type}`;
+        }
+        
+        function hideBackupStatus() {
+            const status = document.getElementById('backupStatus');
+            status.className = 'backup-status';
+        }
+        
+        // Format Bytes Helper
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // ============================================
+        // EXTENDED METRICS FUNCTIONS
+        // ============================================
+        
+        // Load Extended Metrics
+        async function loadExtendedMetrics() {
+            try {
+                const response = await fetch('/portraits/admin/list-with-preview', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const portraits = data.portraits || [];
+                    
+                    // Calculate metrics
+                    const totalViews = portraits.reduce((sum, p) => sum + (p.view_count || 0), 0);
+                    const avgViews = portraits.length > 0 ? Math.round(totalViews / portraits.length) : 0;
+                    
+                    // Count unique clients
+                    const uniqueClients = new Set(portraits.map(p => p.client_id)).size;
+                    
+                    // Count total videos
+                    let totalVideos = 0;
+                    portraits.forEach(p => {
+                        if (p.videos && Array.isArray(p.videos)) {
+                            totalVideos += p.videos.length;
+                        }
+                    });
+                    
+                    // Update metrics
+                    document.getElementById('metricTotalViews').textContent = totalViews;
+                    document.getElementById('metricAvgViews').textContent = avgViews;
+                    document.getElementById('metricTotalClients').textContent = uniqueClients;
+                    document.getElementById('metricTotalVideos').textContent = totalVideos;
+                    
+                    // Top portraits by views
+                    const topPortraits = [...portraits]
+                        .filter(p => p.view_count > 0)
+                        .sort((a, b) => b.view_count - a.view_count)
+                        .slice(0, 5);
+                    
+                    const maxViews = topPortraits.length > 0 ? topPortraits[0].view_count : 1;
+                    const chartContainer = document.getElementById('topPortraitsChart');
+                    chartContainer.innerHTML = '';
+                    
+                    if (topPortraits.length === 0) {
+                        chartContainer.innerHTML = '<p style="font-size: 0.85rem; color: var(--secondary-color); text-align: center;">Нет данных</p>';
+                    } else {
+                        topPortraits.forEach(portrait => {
+                            const bar = document.createElement('div');
+                            bar.className = 'metric-bar';
+                            const width = Math.max((portrait.view_count / maxViews) * 100, 10);
+                            
+                            bar.innerHTML = `
+                                <span class="metric-bar-label">${portrait.client_name.substring(0, 10)}</span>
+                                <div class="metric-bar-fill">
+                                    <div class="metric-bar-value" style="width: ${width}%;">${portrait.view_count}</div>
+                                </div>
+                            `;
+                            chartContainer.appendChild(bar);
+                        });
+                    }
+                    
+                    // Load storage info
+                    await loadStorageMetrics();
+                    
+                    addLog('Расширенные метрики загружены', 'info');
+                } else {
+                    addLog(`Ошибка загрузки метрик: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Ошибка загрузки метрик: ${error.message}`, 'error');
+            }
+        }
+        
+        // Load Storage Metrics
+        async function loadStorageMetrics() {
+            try {
+                const response = await fetch('/admin/system-info', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const info = await response.json();
+                    
+                    if (info.storage_info) {
+                        const totalSize = info.storage_info.total_size || '0 MB';
+                        document.getElementById('metricStorageSize').textContent = totalSize;
+                        
+                        // Estimate image/video split (simplified)
+                        const imageCount = info.storage_info.image_count || 0;
+                        const videoCount = info.storage_info.video_count || 0;
+                        const total = imageCount + videoCount;
+                        
+                        if (total > 0) {
+                            const imagePercent = Math.round((imageCount / total) * 100);
+                            const videoPercent = 100 - imagePercent;
+                            
+                            document.getElementById('metricImagesBar').style.width = imagePercent + '%';
+                            document.getElementById('metricImagesBar').textContent = imageCount;
+                            document.getElementById('metricVideosBar').style.width = videoPercent + '%';
+                            document.getElementById('metricVideosBar').textContent = videoCount;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading storage metrics:', error);
+            }
+        }
     </script>
     
     <!-- Delete Company Modal -->
