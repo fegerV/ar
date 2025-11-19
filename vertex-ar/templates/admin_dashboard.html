@@ -697,6 +697,14 @@
         .company-header h2 {
             color: var(--text-color);
             margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .company-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         .company-selector {
@@ -1134,18 +1142,14 @@
             <!-- Company Management Block -->
             <section class="company-management" id="companyManagement">
                 <div class="company-header">
-                    <h2>Компания</h2>
-                </div>
-
-                <div class="company-selector">
-                    <div class="company-display">
-                        <span class="company-name" id="currentCompanyName">Vertex AR</span>
+                    <h2 style="font-size: 1.5rem; margin: 0;">Компания <span id="currentCompanyName">Vertex AR</span></h2>
+                    <div class="company-controls">
+                        <select class="company-select" id="companySelect" onchange="switchCompany()">
+                            <option value="">Select Company...</option>
+                        </select>
+                        <button class="company-btn" id="addCompanyBtn" onclick="showAddCompanyForm()" title="Добавить компанию">+</button>
+                        <button class="company-btn delete" id="deleteCompanyBtn" onclick="showDeleteCompanyModal()" title="Удалить компанию">🗑</button>
                     </div>
-                    <select class="company-select" id="companySelect" onchange="switchCompany()">
-                        <option value="">Select Company...</option>
-                    </select>
-                    <button class="company-btn" id="addCompanyBtn" onclick="showAddCompanyForm()" title="Добавить компанию">+</button>
-                    <button class="company-btn delete" id="deleteCompanyBtn" onclick="showDeleteCompanyModal()" title="Удалить компанию">🗑</button>
                 </div>
 
                 <div class="company-input-group" id="companyInputGroup">
@@ -1422,7 +1426,9 @@
         async function loadStatistics() {
             try {
                 // Load portraits data for statistics
-                const portraitsResponse = await fetch('/portraits/admin/list-with-preview', {
+                const companyId = currentCompany.id || '';
+                const portraitsUrl = companyId ? `/portraits/admin/list-with-preview?company_id=${companyId}` : '/portraits/admin/list-with-preview';
+                const portraitsResponse = await fetch(portraitsUrl, {
                     credentials: 'include'
                 });
                 if (portraitsResponse.ok) {
@@ -1447,6 +1453,8 @@
                         const systemInfo = await systemResponse.json();
                         document.getElementById('storageUsed').textContent = systemInfo.storage_info.total_size;
                     }
+                    
+                    addLog(`Статистика загружена для компании "${currentCompany.name}": ${portraits.length} записей`, 'info');
                 }
             } catch (error) {
                 addLog(`Ошибка загрузки статистики: ${error.message}`, 'error');
@@ -1499,7 +1507,9 @@
         // Load Records
         async function loadRecords() {
             try {
-                const response = await fetch('/portraits/admin/list-with-preview', {
+                const companyId = currentCompany.id || '';
+                const url = companyId ? `/portraits/admin/list-with-preview?company_id=${companyId}` : '/portraits/admin/list-with-preview';
+                const response = await fetch(url, {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -1507,7 +1517,7 @@
                     // Handle different response formats
                     allRecords = data.portraits || data || [];
                     displayRecords();
-                    addLog(`Загружено ${allRecords.length} записей`, 'info');
+                    addLog(`Загружено ${allRecords.length} записей для компании "${currentCompany.name}"`, 'info');
                 } else {
                     addLog(`Ошибка загрузки записей: ${response.status}`, 'error');
                 }

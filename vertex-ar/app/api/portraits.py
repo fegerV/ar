@@ -213,6 +213,7 @@ async def list_portraits_legacy(
 
 @router.get("/admin/list-with-preview")
 async def list_portraits_with_preview(
+    company_id: Optional[str] = None,
     _: str = Depends(require_admin)
 ) -> Dict[str, Any]:
     """Get all portraits with preview images and video info for admin dashboard."""
@@ -220,8 +221,19 @@ async def list_portraits_with_preview(
     logger = get_logger(__name__)
     
     database = get_database()
-    portraits = database.list_portraits()
-    logger.info(f"Loading {len(portraits)} portraits with previews")
+    
+    # Get clients for the specified company
+    if company_id:
+        clients = database.list_clients(company_id=company_id)
+        client_ids = [client["id"] for client in clients]
+        portraits = []
+        for client_id in client_ids:
+            client_portraits = database.list_portraits(client_id=client_id)
+            portraits.extend(client_portraits)
+    else:
+        portraits = database.list_portraits()
+    
+    logger.info(f"Loading {len(portraits)} portraits with previews for company {company_id or 'all'}")
     
     result = []
     for portrait in portraits:

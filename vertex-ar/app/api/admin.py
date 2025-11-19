@@ -488,10 +488,24 @@ async def admin_logout(request: Request) -> RedirectResponse:
 
 
 @router.get("/content-stats")
-async def get_content_stats(_: str = Depends(require_admin)) -> List[Dict[str, Any]]:
+async def get_content_stats(
+    company_id: Optional[str] = None,
+    _: str = Depends(require_admin)
+) -> List[Dict[str, Any]]:
     """Return aggregated AR content statistics for the admin dashboard."""
     database = get_database()
-    records = database.list_ar_content()
+    
+    # Get portraits for the specified company
+    if company_id:
+        clients = database.list_clients(company_id=company_id)
+        client_ids = [client["id"] for client in clients]
+        records = []
+        for client_id in client_ids:
+            client_records = database.list_ar_content(client_id)
+            records.extend(client_records)
+    else:
+        records = database.list_ar_content()
+    
     stats: List[Dict[str, Any]] = []
     for record in records:
         stats.append({
