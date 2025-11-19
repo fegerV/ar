@@ -871,3 +871,15 @@ def ensure_default_admin_user(database: "Database") -> None:
         email=email,
         full_name=full_name,
     )
+
+
+def ensure_default_company(database: "Database") -> None:
+    """Ensure the default company exists."""
+    # Check if default company exists
+    existing = database.get_company("vertex-ar-default")
+    if not existing:
+        try:
+            database.create_company("vertex-ar-default", "Vertex AR")
+            logger.info("Created default company: Vertex AR")
+        except Exception as exc:
+            logger.error(f"Failed to create default company: {exc}")

@@ -267,6 +267,38 @@
             transform: none;
         }
 
+        .backup-progress {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--success-color);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+            width: 0%;
+        }
+
         .backup-list {
             margin-top: 1.5rem;
             max-height: 600px;
@@ -285,6 +317,9 @@
             border: 1px solid var(--border-color);
             margin-bottom: 0.75rem;
             transition: all var(--transition-speed);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .backup-item:hover {
@@ -294,6 +329,27 @@
 
         .backup-item-info {
             flex: 1;
+        }
+
+        .backup-item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .backup-delete-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all var(--transition-speed);
+        }
+
+        .backup-delete-btn:hover {
+            background-color: #c82333;
+            transform: scale(1.1);
         }
 
         .backup-item-type {
@@ -423,6 +479,17 @@
             <!-- Backup Status Message -->
             <div class="backup-status" id="backupStatus"></div>
             
+            <!-- Backup Progress -->
+            <div class="backup-progress" id="backupProgress" style="display: none;">
+                <div class="progress-label">
+                    <span id="progressText">Создание бэкапа...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            
             <!-- Backup Statistics -->
             <div class="backup-stats">
                 <div class="backup-stat-item">
@@ -536,7 +603,25 @@
             const buttons = document.querySelectorAll('.backup-btn');
             buttons.forEach(btn => btn.disabled = true);
             
-            showBackupStatus(`Создание ${type} бэкапа...`, 'info');
+            // Show progress bar
+            const progressDiv = document.getElementById('backupProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progressPercent = document.getElementById('progressPercent');
+            
+            progressDiv.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressText.textContent = `Создание ${type} бэкапа...`;
+            progressPercent.textContent = '0%';
+            
+            // Simulate progress (since we don't have real progress from the API)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90; // Don't reach 100% until complete
+                progressFill.style.width = progress + '%';
+                progressPercent.textContent = Math.round(progress) + '%';
+            }, 500);
             
             try {
                 const response = await fetch('/backups/create', {
@@ -548,25 +633,38 @@
                     credentials: 'include'
                 });
                 
+                clearInterval(progressInterval);
+                
+                // Complete progress
+                progressFill.style.width = '100%';
+                progressPercent.textContent = '100%';
+                progressText.textContent = `${type} бэкап создан!`;
+                
                 if (response.ok) {
                     const result = await response.json();
                     const backup = result.backup;
                     
-                    showBackupStatus(
-                        `✓ Бэкап успешно создан! Размер: ${formatBytes(backup.file_size || 0)}`,
-                        'success'
-                    );
-                    
-                    // Reload stats
                     setTimeout(() => {
-                        loadBackupStats();
-                        hideBackupStatus();
-                    }, 3000);
+                        progressDiv.style.display = 'none';
+                        showBackupStatus(
+                            `✓ Бэкап успешно создан! Размер: ${formatBytes(backup.file_size || 0)}`,
+                            'success'
+                        );
+                        
+                        // Reload stats
+                        setTimeout(() => {
+                            loadBackupStats();
+                            hideBackupStatus();
+                        }, 3000);
+                    }, 1000);
                 } else {
                     const error = await response.json();
+                    progressDiv.style.display = 'none';
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
                 }
             } catch (error) {
+                clearInterval(progressInterval);
+                progressDiv.style.display = 'none';
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
             } finally {
                 buttons.forEach(btn => btn.disabled = false);
@@ -623,6 +721,11 @@
                                     ${backup.file_count ? ` • ${backup.file_count} файлов` : ''}
                                 </div>
                             </div>
+                            <div class="backup-item-actions">
+                                <button class="backup-delete-btn" onclick="deleteBackup('${backup.backup_path}', '${backup.timestamp}')" title="Удалить бэкап">
+                                    🗑️
+                                </button>
+                            </div>
                         `;
                         
                         container.appendChild(item);
@@ -632,6 +735,34 @@
                 }
             } catch (error) {
                 container.innerHTML = '<p style="text-align: center; color: var(--danger-color);">Сетевая ошибка</p>';
+            }
+        }
+        
+        // Delete Backup
+        async function deleteBackup(backupPath, timestamp) {
+            if (!confirm(`Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/backups/delete?backup_path=${encodeURIComponent(backupPath)}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showBackupStatus('✓ Бэкап успешно удален', 'success');
+                    // Reload backup list
+                    await loadBackupList();
+                    // Reload stats
+                    await loadBackupStats();
+                    setTimeout(() => hideBackupStatus(), 3000);
+                } else {
+                    const error = await response.json();
+                    showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
             }
         }
         

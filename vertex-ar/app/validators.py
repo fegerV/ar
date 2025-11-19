@@ -113,7 +113,8 @@ def validate_name(name: str, min_length: int = 1, max_length: int = 150) -> str:
         raise ValueError(f"Name must not exceed {max_length} characters")
     
     # Name should not contain only special characters
-    if not re.search(r'[a-zA-Z0-9]', name):
+    # Check for any Unicode letter or number using \w with Unicode flag
+    if not re.search(r'\w', name, re.UNICODE):
         raise ValueError("Name must contain at least one alphanumeric character")
     
     return name

@@ -269,3 +269,44 @@ async def rotate_backups(
     except Exception as e:
         logger.error("Failed to rotate backups", error=str(e), exc_info=e)
         raise HTTPException(status_code=500, detail=f"Failed to rotate backups: {str(e)}")
+
+
+@router.delete("/delete")
+async def delete_backup(
+    backup_path: str,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Delete a specific backup file.
+    
+    Requires admin authentication.
+    """
+    try:
+        manager = create_backup_manager()
+        
+        # Validate backup path exists and is within backup directory
+        backup_file = Path(backup_path)
+        if not backup_file.exists():
+            raise HTTPException(status_code=404, detail="Backup file not found")
+        
+        # Ensure the backup is within the backup directory (security check)
+        backup_dir = Path(manager.backup_dir)
+        if not str(backup_file.resolve()).startswith(str(backup_dir.resolve())):
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+        
+        logger.info("Deleting backup", backup_path=str(backup_file), admin=_admin)
+        
+        # Delete the backup file
+        backup_file.unlink()
+        
+        return {
+            "success": True,
+            "message": "Backup deleted successfully",
+            "backup_path": str(backup_file)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to delete backup", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to delete backup: {str(e)}")
