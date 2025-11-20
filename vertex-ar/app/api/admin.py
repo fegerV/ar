@@ -1,11 +1,15 @@
 """
 Admin panel endpoints for Vertex AR API.
 """
+import os
+import platform
+import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -20,6 +24,120 @@ from nft_marker_generator import analyze_image
 from utils import format_bytes, get_disk_usage, get_storage_usage
 
 logger = get_logger(__name__)
+
+
+def _format_duration(seconds: float) -> str:
+    seconds_int = int(seconds)
+    days, remainder = divmod(seconds_int, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts: List[str] = []
+    if days:
+        parts.append(f"{days}д")
+    if hours or days:
+        parts.append(f"{hours}ч")
+    if minutes or hours or days:
+        parts.append(f"{minutes}м")
+    parts.append(f"{secs}с")
+    return " ".join(parts)
+
+
+def _get_uptime_seconds() -> Optional[float]:
+    try:
+        with open("/proc/uptime", "r", encoding="utf-8") as uptime_file:
+            return float(uptime_file.readline().split()[0])
+    except (FileNotFoundError, ValueError, IndexError):
+        return None
+
+
+def _get_memory_info() -> Optional[Dict[str, float]]:
+    try:
+        info: Dict[str, int] = {}
+        with open("/proc/meminfo", "r", encoding="utf-8") as meminfo:
+            for line in meminfo:
+                parts = line.split()
+                if len(parts) >= 2:
+                    key = parts[0].rstrip(":")
+                    info[key] = int(parts[1])
+        total = info.get("MemTotal")
+        available = info.get("MemAvailable") or info.get("MemFree")
+        if not total or not available:
+            return None
+        used = total - available
+        return {
+            "total": float(total) * 1024,
+            "used": float(used) * 1024,
+            "percent": (used / total) * 100,
+        }
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def _get_cpu_percent() -> float:
+    try:
+        load_avg = os.getloadavg()[0]
+        cores = os.cpu_count() or 1
+        return max(0.0, min(100.0, (load_avg / cores) * 100))
+    except (AttributeError, OSError):
+        return 0.0
+
+
+def _build_public_url(path: Optional[str]) -> str:
+    if not path:
+        return ""
+    path_str = str(path)
+    if path_str.startswith(("http://", "https://", "data:")):
+        return path_str
+    app = get_current_app()
+    base_url = app.state.config["BASE_URL"]
+    storage_root = Path(app.state.config["STORAGE_ROOT"])
+    try:
+        path_obj = Path(path_str)
+        if path_obj.is_absolute():
+            relative_path = path_obj.relative_to(storage_root)
+        else:
+            relative_path = path_obj
+        return f"{base_url}/storage/{relative_path.as_posix().lstrip('/')}"
+    except Exception:
+        return f"{base_url}/{path_str.lstrip('/')}"
+
+
+def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[Dict[str, Any]]:
+    serialized: List[Dict[str, Any]] = []
+    total = max(total_count, len(records)) or 1
+    base_url = get_current_app().state.config["BASE_URL"]
+    for idx, record in enumerate(records):
+        order_position = total - idx
+        image_source = record.get("image_preview_path") or record.get("image_path")
+        video_preview = record.get("video_preview_path")
+        serialized.append({
+            "id": record.get("portrait_id"),
+            "order_number": f"{max(order_position, 1):06d}",
+            "client_id": record.get("client_id"),
+            "client_name": record.get("client_name"),
+            "client_phone": record.get("client_phone"),
+            "company_id": record.get("company_id"),
+            "portrait_path": _build_public_url(image_source),
+            "active_video_id": record.get("video_id"),
+            "active_video_url": _build_public_url(record.get("video_path")),
+            "active_video_preview": _build_public_url(video_preview),
+            "video_description": record.get("video_description"),
+            "views": record.get("view_count", 0),
+            "created_at": record.get("created_at"),
+            "permanent_link": record.get("permanent_link"),
+            "permanent_url": f"{base_url}/portrait/{record.get('permanent_link')}",
+            "qr_code": f"data:image/png;base64,{record.get('qr_code')}" if record.get("qr_code") else None,
+        })
+    return serialized
+
+
+def _ensure_company_exists(database: Database, company_id: Optional[str]) -> None:
+    if company_id:
+        company = database.get_company(company_id)
+        if not company:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Компания не найдена")
+
+
 router = APIRouter()
 
 
@@ -455,25 +573,141 @@ async def upload_ar_content_admin(
 
 @router.get("/system-info")
 async def get_system_info(_: str = Depends(require_admin)) -> Dict[str, Any]:
-    """Return disk and storage usage information for admin dashboard."""
+    """Return extended system metrics for the admin dashboard."""
     app = get_current_app()
     storage_root = app.state.config["STORAGE_ROOT"]
     disk_usage = get_disk_usage(str(storage_root))
     storage_usage = get_storage_usage(str(storage_root))
+    uptime_seconds = _get_uptime_seconds()
+    memory_info = _get_memory_info()
+    cpu_percent = _get_cpu_percent()
     return {
-        "disk_info": {
-            "total": format_bytes(disk_usage["total"]),
-            "used": format_bytes(disk_usage["used"]),
-            "free": format_bytes(disk_usage["free"]),
-            "used_percent": disk_usage["used_percent"],
-            "free_percent": disk_usage["free_percent"],
-        },
+        "version": app.state.config["VERSION"],
+        "uptime": _format_duration(uptime_seconds) if uptime_seconds else "N/A",
+        "uptime_seconds": uptime_seconds,
+        "memory_usage": (
+            f"{format_bytes(memory_info['used'])} / {format_bytes(memory_info['total'])}"
+            if memory_info else "N/A"
+        ),
+        "memory_percent": round(memory_info["percent"], 2) if memory_info else None,
+        "disk_usage": f"{format_bytes(disk_usage['used'])} / {format_bytes(disk_usage['total'])}",
+        "disk_percent": disk_usage["used_percent"],
+        "cpu_usage": f"{cpu_percent:.1f}%",
+        "cpu_percent": cpu_percent,
+        "cpu_cores": os.cpu_count() or 1,
+        "hostname": platform.node(),
+        "platform": platform.platform(),
         "storage_info": {
             "total_size": storage_usage["formatted_size"],
             "file_count": storage_usage["file_count"],
             "path": str(storage_root),
+            "used_percent": disk_usage["used_percent"],
+            "free_percent": disk_usage["free_percent"],
         },
     }
+
+
+@router.get("/stats")
+async def get_dashboard_stats(
+    company_id: Optional[str] = None,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Return aggregated statistics for the dashboard."""
+    database = get_database()
+    _ensure_company_exists(database, company_id)
+    total_portraits = database.count_portraits(company_id=company_id)
+    storage_root = get_current_app().state.config["STORAGE_ROOT"]
+    disk_usage = get_disk_usage(str(storage_root))
+    storage_usage = get_storage_usage(str(storage_root))
+    storage_percent = 0.0
+    if disk_usage["total"]:
+        storage_percent = min(100.0, round((storage_usage["total_size"] / disk_usage["total"]) * 100, 2))
+    return {
+        "company_id": company_id,
+        "total_clients": database.count_clients(company_id=company_id),
+        "total_portraits": total_portraits,
+        "total_videos": database.count_videos(company_id=company_id),
+        "total_orders": total_portraits,
+        "active_portraits": database.count_active_portraits(company_id=company_id),
+        "total_views": database.sum_portrait_views(company_id=company_id),
+        "storage_used": storage_usage["formatted_size"],
+        "storage_available": format_bytes(disk_usage["free"]),
+        "storage_usage_percent": storage_percent,
+    }
+
+
+@router.get("/records")
+async def list_dashboard_records(
+    company_id: Optional[str] = None,
+    limit: int = 250,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Return portrait records for the dashboard table."""
+    database = get_database()
+    _ensure_company_exists(database, company_id)
+    safe_limit = max(10, min(limit, 1000))
+    records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit)
+    total_portraits = database.count_portraits(company_id=company_id)
+    return {
+        "records": _serialize_records(records_raw, total_portraits),
+        "total": total_portraits,
+    }
+
+
+@router.get("/search")
+async def search_dashboard_records(
+    q: str,
+    company_id: Optional[str] = None,
+    limit: int = 100,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Search records by client name, phone or identifiers."""
+    if not q.strip():
+        return {"results": []}
+    database = get_database()
+    _ensure_company_exists(database, company_id)
+    safe_limit = max(10, min(limit, 500))
+    records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit, search=q.strip())
+    total_portraits = database.count_portraits(company_id=company_id)
+    return {"results": _serialize_records(records_raw, total_portraits)}
+
+
+@router.delete("/records/{portrait_id}")
+async def delete_dashboard_record(
+    portrait_id: str,
+    _: str = Depends(require_admin)
+) -> Dict[str, str]:
+    """Remove portrait along with associated files for dashboard actions."""
+    database = get_database()
+    portrait = database.get_portrait(portrait_id)
+    if not portrait:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
+    app = get_current_app()
+    storage_root = Path(app.state.config["STORAGE_ROOT"])
+    client_id = portrait.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Для записи не найден клиент")
+    portrait_storage = storage_root / "portraits" / client_id / portrait_id
+    try:
+        if portrait_storage.exists():
+            shutil.rmtree(portrait_storage)
+    except OSError as exc:
+        logger.warning("Failed to remove portrait storage %s: %s", portrait_storage, exc)
+    marker_paths = [portrait.get("marker_fset"), portrait.get("marker_fset3"), portrait.get("marker_iset")]
+    for marker_path in marker_paths:
+        if not marker_path:
+            continue
+        try:
+            marker_obj = Path(marker_path)
+            if not marker_obj.is_absolute():
+                marker_obj = storage_root / marker_obj
+            if marker_obj.exists():
+                marker_obj.unlink()
+        except OSError as exc:
+            logger.warning("Failed to remove marker file %s: %s", marker_path, exc)
+    if not database.delete_portrait(portrait_id):
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Не удалось удалить запись")
+    return {"message": "Запись удалена"}
 
 
 @router.get("/logout")

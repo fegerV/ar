@@ -790,6 +790,111 @@ class Database:
         cursor = self._execute("DELETE FROM videos WHERE id = ?", (video_id,))
         return cursor.rowcount > 0
     
+    # Dashboard/statistics helpers
+    def count_portraits(self, company_id: Optional[str] = None) -> int:
+        """Count portraits with optional company filter."""
+        query = "SELECT COUNT(*) as count FROM portraits"
+        params: List[Any] = []
+        if company_id:
+            query += " WHERE client_id IN (SELECT id FROM clients WHERE company_id = ?)"
+            params.append(company_id)
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row["count"] if row else 0
+    
+    def count_videos(self, company_id: Optional[str] = None) -> int:
+        """Count videos with optional company filter."""
+        query = "SELECT COUNT(*) as count FROM videos"
+        params: List[Any] = []
+        if company_id:
+            query += (
+                " WHERE portrait_id IN ("
+                "SELECT id FROM portraits WHERE client_id IN ("
+                "SELECT id FROM clients WHERE company_id = ?"
+                ")"
+                ")"
+            )
+            params.append(company_id)
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row["count"] if row else 0
+    
+    def count_active_portraits(self, company_id: Optional[str] = None) -> int:
+        """Count portraits that have an active video."""
+        query = (
+            "SELECT COUNT(DISTINCT portraits.id) as count "
+            "FROM portraits "
+            "JOIN videos ON videos.portrait_id = portraits.id AND videos.is_active = 1 "
+            "JOIN clients ON clients.id = portraits.client_id"
+        )
+        params: List[Any] = []
+        if company_id:
+            query += " WHERE clients.company_id = ?"
+            params.append(company_id)
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row["count"] if row else 0
+    
+    def sum_portrait_views(self, company_id: Optional[str] = None) -> int:
+        """Sum view counts for portraits with optional company filter."""
+        query = "SELECT COALESCE(SUM(view_count), 0) as total FROM portraits"
+        params: List[Any] = []
+        if company_id:
+            query += " WHERE client_id IN (SELECT id FROM clients WHERE company_id = ?)"
+            params.append(company_id)
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row["total"] if row else 0
+    
+    def get_admin_records(
+        self,
+        company_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        search: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return portrait records with client info and active video details."""
+        base_query = [
+            "SELECT",
+            "    portraits.id AS portrait_id,",
+            "    portraits.client_id AS client_id,",
+            "    portraits.image_path AS image_path,",
+            "    portraits.image_preview_path AS image_preview_path,",
+            "    portraits.permanent_link AS permanent_link,",
+            "    portraits.qr_code AS qr_code,",
+            "    portraits.view_count AS view_count,",
+            "    portraits.created_at AS created_at,",
+            "    clients.name AS client_name,",
+            "    clients.phone AS client_phone,",
+            "    clients.company_id AS company_id,",
+            "    videos.id AS video_id,",
+            "    videos.video_path AS video_path,",
+            "    videos.video_preview_path AS video_preview_path,",
+            "    videos.description AS video_description",
+            "FROM portraits",
+            "JOIN clients ON clients.id = portraits.client_id",
+            "LEFT JOIN videos ON videos.portrait_id = portraits.id AND videos.is_active = 1",
+        ]
+        params: List[Any] = []
+        filters: List[str] = []
+        if company_id:
+            filters.append("clients.company_id = ?")
+            params.append(company_id)
+        if search:
+            search_like = f"%{search.lower()}%"
+            filters.append(
+                "(LOWER(clients.name) LIKE ? OR clients.phone LIKE ? OR LOWER(portraits.permanent_link) LIKE ? OR LOWER(portraits.id) LIKE ?)"
+            )
+            params.extend([search_like, f"%{search}%", search_like, search_like])
+        query = " ".join(base_query)
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY portraits.created_at DESC"
+        if limit:
+            query += " LIMIT ?"
+            params.append(limit)
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+    
     # Company methods
     def create_company(self, company_id: str, name: str) -> None:
         """Create a new company."""
