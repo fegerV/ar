@@ -1,0 +1,13 @@
+[Unit]
+Description=Vertex AR Daily Backup Timer
+Requires=vertex-ar-backup.service
+
+[Timer]
+# Run daily at 2:00 AM
+OnCalendar=daily
+OnCalendar=02:00
+# If the system was down at the scheduled time, run on next boot
+Persistent=true
+
+[Install]
+WantedBy=timers.target

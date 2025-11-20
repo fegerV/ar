@@ -226,6 +226,28 @@ def create_app() -> FastAPI:
             asyncio.create_task(weekly_report_generator.start_weekly_report_scheduler())
             logger.info("Weekly report scheduler started")
     
+    # Start automated backup scheduler
+    @app.on_event("startup")
+    async def start_backup_scheduler():
+        """Start automated backup scheduler."""
+        try:
+            from backup_scheduler import start_backup_scheduler as init_backup_scheduler
+            scheduler = init_backup_scheduler()
+            app.state.backup_scheduler = scheduler
+            logger.info("Automated backup scheduler started")
+        except Exception as e:
+            logger.error("Failed to start backup scheduler", error=str(e), exc_info=e)
+    
+    @app.on_event("shutdown")
+    async def stop_backup_scheduler():
+        """Stop automated backup scheduler."""
+        try:
+            if hasattr(app.state, "backup_scheduler"):
+                app.state.backup_scheduler.stop()
+                logger.info("Automated backup scheduler stopped")
+        except Exception as e:
+            logger.error("Failed to stop backup scheduler", error=str(e), exc_info=e)
+    
     # Store global app instance
     _app_instance = app
     

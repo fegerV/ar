@@ -348,6 +348,27 @@
             transform: scale(1.1);
         }
 
+        .backup-restore-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all var(--transition-speed);
+        }
+
+        .backup-restore-btn:hover {
+            background-color: #218838;
+            transform: scale(1.1);
+        }
+
+        .backup-restore-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .backup-item-type {
             display: inline-block;
             padding: 0.25rem 0.75rem;
@@ -553,6 +574,14 @@
                 </div>
             </div>
             
+            <!-- Automated Backup Schedule -->
+            <div style="background-color: var(--bg-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); margin-bottom: 1rem;">
+                <h3 style="margin-bottom: 0.5rem; color: var(--text-color); font-size: 1.1rem;">🤖 Автоматическое архивирование</h3>
+                <div id="backupScheduleInfo" style="font-size: 0.9rem; color: var(--text-color);">
+                    <p>Загрузка расписания...</p>
+                </div>
+            </div>
+            
             <!-- Backup Actions -->
             <div class="backup-actions">
                 <button class="backup-btn database" onclick="createBackup('database')">
@@ -669,6 +698,66 @@
             }
         }
         
+        // Load Backup Schedule
+        async function loadBackupSchedule() {
+            try {
+                const response = await fetch('/backups/schedule', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const scheduleDiv = document.getElementById('backupScheduleInfo');
+                    
+                    if (data.scheduler_running) {
+                        let html = '<p style="color: var(--success-color); margin-bottom: 0.5rem;">✓ Планировщик работает</p>';
+                        html += '<div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem;">';
+                        
+                        // Show schedules
+                        const schedules = data.schedules;
+                        if (schedules.database !== 'disabled') {
+                            html += `<strong>Database:</strong><span>${schedules.database}</span>`;
+                        }
+                        if (schedules.storage !== 'disabled') {
+                            html += `<strong>Storage:</strong><span>${schedules.storage}</span>`;
+                        }
+                        if (schedules.full !== 'disabled') {
+                            html += `<strong>Full:</strong><span>${schedules.full}</span>`;
+                        }
+                        if (schedules.rotation !== 'disabled') {
+                            html += `<strong>Rotation:</strong><span>${schedules.rotation}</span>`;
+                        }
+                        
+                        html += '</div>';
+                        
+                        // Show next run times
+                        if (data.jobs && Object.keys(data.jobs).length > 0) {
+                            html += '<p style="margin-top: 0.75rem; margin-bottom: 0.25rem;"><strong>Следующие запуски:</strong></p>';
+                            html += '<div style="font-size: 0.85rem; color: var(--secondary-color);">';
+                            
+                            for (const [jobId, jobInfo] of Object.entries(data.jobs)) {
+                                if (jobInfo.next_run) {
+                                    const nextRun = new Date(jobInfo.next_run);
+                                    html += `<div>• ${jobInfo.name}: ${nextRun.toLocaleString('ru-RU')}</div>`;
+                                }
+                            }
+                            
+                            html += '</div>';
+                        }
+                        
+                        scheduleDiv.innerHTML = html;
+                    } else {
+                        scheduleDiv.innerHTML = '<p style="color: var(--warning-color);">⚠️ Планировщик не запущен. Автоматические бэкапы отключены.</p>';
+                    }
+                } else {
+                    document.getElementById('backupScheduleInfo').innerHTML = '<p style="color: var(--danger-color);">Ошибка загрузки расписания</p>';
+                }
+            } catch (error) {
+                document.getElementById('backupScheduleInfo').innerHTML = '<p style="color: var(--danger-color);">Сетевая ошибка</p>';
+                console.error('Ошибка загрузки расписания:', error);
+            }
+        }
+        
         // Create Backup
         async function createBackup(type) {
             const buttons = document.querySelectorAll('.backup-btn');
@@ -773,6 +862,14 @@
                         const date = new Date(backup.created_at);
                         const fileSize = formatBytes(backup.file_size || 0);
                         
+                        // Prepare restore button (disabled for full backups as they need special handling)
+                        const canRestore = backup.backup_path && backup.type !== 'full';
+                        const restoreBtn = canRestore 
+                            ? `<button class="backup-restore-btn" onclick="restoreBackup('${backup.backup_path}', '${backup.type}', '${backup.timestamp}')" title="Восстановить из бэкапа">
+                                ♻️
+                            </button>`
+                            : '';
+                        
                         item.innerHTML = `
                             <div class="backup-item-info">
                                 <div>
@@ -785,7 +882,8 @@
                                 </div>
                             </div>
                             <div class="backup-item-actions">
-                                <button class="backup-delete-btn" onclick="deleteBackup('${backup.backup_path}', '${backup.timestamp}')" title="Удалить бэкап">
+                                ${restoreBtn}
+                                <button class="backup-delete-btn" onclick="deleteBackup('${backup.backup_path || ''}', '${backup.timestamp}')" title="Удалить бэкап">
                                     🗑️
                                 </button>
                             </div>
@@ -803,6 +901,11 @@
         
         // Delete Backup
         async function deleteBackup(backupPath, timestamp) {
+            if (!backupPath) {
+                showBackupStatus('✗ Невозможно удалить: путь к бэкапу не указан', 'error');
+                return;
+            }
+            
             if (!confirm(`Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`)) {
                 return;
             }
@@ -829,6 +932,65 @@
             } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
                 addLog(`Сетевая ошибка при удалении бэкапа: ${error.message}`, 'error');
+            }
+        }
+        
+        // Restore Backup
+        async function restoreBackup(backupPath, backupType, timestamp) {
+            const confirmMsg = `⚠️ ВНИМАНИЕ! Восстановление из бэкапа от ${timestamp} ПЕРЕЗАПИШЕТ текущие данные!\n\n` +
+                `Тип бэкапа: ${backupType}\n` +
+                `Перед восстановлением будет создана резервная копия текущих данных.\n\n` +
+                `Продолжить?`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            // Double confirmation for safety
+            if (!confirm('Вы уверены? Это необратимое действие!')) {
+                return;
+            }
+            
+            const buttons = document.querySelectorAll('.backup-btn, .backup-restore-btn');
+            buttons.forEach(btn => btn.disabled = true);
+            
+            showBackupStatus('🔄 Восстановление из бэкапа... Пожалуйста, подождите.', 'info');
+            addLog(`Начато восстановление из бэкапа: ${timestamp}`, 'info');
+            
+            try {
+                const response = await fetch('/backups/restore', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        backup_path: backupPath,
+                        verify_checksum: true
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showBackupStatus(`✓ Успешно восстановлено из бэкапа: ${result.backup_type}`, 'success');
+                    addLog(`Восстановлено из бэкапа: ${timestamp}`, 'success');
+                    
+                    // Show reload message
+                    setTimeout(() => {
+                        if (confirm('Восстановление завершено! Рекомендуется перезагрузить страницу. Перезагрузить сейчас?')) {
+                            window.location.reload();
+                        }
+                    }, 2000);
+                } else {
+                    const error = await response.json();
+                    showBackupStatus(`✗ Ошибка восстановления: ${error.detail}`, 'error');
+                    addLog(`Ошибка восстановления: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
+                addLog(`Сетевая ошибка при восстановлении: ${error.message}`, 'error');
+            } finally {
+                buttons.forEach(btn => btn.disabled = false);
             }
         }
         
@@ -899,11 +1061,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadBackupStats();
             loadBackupList();
+            loadBackupSchedule();
             addLog('Страница управления бэкапами загружена', 'info');
             
             // Auto-refresh every 30 seconds
             setInterval(() => {
                 loadBackupStats();
+                loadBackupSchedule();
             }, 30000);
         });
     </script>
