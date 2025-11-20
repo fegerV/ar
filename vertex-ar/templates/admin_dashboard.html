@@ -177,6 +177,166 @@
                 left: 10px;
             }
         }
+
+        /* Monitoring and Alerting Styles */
+        .monitoring-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .monitoring-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .monitoring-channels {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .channel-status {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .channel-status.active {
+            opacity: 1;
+            color: var(--success-color);
+        }
+
+        .channel-status.inactive {
+            opacity: 0.6;
+            color: var(--secondary-color);
+        }
+
+        .recent-alerts {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+
+        .recent-alerts .no-alerts {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        .alert-item {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.8rem;
+        }
+
+        .alert-item:last-child {
+            border-bottom: none;
+        }
+
+        .alert-item.error {
+            color: var(--danger-color);
+        }
+
+        .alert-item.warning {
+            color: var(--warning-color);
+        }
+
+        .thresholds-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin: 0.5rem 0;
+        }
+
+        .threshold-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .link-button.small {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .realtime-metrics {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .realtime-metrics h3 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: var(--light-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-color);
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-fill.warning {
+            background: var(--warning-color);
+        }
+
+        .progress-fill.danger {
+            background: var(--danger-color);
+        }
+
+        @media (max-width: 768px) {
+            .monitoring-controls {
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .monitoring-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
     
     <!-- Preload critical resources -->
@@ -358,6 +518,94 @@
             <div class="latest-backup">
                 <span class="label">Последний бэкап:</span>
                 <span class="value" id="lastBackup">-</span>
+            </div>
+        </section>
+
+        <!-- Monitoring and Alerting Section -->
+        <section class="system-info monitoring-section">
+            <div class="section-header">
+                <h2>Мониторинг и оповещения</h2>
+                <div class="monitoring-controls">
+                    <button onclick="testAlertSystem()" class="link-button">🧪 Тестировать оповещения</button>
+                    <button onclick="sendWeeklyReport()" class="link-button">📊 Отправить отчет</button>
+                    <button onclick="refreshMonitoringData()" class="link-button">🔄 Обновить</button>
+                </div>
+            </div>
+            
+            <div class="monitoring-grid">
+                <!-- Alert Status -->
+                <div class="system-item">
+                    <div class="label">Статус мониторинга</div>
+                    <div class="value" id="monitoringStatus">-</div>
+                    <div class="monitoring-channels" id="monitoringChannels">
+                        <span class="channel-status" id="telegramStatus">📱 Telegram: -</span>
+                        <span class="channel-status" id="emailStatus">📧 Email: -</span>
+                    </div>
+                </div>
+                
+                <!-- Recent Alerts -->
+                <div class="system-item">
+                    <div class="label">Последние оповещения</div>
+                    <div class="value" id="recentAlertsCount">0</div>
+                    <div class="recent-alerts" id="recentAlerts">
+                        <p class="no-alerts">Нет недавних оповещений</p>
+                    </div>
+                </div>
+                
+                <!-- Alert Thresholds -->
+                <div class="system-item">
+                    <div class="label">Пороги оповещений</div>
+                    <div class="thresholds-info">
+                        <div class="threshold-item">
+                            <span>CPU:</span>
+                            <span id="cpuThreshold">80%</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>Память:</span>
+                            <span id="memoryThreshold">85%</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>Диск:</span>
+                            <span id="diskThreshold">90%</span>
+                        </div>
+                    </div>
+                    <button onclick="showThresholdEditor()" class="link-button small">Изменить</button>
+                </div>
+                
+                <!-- Weekly Report Schedule -->
+                <div class="system-item">
+                    <div class="label">Расписание отчетов</div>
+                    <div class="value" id="reportSchedule">-</div>
+                    <p class="system-note">Автоматическая отправка еженедельных отчетов</p>
+                </div>
+            </div>
+            
+            <!-- Real-time System Metrics -->
+            <div class="realtime-metrics">
+                <h3>Метрики в реальном времени</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">CPU</div>
+                        <div class="metric-value" id="realtimeCPU">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeCPUBar"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Память</div>
+                        <div class="metric-value" id="realtimeMemory">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeMemoryBar"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Диск</div>
+                        <div class="metric-value" id="realtimeDisk">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeDiskBar"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -572,6 +820,232 @@
                     }
                 });
             }
+        });
+
+        // Monitoring and Alerting Functions
+        async function loadMonitoringStatus() {
+            try {
+                const response = await fetch('/monitoring/status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                // Update monitoring status
+                const statusEl = document.getElementById('monitoringStatus');
+                if (statusEl) {
+                    statusEl.textContent = data.enabled ? '✅ Активен' : '❌ Отключен';
+                }
+                
+                // Update channel status
+                const telegramEl = document.getElementById('telegramStatus');
+                if (telegramEl) {
+                    const status = data.alert_channels.telegram ? 'Активен' : 'Не настроен';
+                    telegramEl.textContent = `📱 Telegram: ${status}`;
+                    telegramEl.className = `channel-status ${data.alert_channels.telegram ? 'active' : 'inactive'}`;
+                }
+                
+                const emailEl = document.getElementById('emailStatus');
+                if (emailEl) {
+                    const status = data.alert_channels.email ? 'Активен' : 'Не настроен';
+                    emailEl.textContent = `📧 Email: ${status}`;
+                    emailEl.className = `channel-status ${data.alert_channels.email ? 'active' : 'inactive'}`;
+                }
+                
+                // Update thresholds
+                document.getElementById('cpuThreshold').textContent = data.thresholds.cpu + '%';
+                document.getElementById('memoryThreshold').textContent = data.thresholds.memory + '%';
+                document.getElementById('diskThreshold').textContent = data.thresholds.disk + '%';
+                
+            } catch (error) {
+                console.error('Error loading monitoring status:', error);
+            }
+        }
+
+        async function loadRecentAlerts() {
+            try {
+                const response = await fetch('/monitoring/alerts?hours=24', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const countEl = document.getElementById('recentAlertsCount');
+                const alertsEl = document.getElementById('recentAlerts');
+                
+                if (countEl) countEl.textContent = data.count;
+                
+                if (alertsEl) {
+                    if (data.data && data.data.length > 0) {
+                        alertsEl.innerHTML = data.data.map(alert => `
+                            <div class="alert-item ${alert.type}">
+                                <strong>${alert.title}</strong>
+                                <div style="font-size: 0.7rem; opacity: 0.7;">
+                                    ${new Date(alert.created_at).toLocaleString()}
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        alertsEl.innerHTML = '<p class="no-alerts">Нет недавних оповещений</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent alerts:', error);
+            }
+        }
+
+        async function loadSystemMetrics() {
+            try {
+                const response = await fetch('/monitoring/metrics', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.data) {
+                    updateMetricCard('realtimeCPU', data.data.cpu);
+                    updateMetricCard('realtimeMemory', data.data.memory.percent);
+                    updateMetricCard('realtimeDisk', data.data.disk.percent);
+                }
+            } catch (error) {
+                console.error('Error loading system metrics:', error);
+            }
+        }
+
+        function updateMetricCard(id, value) {
+            const valueEl = document.getElementById(id);
+            const barEl = document.getElementById(id + 'Bar');
+            
+            if (valueEl) valueEl.textContent = Math.round(value) + '%';
+            
+            if (barEl) {
+                barEl.style.width = value + '%';
+                
+                // Change color based on threshold
+                barEl.className = 'progress-fill';
+                if (value > 90) {
+                    barEl.classList.add('danger');
+                } else if (value > 75) {
+                    barEl.classList.add('warning');
+                }
+            }
+        }
+
+        async function testAlertSystem() {
+            try {
+                showLoading();
+                
+                const response = await fetch('/monitoring/test-alert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'Тестовое оповещение от администратора',
+                        severity: 'medium'
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Тестовое оповещение отправлено', 'success');
+                } else {
+                    showToast('Ошибка при отправке оповещения', 'error');
+                }
+            } catch (error) {
+                console.error('Error testing alert system:', error);
+                showToast('Ошибка при отправке оповещения', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function sendWeeklyReport() {
+            try {
+                showLoading();
+                
+                const response = await fetch('/monitoring/send-report', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Еженедельный отчет отправляется', 'success');
+                } else {
+                    showToast('Ошибка при отправке отчета', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending weekly report:', error);
+                showToast('Ошибка при отправке отчета', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function refreshMonitoringData() {
+            showLoading();
+            await Promise.all([
+                loadMonitoringStatus(),
+                loadRecentAlerts(),
+                loadSystemMetrics()
+            ]);
+            hideLoading();
+            showToast('Данные мониторинга обновлены', 'success');
+        }
+
+        function showThresholdEditor() {
+            // Simple prompt for now - could be enhanced with a modal
+            const cpu = prompt('Новый порог CPU (%):', document.getElementById('cpuThreshold').textContent);
+            const memory = prompt('Новый порог памяти (%):', document.getElementById('memoryThreshold').textContent);
+            const disk = prompt('Новый порог диска (%):', document.getElementById('diskThreshold').textContent);
+            
+            if (cpu || memory || disk) {
+                updateThresholds({
+                    cpu_threshold: cpu ? parseFloat(cpu) : null,
+                    memory_threshold: memory ? parseFloat(memory) : null,
+                    disk_threshold: disk ? parseFloat(disk) : null
+                });
+            }
+        }
+
+        async function updateThresholds(thresholds) {
+            try {
+                const response = await fetch('/monitoring/thresholds', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(thresholds),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Пороги обновлены', 'success');
+                    loadMonitoringStatus(); // Refresh display
+                } else {
+                    showToast('Ошибка при обновлении порогов', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating thresholds:', error);
+                showToast('Ошибка при обновлении порогов', 'error');
+            }
+        }
+
+        // Initialize monitoring on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load monitoring data after initial page load
+            setTimeout(function() {
+                loadMonitoringStatus();
+                loadRecentAlerts();
+                loadSystemMetrics();
+                
+                // Set up auto-refresh for metrics
+                setInterval(loadSystemMetrics, 30000); // Refresh every 30 seconds
+                setInterval(loadRecentAlerts, 60000); // Refresh alerts every minute
+            }, 2000);
         });
     </script>
 

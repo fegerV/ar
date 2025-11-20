@@ -66,6 +66,23 @@ class Settings:
         self.TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
         self.TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
         
+        # Email notifications
+        self.SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        self.SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+        self.SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+        self.SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+        self.EMAIL_FROM = os.getenv("EMAIL_FROM", self.SMTP_USERNAME)
+        self.ADMIN_EMAILS = [email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()]
+        
+        # Monitoring and alerting
+        self.ALERTING_ENABLED = os.getenv("ALERTING_ENABLED", "true").lower() == "true"
+        self.CPU_THRESHOLD = float(os.getenv("CPU_THRESHOLD", "80.0"))  # %
+        self.MEMORY_THRESHOLD = float(os.getenv("MEMORY_THRESHOLD", "85.0"))  # %
+        self.DISK_THRESHOLD = float(os.getenv("DISK_THRESHOLD", "90.0"))  # %
+        self.HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "60"))  # seconds
+        self.WEEKLY_REPORT_DAY = os.getenv("WEEKLY_REPORT_DAY", "monday")  # monday, tuesday, etc.
+        self.WEEKLY_REPORT_TIME = os.getenv("WEEKLY_REPORT_TIME", "09:00")  # HH:MM format
+        
         # File upload settings
         self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "50")) * 1024 * 1024  # 50MB default
         self.ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]

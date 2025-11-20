@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups
+    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -151,6 +151,7 @@ def create_app() -> FastAPI:
     app.include_router(backups.router, tags=["backups"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
+    app.include_router(monitoring.router)
     
     # Favicon endpoint
     @app.get("/favicon.ico")
@@ -206,6 +207,24 @@ def create_app() -> FastAPI:
         
         templates = app.state.templates
         return templates.TemplateResponse("ar_page.html", {"request": request, "record": portrait_data})
+    
+    # Start background monitoring tasks
+    if settings.ALERTING_ENABLED:
+        from app.monitoring import system_monitor
+        from app.weekly_reports import weekly_report_generator
+        
+        @app.on_event("startup")
+        async def start_monitoring_tasks():
+            """Start background monitoring and reporting tasks."""
+            import asyncio
+            
+            # Start system monitoring
+            asyncio.create_task(system_monitor.start_monitoring())
+            logger.info("System monitoring task started")
+            
+            # Start weekly report scheduler
+            asyncio.create_task(weekly_report_generator.start_weekly_report_scheduler())
+            logger.info("Weekly report scheduler started")
     
     # Store global app instance
     _app_instance = app
