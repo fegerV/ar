@@ -51,6 +51,7 @@ async def _create_order_workflow(
     username: str,
     description: str | None = None,
     endpoint: str = "orders",
+    company_id: str = "vertex-ar-default",
 ) -> OrderResponse:
     """Shared implementation for creating an order."""
     _validate_upload(image, "image/", "Invalid image file")
@@ -61,13 +62,22 @@ async def _create_order_workflow(
     storage_root: Path = app.state.config["STORAGE_ROOT"]  # type: ignore[index]
     base_url: str = app.state.config["BASE_URL"]  # type: ignore[index]
 
-    client = database.get_client_by_phone(phone)
+    # Normalize and validate company
+    company_id = company_id or "vertex-ar-default"
+    company = database.get_company(company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Company with ID '{company_id}' not found"
+        )
+
+    client = database.get_client_by_phone(phone, company_id)
     if not client:
         client_id = str(uuid.uuid4())
-        client = database.create_client(client_id, phone, name)
+        client = database.create_client(client_id, phone, name, company_id)
         logger.info(
             "Created new client for order",
-            extra={"client_id": client_id, "admin": username, "endpoint": endpoint},
+            extra={"client_id": client_id, "admin": username, "endpoint": endpoint, "company_id": company_id},
         )
     elif client.get("name") != name:
         database.update_client(client["id"], name=name)
@@ -238,10 +248,11 @@ async def create_order(
     image: UploadFile = File(...),
     video: UploadFile = File(...),
     description: str = Form(None),
+    company_id: str = Form("vertex-ar-default"),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Create a new order with client, portrait, and primary video."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders")
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders", company_id=company_id)
 
 
 @legacy_router.post(
@@ -256,7 +267,8 @@ async def create_order_legacy(
     image: UploadFile = File(...),
     video: UploadFile = File(...),
     description: str = Form(None),
+    company_id: str = Form("vertex-ar-default"),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Legacy compatibility endpoint for /api/orders/create."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders")
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders", company_id=company_id)
