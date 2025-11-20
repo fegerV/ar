@@ -151,7 +151,7 @@ def create_app() -> FastAPI:
     app.include_router(backups.router, tags=["backups"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
-    app.include_router(monitoring.router)
+    app.include_router(monitoring.router, prefix="/admin")
     app.include_router(mobile.router, prefix="/api/mobile", tags=["mobile"])
     
     # Favicon endpoint

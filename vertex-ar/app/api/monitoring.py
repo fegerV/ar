@@ -42,24 +42,28 @@ class MonitoringStatusResponse(BaseModel):
     alert_channels: Dict[str, bool]
 
 
-@router.get("/status", response_model=MonitoringStatusResponse)
+@router.get("/status")
 async def get_monitoring_status(
     _: str = Depends(get_require_admin()),
-) -> MonitoringStatusResponse:
+) -> Dict[str, Any]:
     """Get current monitoring system status."""
-    return MonitoringStatusResponse(
-        enabled=settings.ALERTING_ENABLED,
-        check_interval=settings.HEALTH_CHECK_INTERVAL,
-        thresholds={
+    recent_alerts = system_monitor.get_recent_alerts(hours=24)
+    
+    return {
+        "enabled": settings.ALERTING_ENABLED,
+        "status": "Активен" if settings.ALERTING_ENABLED else "Отключен",
+        "check_interval": settings.HEALTH_CHECK_INTERVAL,
+        "thresholds": {
             "cpu": settings.CPU_THRESHOLD,
             "memory": settings.MEMORY_THRESHOLD,
             "disk": settings.DISK_THRESHOLD
         },
-        alert_channels={
+        "channels": {
             "telegram": bool(settings.TELEGRAM_BOT_TOKEN),
             "email": bool(settings.SMTP_USERNAME and settings.ADMIN_EMAILS)
-        }
-    )
+        },
+        "recent_alerts": recent_alerts
+    }
 
 
 @router.post("/health-check")
