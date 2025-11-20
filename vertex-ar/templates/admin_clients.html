@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Vertex AR - Управление клиентами">
+    <meta name="description" content="Vertex AR - Управление клиентами и компаниями">
     <title>Управление клиентами - Vertex AR</title>
     
-    <!-- Critical CSS for above-the-fold content -->
     <style>
-        /* Critical styles for initial render */
         :root {
             --primary-color: #007bff;
             --primary-hover: #0056b3;
@@ -48,7 +46,6 @@
             color: var(--text-color);
             line-height: 1.6;
             transition: background-color var(--transition-speed), color var(--transition-speed);
-            padding-bottom: 100px;
         }
 
         .container {
@@ -79,13 +76,52 @@
             gap: 1rem;
         }
 
-        /* Navigation Tabs */
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .logout-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+
         .nav-tabs {
             display: flex;
             gap: 1rem;
             margin-bottom: 2rem;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 1rem;
+            flex-wrap: wrap;
         }
 
         .nav-tab {
@@ -108,47 +144,155 @@
             color: white;
         }
 
-        .theme-toggle {
-            background: none;
-            border: 2px solid var(--border-color);
+        .section {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .section h2 {
+            margin-bottom: 1rem;
             color: var(--text-color);
+            font-size: 1.3rem;
+        }
+
+        .company-section {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        .company-info {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .company-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .company-select, .company-input {
+            flex: 1;
+            min-width: 200px;
             padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .company-btn {
+            padding: 0.5rem 1rem;
+            border: none;
             border-radius: var(--border-radius);
             cursor: pointer;
-            font-size: 1.2rem;
+            font-size: 0.9rem;
             transition: all var(--transition-speed);
-            width: 40px;
-            height: 40px;
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .company-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .company-btn.danger {
+            background-color: var(--danger-color);
+        }
+
+        .company-btn.danger:hover {
+            background-color: #c82333;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
         }
 
         .btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
             padding: 0.75rem 1.5rem;
+            border: none;
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 1rem;
-            font-weight: 500;
-            transition: background-color var(--transition-speed);
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
+            transition: all var(--transition-speed);
+            background-color: var(--primary-color);
+            color: white;
         }
 
         .btn:hover {
             background-color: var(--primary-hover);
-        }
-
-        .btn-secondary {
-            background-color: var(--secondary-color);
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
         }
 
         .btn-success {
@@ -165,6 +309,132 @@
 
         .btn-danger:hover {
             background-color: #c82333;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .clients-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .clients-table thead {
+            background-color: var(--bg-color);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .clients-table th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .clients-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .clients-table tbody tr:hover {
+            background-color: var(--bg-color);
+        }
+
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+
+        .status-inactive {
+            background-color: rgba(108, 117, 125, 0.2);
+            color: var(--secondary-color);
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            transition: all var(--transition-speed);
+        }
+
+        .action-btn.edit {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .action-btn.edit:hover {
+            background-color: #138496;
+        }
+
+        .action-btn.delete {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .action-btn.delete:hover {
+            background-color: #c82333;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            background-color: var(--light-color);
+            color: var(--text-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-info {
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
         }
 
         .loading-overlay {
@@ -184,6 +454,10 @@
             display: flex;
         }
 
+        .loading-container {
+            text-align: center;
+        }
+
         .loading-spinner {
             width: 80px;
             height: 80px;
@@ -191,12 +465,17 @@
             border-top: 5px solid var(--primary-color);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            flex-shrink: 0;
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 1.2rem;
         }
 
         .toast-container {
@@ -213,6 +492,7 @@
             border-radius: var(--border-radius);
             margin-bottom: 0.5rem;
             box-shadow: var(--box-shadow);
+            min-width: 250px;
             opacity: 0;
             transform: translateX(100%);
             transition: all var(--transition-speed);
@@ -223,7 +503,48 @@
             transform: translateX(0);
         }
 
-        /* Mobile responsive */
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--info-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .bulk-actions {
+            display: none;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            align-items: center;
+        }
+
+        .bulk-actions.show {
+            display: flex;
+        }
+
+        .selected-count {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -244,65 +565,91 @@
                 padding: 0 0.5rem;
             }
 
-            .toast-container {
-                top: 10px;
-                right: 10px;
-                left: 10px;
+            .clients-table {
+                font-size: 0.85rem;
+            }
+
+            .clients-table th,
+            .clients-table td {
+                padding: 0.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .filters {
+                flex-direction: column;
             }
         }
     </style>
-    
-    <!-- Preload critical resources -->
-    <link rel="preload" href="/static/css/admin-base.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" href="/static/css/admin-clients.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript>
-        <link rel="stylesheet" href="/static/css/admin-base.css">
-        <link rel="stylesheet" href="/static/css/admin-clients.css">
-    </noscript>
 </head>
 <body>
     <div class="container">
         <!-- Header -->
-         <header class="header">
-             <h1>👥 Управление клиентами</h1>
-             <div class="header-actions">
-                 <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
-                 <a href="/admin/logout" class="btn btn-secondary">Выйти</a>
-             </div>
-         </header>
+        <header class="header">
+            <h1>👥 Управление клиентами</h1>
+            <div class="header-actions">
+                <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                <a href="/admin/logout" class="logout-btn">Выйти</a>
+            </div>
+        </header>
 
-         <!-- Navigation Tabs -->
-         <div class="nav-tabs">
-             <a href="/admin" class="nav-tab">🏠 Dashboard</a>
-             <a href="/admin/clients" class="nav-tab active">👥 Клиенты</a>
-             <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
-         </div>
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <a href="/admin" class="nav-tab">🏠 Dashboard</a>
+            <a href="/admin/clients" class="nav-tab active">👥 Клиенты</a>
+            <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+        </div>
 
-         <!-- Client Statistics -->
-        <section class="client-stats">
+        <!-- Company Management -->
+        <section class="company-section">
+            <h2>🏢 Управление компаниями</h2>
+            <div class="company-info">
+                <strong>Текущая компания:</strong> <span id="currentCompanyName">Загрузка...</span>
+            </div>
+            <div class="company-controls">
+                <select id="companySelect" class="company-select">
+                    <option value="">Загрузка компаний...</option>
+                </select>
+                <button onclick="switchCompany()" class="company-btn">Переключить</button>
+                <input type="text" id="companyNameInput" class="company-input" placeholder="Название новой компании">
+                <button onclick="createCompany()" class="company-btn">Создать компанию</button>
+                <button onclick="deleteCompany()" class="company-btn danger">Удалить компанию</button>
+            </div>
+        </section>
+
+        <!-- Client Statistics -->
+        <div class="stats-grid">
             <div class="stat-card">
                 <h3>Всего клиентов</h3>
                 <div class="value" id="totalClients">0</div>
             </div>
             <div class="stat-card">
-                <h3>Активные</h3>
-                <div class="value" id="activeClients">0</div>
+                <h3>В текущей компании</h3>
+                <div class="value" id="companyClients">0</div>
             </div>
             <div class="stat-card">
-                <h3>Новые за месяц</h3>
-                <div class="value" id="newClients">0</div>
+                <h3>Всего компаний</h3>
+                <div class="value" id="totalCompanies">0</div>
             </div>
             <div class="stat-card">
-                <h3>Неактивные</h3>
-                <div class="value" id="inactiveClients">0</div>
+                <h3>Всего портретов</h3>
+                <div class="value" id="totalPortraits">0</div>
             </div>
-        </section>
+        </div>
 
-        <!-- Client Creation Form -->
-        <section class="client-form">
-            <h2>Создать нового клиента</h2>
+        <!-- Create Client Form -->
+        <section class="section">
+            <h2>➕ Создать нового клиента</h2>
             <form id="clientForm">
-                <div class="form-row">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="clientCompany">Компания *</label>
+                        <select id="clientCompany" name="company_id" required>
+                            <option value="">Выберите компанию</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="clientName">Имя клиента *</label>
                         <input type="text" id="clientName" name="name" required>
@@ -312,57 +659,27 @@
                         <input type="tel" id="clientPhone" name="phone" placeholder="+7 (999) 123-45-67" required>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="clientEmail">Email</label>
-                        <input type="email" id="clientEmail" name="email">
-                    </div>
-                    <div class="form-group">
-                        <label for="clientStatus">Статус</label>
-                        <select id="clientStatus" name="status">
-                            <option value="active">Активен</option>
-                            <option value="inactive">Неактивен</option>
-                            <option value="pending">Ожидает</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="clientNotes">Примечания</label>
-                    <textarea id="clientNotes" name="notes" rows="3"></textarea>
-                </div>
                 <button type="submit" class="btn btn-success">Создать клиента</button>
             </form>
         </section>
 
         <!-- Filters and Search -->
         <section class="section">
-            <h2>Поиск и фильтры</h2>
-            <div class="clients-filters">
+            <h2>🔍 Поиск и фильтры</h2>
+            <div class="filters">
                 <div class="filter-group">
-                    <label for="clientSearch">Поиск</label>
-                    <input type="search" id="clientSearch" class="search-input" placeholder="Поиск по имени, телефону или email...">
+                    <label>Поиск</label>
+                    <input type="search" id="clientSearch" placeholder="Поиск по имени или телефону...">
                 </div>
                 <div class="filter-group">
-                    <label for="statusFilter">Статус</label>
-                    <select id="statusFilter" class="filter-select">
-                        <option value="all">Все статусы</option>
-                        <option value="active">Активные</option>
-                        <option value="inactive">Неактивные</option>
-                        <option value="pending">Ожидающие</option>
+                    <label>Компания</label>
+                    <select id="filterCompany">
+                        <option value="">Все компании</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="sortSelect">Сортировка</label>
-                    <select id="sortSelect" class="filter-select">
-                        <option value="created_at-desc">Сначала новые</option>
-                        <option value="created_at-asc">Сначала старые</option>
-                        <option value="name-asc">По имени (А-Я)</option>
-                        <option value="name-desc">По имени (Я-А)</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="recordsPerPage">На странице</label>
-                    <select id="recordsPerPage" class="filter-select">
+                    <label>Записей на странице</label>
+                    <select id="recordsPerPage">
                         <option value="10">10</option>
                         <option value="25" selected>25</option>
                         <option value="50">50</option>
@@ -373,52 +690,49 @@
         </section>
 
         <!-- Bulk Actions -->
-        <div class="bulk-actions hidden">
-            <span class="selected-count">Выбрано: 0</span>
-            <button id="bulkDelete" class="btn btn-danger">🗑️ Удалить выбранных</button>
-            <button id="bulkExport" class="btn btn-secondary">📥 Экспортировать выбранных</button>
-        </div>
-
-        <!-- Export Options -->
-        <div class="export-options">
-            <button class="export-btn" data-format="csv">📊 Экспорт CSV</button>
-            <button class="export-btn" data-format="xlsx">📈 Экспорт Excel</button>
-            <button class="export-btn" data-format="json">📄 Экспорт JSON</button>
+        <div class="bulk-actions" id="bulkActions">
+            <span class="selected-count">Выбрано: <span id="selectedCount">0</span></span>
+            <button onclick="bulkDeleteClients()" class="btn btn-danger">Удалить выбранных</button>
+            <button onclick="clearSelection()" class="btn">Отменить выбор</button>
         </div>
 
         <!-- Clients Table -->
         <section class="section">
-            <h2>Список клиентов</h2>
-            <div class="select-all-container">
-                <input type="checkbox" id="selectAll">
-                <label for="selectAll">Выбрать всех</label>
-            </div>
-            
+            <h2>📋 Список клиентов</h2>
             <table class="clients-table">
                 <thead>
                     <tr>
                         <th style="width: 40px;">
-                            <input type="checkbox" id="selectAllHeader">
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                         </th>
-                        <th style="width: 60px;">Аватар</th>
+                        <th style="width: 60px;">Фото</th>
                         <th>Имя</th>
                         <th>Телефон</th>
-                        <th>Статус</th>
+                        <th>Компания</th>
                         <th>Портретов</th>
-                        <th>Создан</th>
+                        <th>Дата создания</th>
                         <th style="width: 150px;">Действия</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <!-- Client rows will be populated here -->
+                <tbody id="clientsTableBody">
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>Загрузка клиентов...</div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
-        </section>
 
-        <!-- Pagination -->
-        <div class="pagination">
-            <!-- Pagination will be populated here -->
-        </div>
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button onclick="changePage(-1)" id="prevBtn">◀ Назад</button>
+                <span class="page-info">
+                    Страница <span id="currentPage">1</span> из <span id="totalPages">1</span>
+                </span>
+                <button onclick="changePage(1)" id="nextBtn">Вперед ▶</button>
+            </div>
+        </section>
     </div>
 
     <!-- Loading Overlay -->
@@ -432,15 +746,36 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Lightbox -->
-    <div class="lightbox" id="lightbox">
-        <button class="lightbox-close">&times;</button>
-        <img class="lightbox-content" id="lightboxContent" alt="Full size image">
-    </div>
-
-    <!-- Critical JavaScript for initial functionality -->
     <script>
-        // Theme toggle (critical functionality)
+        let currentPage = 1;
+        let pageSize = 25;
+        let currentCompanyId = null;
+        let allCompanies = [];
+        let selectedClients = new Set();
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => container.removeChild(toast), 300);
+            }, 3000);
+        }
+
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -448,68 +783,472 @@
             localStorage.setItem('admin-theme', newTheme);
             
             const themeToggle = document.getElementById('themeToggle');
-            if (themeToggle) {
-                themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+            themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+        }
+
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/api/companies', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load companies');
+                }
+                
+                const data = await response.json();
+                allCompanies = data.items || [];
+                
+                const companySelect = document.getElementById('companySelect');
+                const filterCompany = document.getElementById('filterCompany');
+                const clientCompany = document.getElementById('clientCompany');
+                
+                companySelect.innerHTML = '<option value="">Выберите компанию</option>';
+                filterCompany.innerHTML = '<option value="">Все компании</option>';
+                clientCompany.innerHTML = '<option value="">Выберите компанию</option>';
+                
+                allCompanies.forEach(company => {
+                    const option1 = new Option(company.name, company.id);
+                    const option2 = new Option(company.name, company.id);
+                    const option3 = new Option(company.name, company.id);
+                    
+                    companySelect.add(option1);
+                    filterCompany.add(option2);
+                    clientCompany.add(option3);
+                });
+                
+                if (allCompanies.length > 0) {
+                    currentCompanyId = allCompanies[0].id;
+                    document.getElementById('currentCompanyName').textContent = allCompanies[0].name;
+                    companySelect.value = currentCompanyId;
+                    filterCompany.value = currentCompanyId;
+                }
+                
+                document.getElementById('totalCompanies').textContent = allCompanies.length;
+                
+            } catch (error) {
+                console.error('Error loading companies:', error);
+                showToast('Ошибка загрузки компаний', 'error');
             }
         }
 
-        // Apply saved theme immediately
+        function switchCompany() {
+            const companySelect = document.getElementById('companySelect');
+            const selectedId = companySelect.value;
+            
+            if (!selectedId) {
+                showToast('Выберите компанию', 'error');
+                return;
+            }
+            
+            currentCompanyId = selectedId;
+            const company = allCompanies.find(c => c.id === selectedId);
+            
+            if (company) {
+                document.getElementById('currentCompanyName').textContent = company.name;
+                document.getElementById('filterCompany').value = selectedId;
+                showToast(`Переключено на компанию: ${company.name}`, 'success');
+                loadClients();
+            }
+        }
+
+        async function createCompany() {
+            const nameInput = document.getElementById('companyNameInput');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showToast('Введите название компании', 'error');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/companies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ name })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create company');
+                }
+                
+                const data = await response.json();
+                showToast('Компания создана успешно', 'success');
+                nameInput.value = '';
+                
+                await loadCompanies();
+                
+            } catch (error) {
+                console.error('Error creating company:', error);
+                showToast(error.message || 'Ошибка создания компании', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteCompany() {
+            const companySelect = document.getElementById('companySelect');
+            const selectedId = companySelect.value;
+            
+            if (!selectedId) {
+                showToast('Выберите компанию для удаления', 'error');
+                return;
+            }
+            
+            if (selectedId === 'vertex-ar-default') {
+                showToast('Нельзя удалить компанию по умолчанию', 'error');
+                return;
+            }
+            
+            const company = allCompanies.find(c => c.id === selectedId);
+            
+            if (!confirm(`Удалить компанию "${company?.name}"? Все связанные клиенты также будут удалены!`)) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch(`/api/companies/${selectedId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to delete company');
+                }
+                
+                showToast('Компания удалена успешно', 'success');
+                
+                await loadCompanies();
+                await loadClients();
+                
+            } catch (error) {
+                console.error('Error deleting company:', error);
+                showToast(error.message || 'Ошибка удаления компании', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadClients() {
+            showLoading();
+            
+            try {
+                const search = document.getElementById('clientSearch').value;
+                const companyFilter = document.getElementById('filterCompany').value;
+                
+                let url = `/api/clients/list?page=${currentPage}&page_size=${pageSize}`;
+                
+                if (search) {
+                    url += `&search=${encodeURIComponent(search)}`;
+                }
+                
+                if (companyFilter) {
+                    url += `&company_id=${companyFilter}`;
+                }
+                
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load clients');
+                }
+                
+                const data = await response.json();
+                
+                renderClients(data.items);
+                updatePagination(data.page, data.total_pages, data.total);
+                
+                const companyFilter2 = document.getElementById('filterCompany').value;
+                if (companyFilter2) {
+                    document.getElementById('companyClients').textContent = data.total;
+                }
+                
+                const statsResponse = await fetch('/api/statistics', {
+                    credentials: 'include'
+                });
+                
+                if (statsResponse.ok) {
+                    const stats = await statsResponse.json();
+                    document.getElementById('totalClients').textContent = stats.total_clients || 0;
+                    document.getElementById('totalPortraits').textContent = stats.total_portraits || 0;
+                }
+                
+            } catch (error) {
+                console.error('Error loading clients:', error);
+                showToast('Ошибка загрузки клиентов', 'error');
+                
+                document.getElementById('clientsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <div>Ошибка загрузки данных</div>
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderClients(clients) {
+            const tbody = document.getElementById('clientsTableBody');
+            
+            if (!clients || clients.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>Клиенты не найдены</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = clients.map(client => {
+                const companyName = allCompanies.find(c => c.id === client.company_id)?.name || 'Неизвестно';
+                const date = new Date(client.created_at).toLocaleDateString('ru-RU');
+                const avatar = client.latest_portrait_preview || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="%23ccc"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666" font-size="20">?</text></svg>';
+                
+                return `
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="client-checkbox" data-client-id="${client.id}" onchange="toggleClientSelection('${client.id}')">
+                        </td>
+                        <td>
+                            <img src="${avatar}" alt="${client.name}" class="avatar">
+                        </td>
+                        <td>${client.name}</td>
+                        <td>${client.phone}</td>
+                        <td>${companyName}</td>
+                        <td>${client.portraits_count || 0}</td>
+                        <td>${date}</td>
+                        <td>
+                            <button class="action-btn edit" onclick="editClient('${client.id}')">✏️ Изменить</button>
+                            <button class="action-btn delete" onclick="deleteClient('${client.id}')">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updatePagination(page, totalPages, total) {
+            document.getElementById('currentPage').textContent = page;
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            prevBtn.disabled = page <= 1;
+            nextBtn.disabled = page >= totalPages;
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            loadClients();
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.client-checkbox');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+                const clientId = cb.dataset.clientId;
+                if (selectAll.checked) {
+                    selectedClients.add(clientId);
+                } else {
+                    selectedClients.delete(clientId);
+                }
+            });
+            
+            updateBulkActions();
+        }
+
+        function toggleClientSelection(clientId) {
+            if (selectedClients.has(clientId)) {
+                selectedClients.delete(clientId);
+            } else {
+                selectedClients.add(clientId);
+            }
+            
+            updateBulkActions();
+        }
+
+        function updateBulkActions() {
+            const bulkActions = document.getElementById('bulkActions');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (selectedClients.size > 0) {
+                bulkActions.classList.add('show');
+                selectedCount.textContent = selectedClients.size;
+            } else {
+                bulkActions.classList.remove('show');
+            }
+        }
+
+        function clearSelection() {
+            selectedClients.clear();
+            document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('selectAll').checked = false;
+            updateBulkActions();
+        }
+
+        async function bulkDeleteClients() {
+            if (selectedClients.size === 0) {
+                showToast('Выберите клиентов для удаления', 'error');
+                return;
+            }
+            
+            if (!confirm(`Удалить ${selectedClients.size} клиентов?`)) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/clients/bulk-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ ids: Array.from(selectedClients) })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete clients');
+                }
+                
+                showToast('Клиенты удалены успешно', 'success');
+                clearSelection();
+                loadClients();
+                
+            } catch (error) {
+                console.error('Error deleting clients:', error);
+                showToast('Ошибка удаления клиентов', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteClient(clientId) {
+            if (!confirm('Удалить этого клиента?')) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch(`/api/clients/${clientId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete client');
+                }
+                
+                showToast('Клиент удален успешно', 'success');
+                loadClients();
+                
+            } catch (error) {
+                console.error('Error deleting client:', error);
+                showToast('Ошибка удаления клиента', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function editClient(clientId) {
+            showToast('Функция редактирования в разработке', 'info');
+        }
+
+        document.getElementById('clientForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                company_id: formData.get('company_id'),
+                name: formData.get('name'),
+                phone: formData.get('phone')
+            };
+            
+            if (!data.company_id) {
+                showToast('Выберите компанию', 'error');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/clients', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create client');
+                }
+                
+                showToast('Клиент создан успешно', 'success');
+                e.target.reset();
+                loadClients();
+                
+            } catch (error) {
+                console.error('Error creating client:', error);
+                showToast(error.message || 'Ошибка создания клиента', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        document.getElementById('clientSearch').addEventListener('input', () => {
+            currentPage = 1;
+            loadClients();
+        });
+
+        document.getElementById('filterCompany').addEventListener('change', () => {
+            currentPage = 1;
+            loadClients();
+        });
+
+        document.getElementById('recordsPerPage').addEventListener('change', (e) => {
+            pageSize = parseInt(e.target.value);
+            currentPage = 1;
+            loadClients();
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
         (function() {
             const savedTheme = localStorage.getItem('admin-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const themeToggle = document.getElementById('themeToggle');
-            if (themeToggle) {
-                themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
-            }
-            
-            // Add event listener for theme toggle
-            if (themeToggle) {
-                themeToggle.addEventListener('click', toggleTheme);
-            }
+            themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
         })();
 
-        // Show loading state
-        function showLoading() {
-            document.getElementById('loadingOverlay').classList.add('active');
+        async function initialize() {
+            await loadCompanies();
+            await loadClients();
         }
 
-        // Hide loading state
-        function hideLoading() {
-            document.getElementById('loadingOverlay').classList.remove('active');
-        }
-
-        // Initialize basic event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            // Form submission
-            const clientForm = document.getElementById('clientForm');
-            if (clientForm) {
-                clientForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    // Will be handled by the main JS file
-                    console.log('Client form submitted');
-                });
-            }
-        });
-    </script>
-
-    <!-- Load CSS -->
-    <link rel="stylesheet" href="/static/css/admin-base.css">
-    <link rel="stylesheet" href="/static/css/admin-clients.css">
-    
-    <!-- Load JavaScript (deferred for performance) -->
-    <script src="/static/js/admin-clients.js" defer></script>
-    
-    <!-- Load lazy features after initial render -->
-    <script>
-        // Load non-critical features after page load
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const script = document.createElement('script');
-                script.src = '/static/js/admin-dashboard-lazy.js';
-                script.async = true;
-                document.head.appendChild(script);
-            }, 1000);
-        });
+        initialize();
     </script>
 </body>
 </html>
