@@ -272,11 +272,22 @@ async function loadStatistics() {
             updateStatistics(data);
             AdminDashboard.setState({ lastUpdate: new Date().toISOString() });
         } else {
-            throw new Error('Failed to load statistics');
+            let errorDetail = `HTTP ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    errorDetail = typeof errorData.detail === 'string' 
+                        ? errorData.detail 
+                        : JSON.stringify(errorData.detail);
+                }
+            } catch (e) {
+                // If response is not JSON, use default error message
+            }
+            throw new Error(errorDetail);
         }
     } catch (error) {
         console.error('Error loading statistics:', error);
-        showToast('Ошибка загрузки статистики', 'error');
+        showToast('Ошибка загрузки статистики: ' + error.message, 'error');
         addLog('Ошибка загрузки статистики: ' + error.message, 'error');
     } finally {
         hideLoading();
@@ -395,11 +406,22 @@ async function loadRecords() {
             AdminDashboard.setState({ allRecords: data.records || [] });
             displayRecords();
         } else {
-            throw new Error('Failed to load records');
+            let errorDetail = `HTTP ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    errorDetail = typeof errorData.detail === 'string' 
+                        ? errorData.detail 
+                        : JSON.stringify(errorData.detail);
+                }
+            } catch (e) {
+                // If response is not JSON, use default error message
+            }
+            throw new Error(errorDetail);
         }
     } catch (error) {
         console.error('Error loading records:', error);
-        showToast('Ошибка загрузки записей', 'error');
+        showToast('Ошибка загрузки записей: ' + error.message, 'error');
         addLog('Ошибка загрузки записей: ' + error.message, 'error');
     } finally {
         AdminDashboard.setState({ isLoading: false });
@@ -563,7 +585,7 @@ async function loadCompanies() {
         
         if (response.ok) {
             const data = await response.json();
-            updateCompanySelect(data.companies || []);
+            updateCompanySelect(data.items || data.companies || []);
         }
     } catch (error) {
         console.error('Error loading companies:', error);
@@ -631,14 +653,14 @@ async function switchCompany() {
     }
     
     try {
-        const response = await fetch(`/companies/${companyId}/switch`, {
+        const response = await fetch(`/companies/${companyId}/select`, {
             method: 'POST',
             credentials: 'include'
         });
         
         if (response.ok) {
             const result = await response.json();
-            const companyName = result.company_name || 'Unknown';
+            const companyName = result.name || 'Unknown';
             
             AdminDashboard.setState({ 
                 currentCompany: { 
@@ -760,7 +782,24 @@ async function handleOrderSubmit(e) {
             loadStatistics();
         } else {
             const error = await response.json();
-            showToast(`Ошибка: ${error.detail || 'Не удалось создать заказ'}`, 'error');
+            let errorMessage = 'Не удалось создать заказ';
+            
+            if (error.detail) {
+                if (typeof error.detail === 'string') {
+                    errorMessage = error.detail;
+                } else if (Array.isArray(error.detail)) {
+                    errorMessage = error.detail.map(e => 
+                        typeof e === 'string' ? e : (e.msg || 'Ошибка')
+                    ).join(', ');
+                } else if (typeof error.detail === 'object') {
+                    errorMessage = Object.values(error.detail).map(v => 
+                        typeof v === 'string' ? v : JSON.stringify(v)
+                    ).join(', ');
+                }
+            }
+            
+            showToast(`Ошибка: ${errorMessage}`, 'error');
+            addLog(`Ошибка при создании заказа: ${errorMessage}`, 'error');
         }
     } catch (error) {
         showToast('Ошибка сети', 'error');

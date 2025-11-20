@@ -561,6 +561,9 @@ async def upload_ar_content_admin(
     request: Request,
     image: UploadFile = File(...),
     video: UploadFile = File(...),
+    client_name: str = Form(None),
+    client_phone: str = Form(None),
+    client_notes: str = Form(None),
     username: str = Depends(require_admin)
 ) -> ARContentResponse:
     """
