@@ -40,21 +40,27 @@ class TestDatabase:
         for table in expected_tables:
             assert table in tables
     
-    def test_user_operations(self, temp_db):
-        """Test user CRUD operations."""
-        # Create user
-        temp_db.create_user("testuser", "hashed_password", is_admin=True)
+    def test_user_profile_operations(self, temp_db):
+        """Test user profile management operations."""
+        # Test that get_user works for existing admin users
+        # Note: User creation is handled by ensure_admin_user, not create_user
+        # This test focuses on profile management functionality
+        
+        # Create admin user using ensure_admin_user
+        temp_db.ensure_admin_user(
+            "testadmin",
+            "hashed_password",
+            email="admin@example.com",
+            full_name="Test Admin"
+        )
         
         # Get user
-        user = temp_db.get_user("testuser")
+        user = temp_db.get_user("testadmin")
         assert user is not None
-        assert user["username"] == "testuser"
+        assert user["username"] == "testadmin"
         assert user["hashed_password"] == "hashed_password"
         assert user["is_admin"] == 1
-        
-        # Duplicate user should raise error
-        with pytest.raises(ValueError, match="user_already_exists"):
-            temp_db.create_user("testuser", "another_password")
+        assert user["is_active"] == 1
     
     def test_ensure_admin_user(self, temp_db):
         """Test ensuring default admin user creation and updates."""

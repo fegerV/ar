@@ -16,37 +16,6 @@ from app.validators import (
 
 
 # Authentication models
-class UserCreate(BaseModel):
-    username: str = Field(..., min_length=3, max_length=150)
-    password: str = Field(..., min_length=8, max_length=256)
-    email: Optional[str] = Field(None, max_length=255)
-    full_name: Optional[str] = Field(None, max_length=150)
-    
-    @field_validator('username')
-    @classmethod
-    def validate_username_field(cls, v: str) -> str:
-        return validate_username(v)
-    
-    @field_validator('password')
-    @classmethod
-    def validate_password_field(cls, v: str) -> str:
-        return validate_password_strength(v)
-    
-    @field_validator('email')
-    @classmethod
-    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return validate_email(v)
-        return v
-    
-    @field_validator('full_name')
-    @classmethod
-    def validate_full_name_field(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return validate_name(v)
-        return v
-
-
 class UserLogin(BaseModel):
     username: str
     password: str
@@ -57,12 +26,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-# User management models
+# User profile models (for admin self-management)
 class UserUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     full_name: Optional[str] = Field(None, max_length=150)
-    is_admin: Optional[bool] = None
-    is_active: Optional[bool] = None
     
     @field_validator('email')
     @classmethod
@@ -79,38 +46,12 @@ class UserUpdate(BaseModel):
         return v
 
 
-class UserResponse(BaseModel):
-    username: str
-    email: Optional[str]
-    full_name: Optional[str]
-    is_admin: bool
-    is_active: bool
-    created_at: str
-    last_login: Optional[str]
-
-
-class PaginatedUsersResponse(BaseModel):
-    items: List[UserResponse]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-
-
 class UserProfile(BaseModel):
     username: str
     email: Optional[str]
     full_name: Optional[str]
     created_at: str
     last_login: Optional[str]
-
-
-class UserStats(BaseModel):
-    total_users: int
-    active_users: int
-    inactive_users: int
-    admin_users: int
-    recent_logins: int
 
 
 class PasswordChange(BaseModel):
@@ -121,14 +62,6 @@ class PasswordChange(BaseModel):
     @classmethod
     def validate_new_password_field(cls, v: str) -> str:
         return validate_password_strength(v)
-
-
-class UserSearch(BaseModel):
-    query: Optional[str] = None
-    is_admin: Optional[bool] = None
-    is_active: Optional[bool] = None
-    limit: int = Field(50, ge=1, le=100)
-    offset: int = Field(0, ge=0)
 
 
 # AR Content models
@@ -285,7 +218,3 @@ class MessageResponse(BaseModel):
 
 class CountResponse(BaseModel):
     count: int
-
-
-class BulkIdsRequest(BaseModel):
-    ids: List[str] = Field(..., min_length=1)

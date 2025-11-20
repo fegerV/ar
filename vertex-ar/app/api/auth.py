@@ -7,7 +7,7 @@ from typing import Optional
 
 from app.auth import AuthSecurityManager, TokenManager, _hash_password, _verify_password
 from app.database import Database
-from app.models import TokenResponse, UserCreate, UserLogin
+from app.models import TokenResponse, UserLogin
 from app.main import get_current_app
 from app.config import settings
 from app.rate_limiter import create_rate_limit_dependency
@@ -103,71 +103,6 @@ async def require_admin(request: Request) -> str:
         )
     
     return username
-
-
-@router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[Depends(create_rate_limit_dependency("5/minute"))])
-async def register_user(
-    request: Request,
-    user: UserCreate
-) -> dict:
-    """Register a new user (creates admin user for initial setup)."""
-    database = get_database()
-    
-    logger.info(
-        "user_registration_attempt",
-        username=user.username,
-        email=user.email,
-        client_host=request.client.host if request.client else None,
-    )
-    
-    existing = database.get_user(user.username)
-    if existing is not None:
-        logger.warning(
-            "user_registration_failed_duplicate",
-            username=user.username,
-            reason="user_already_exists",
-        )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
-    
-    # Check if this is the first user (make them admin)
-    stats = database.get_user_stats()
-    total_users = stats['total_users']
-    default_admin_username = getattr(settings, "DEFAULT_ADMIN_USERNAME", None)
-    if default_admin_username:
-        existing_default_admin = database.get_user(default_admin_username)
-        if existing_default_admin:
-            total_users = max(total_users - 1, 0)
-    is_first_user = total_users == 0
-    
-    try:
-        database.create_user(
-            username=user.username,
-            hashed_password=_hash_password(user.password),
-            is_admin=is_first_user,  # First user becomes admin
-            email=user.email,
-            full_name=user.full_name
-        )
-        logger.info(
-            "user_registered_successfully", 
-            username=user.username,
-            is_admin=is_first_user,
-            email=user.email,
-            client_host=request.client.host if request.client else None,
-        )
-    except ValueError as e:
-        logger.error(
-            "user_registration_failed",
-            username=user.username,
-            error=str(e),
-            exc_info=True,
-        )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
-    
-    return {
-        "username": user.username,
-        "is_admin": is_first_user,
-        "message": "Admin user created" if is_first_user else "User created"
-    }
 
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(create_rate_limit_dependency("5/minute"))])

@@ -235,18 +235,6 @@ async def admin_clients_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("admin_clients.html", context)
 
 
-@router.get("/users", response_class=HTMLResponse)
-async def admin_users_panel(request: Request) -> HTMLResponse:
-    """Serve admin panel for users management."""
-    username = _validate_admin_session(request)
-    if not username:
-        return _redirect_to_login("unauthorized")
-    
-    templates = get_templates()
-    context = {"request": request, "username": username}
-    return templates.TemplateResponse("admin_users.html", context)
-
-
 @router.get("/backups", response_class=HTMLResponse)
 async def admin_backups_panel(request: Request) -> HTMLResponse:
     """Serve admin panel for backup management."""

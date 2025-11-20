@@ -81,18 +81,17 @@ print(f"  Permanent Link: {permanent_link}")
 print(f"  Video ID: {video_id}")
 print(f"  Admin URL: http://localhost:8000/admin/order/{portrait_id}")
 
-# Create admin user if not exists
+# Create admin user if not exists (using ensure_admin_user pattern)
 admin_username = "admin"
 admin_password = "admin123"
 hashed_password = _hash_password(admin_password)
 
 try:
-    db.create_user(
+    db.ensure_admin_user(
         username=admin_username,
         hashed_password=hashed_password,
         email="admin@example.com",
-        full_name="Test Admin",
-        is_admin=True
+        full_name="Test Admin"
     )
     print(f"Created admin user: {admin_username} / {admin_password}")
 except:
