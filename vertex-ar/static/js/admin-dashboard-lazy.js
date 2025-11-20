@@ -176,7 +176,9 @@ const initializeExportFeatures = () => {
     
     exportBtn.addEventListener('click', async () => {
         try {
-            showLoading();
+            showLoading('Экспортирование данных...');
+            
+            const currentCompanyId = AdminDashboard?.state?.currentCompany?.id;
             
             const response = await fetch('/admin/export', {
                 method: 'POST',
@@ -185,7 +187,8 @@ const initializeExportFeatures = () => {
                 },
                 body: JSON.stringify({
                     format: 'csv',
-                    include: ['clients', 'portraits', 'orders']
+                    include: ['clients', 'portraits', 'orders'],
+                    company_id: currentCompanyId
                 }),
                 credentials: 'include'
             });
@@ -202,12 +205,15 @@ const initializeExportFeatures = () => {
                 window.URL.revokeObjectURL(url);
                 
                 showToast('Данные экспортированы успешно', 'success');
+                addLog('Данные экспортированы', 'success');
             } else {
-                throw new Error('Export failed');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Export failed');
             }
         } catch (error) {
             console.error('Export error:', error);
-            showToast('Ошибка экспорта данных', 'error');
+            showToast('Ошибка экспорта данных: ' + error.message, 'error');
+            addLog('Ошибка экспорта: ' + error.message, 'error');
         } finally {
             hideLoading();
         }
