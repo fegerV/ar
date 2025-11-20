@@ -974,10 +974,19 @@ function showToast(message, type = 'info') {
 }
 
 // Loading states
-function showLoading() {
+function showLoading(text = 'Загрузка...', status = '') {
     const overlay = document.querySelector('.loading-overlay');
+    const loadingText = document.getElementById('loadingText');
+    const loadingStatus = document.getElementById('loadingStatus');
+    
     if (overlay) {
         overlay.classList.add('active');
+    }
+    if (loadingText) {
+        loadingText.textContent = text;
+    }
+    if (loadingStatus) {
+        loadingStatus.textContent = status;
     }
 }
 
@@ -985,6 +994,13 @@ function hideLoading() {
     const overlay = document.querySelector('.loading-overlay');
     if (overlay) {
         overlay.classList.remove('active');
+    }
+}
+
+function updateLoadingStatus(status) {
+    const loadingStatus = document.getElementById('loadingStatus');
+    if (loadingStatus) {
+        loadingStatus.textContent = status;
     }
 }
 
@@ -1162,8 +1178,8 @@ document.addEventListener('DOMContentLoaded', function() {
     lazyLoadFeatures();
     
     // Performance monitoring
-    if (window.performance) {
-        const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+    if (window.performance && window.performance.now) {
+        const loadTime = Math.round(performance.now());
         console.log(`Page load time: ${loadTime}ms`);
         addLog(`Страница загружена за ${loadTime}ms`, 'info');
     }
@@ -1303,7 +1319,12 @@ async function handleOrderSubmit(e) {
     formData.append('company_id', companyId);
     
     try {
-        showLoading();
+        showLoading('Создание AR контента', 'Загрузка файлов...');
+        
+        // Simulate progress updates
+        setTimeout(() => updateLoadingStatus('Обработка изображения...'), 500);
+        setTimeout(() => updateLoadingStatus('Обработка видео...'), 1500);
+        setTimeout(() => updateLoadingStatus('Генерация AR портрета...'), 3000);
         
         const response = await fetch('/orders/create', {
             method: 'POST',
@@ -1312,6 +1333,7 @@ async function handleOrderSubmit(e) {
         });
         
         if (response.ok) {
+            updateLoadingStatus('Завершение...');
             const result = await response.json();
             showToast('AR контент создан успешно', 'success');
             addLog(`Создан заказ для клиента: ${clientName}`, 'success');

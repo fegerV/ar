@@ -604,7 +604,8 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-container">
             <div class="loading-spinner"></div>
-            <div class="loading-text">Загрузка...</div>
+            <div class="loading-text" id="loadingText">Загрузка...</div>
+            <div class="loading-status" id="loadingStatus"></div>
         </div>
     </div>
 
@@ -651,13 +652,33 @@
         }
 
         // Show loading state
-        function showLoading() {
-            document.getElementById('loadingOverlay').classList.add('active');
+        function showLoading(text = 'Загрузка...', status = '') {
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const loadingStatus = document.getElementById('loadingStatus');
+            
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+            if (loadingText) {
+                loadingText.textContent = text;
+            }
+            if (loadingStatus) {
+                loadingStatus.textContent = status;
+            }
         }
 
         // Hide loading state
         function hideLoading() {
             document.getElementById('loadingOverlay').classList.remove('active');
+        }
+        
+        // Update loading status
+        function updateLoadingStatus(status) {
+            const loadingStatus = document.getElementById('loadingStatus');
+            if (loadingStatus) {
+                loadingStatus.textContent = status;
+            }
         }
 
         // Theme toggle (critical functionality)
