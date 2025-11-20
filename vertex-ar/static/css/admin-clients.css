@@ -1,0 +1,487 @@
+/* Admin Clients Page - Specific Styles */
+/* This file extends admin-base.css with page-specific styles */
+
+/* Client Statistics */
+.client-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background-color: var(--light-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    text-align: center;
+    transition: transform var(--transition-speed);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card h3 {
+    color: var(--secondary-color);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.5px;
+}
+
+.stat-card .value {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* Client Form */
+.client-form {
+    background-color: var(--light-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 2rem;
+}
+
+.client-form h2 {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Client Table */
+.clients-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.clients-table th,
+.clients-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.clients-table th {
+    background-color: var(--bg-color);
+    font-weight: 600;
+    color: var(--text-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.clients-table tr:hover {
+    background-color: var(--bg-color);
+}
+
+.clients-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Client Avatar */
+.client-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+}
+
+.client-avatar.small {
+    width: 30px;
+    height: 30px;
+}
+
+/* Client Status Badge */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.active {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.status-badge.inactive {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.status-badge.pending {
+    background-color: var(--warning-color);
+    color: black;
+}
+
+.status-badge.suspended {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Client Actions */
+.client-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.client-actions .action-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+}
+
+/* Search and Filters */
+.clients-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+}
+
+.filter-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    min-width: 150px;
+}
+
+/* Client Details Modal */
+.client-details {
+    display: grid;
+    gap: 1rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.detail-value {
+    color: var(--text-color);
+}
+
+/* Client Portraits */
+.client-portraits {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.portrait-thumb {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: transform var(--transition-speed);
+}
+
+.portrait-thumb:hover {
+    transform: scale(1.05);
+}
+
+/* Bulk Actions */
+.bulk-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: var(--bg-color);
+    border-radius: var(--border-radius);
+    align-items: center;
+}
+
+.bulk-actions.hidden {
+    display: none;
+}
+
+.selected-count {
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+/* Checkbox for bulk selection */
+.client-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.select-all-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Export Options */
+.export-options {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.export-btn {
+    padding: 0.5rem 1rem;
+    background-color: var(--info-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background-color var(--transition-speed);
+}
+
+.export-btn:hover {
+    background-color: #138496;
+}
+
+/* Client Notes */
+.client-notes {
+    background-color: var(--bg-color);
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 992px) {
+    .client-stats {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .stat-card {
+        padding: 1rem;
+    }
+    
+    .stat-card .value {
+        font-size: 1.5rem;
+    }
+    
+    .clients-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-select {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .client-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .stat-card {
+        padding: 0.75rem;
+    }
+    
+    .stat-card h3 {
+        font-size: 0.75rem;
+    }
+    
+    .stat-card .value {
+        font-size: 1.25rem;
+    }
+    
+    .client-form {
+        padding: 1rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .clients-table {
+        font-size: 0.85rem;
+    }
+    
+    .clients-table th,
+    .clients-table td {
+        padding: 0.5rem;
+    }
+    
+    .client-avatar {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .client-avatar.small {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .status-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .client-actions {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .client-actions .action-btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.75rem;
+    }
+    
+    .bulk-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .export-options {
+        flex-direction: column;
+    }
+    
+    .client-portraits {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
+    
+    .portrait-thumb {
+        height: 80px;
+    }
+}
+
+@media (max-width: 480px) {
+    .client-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        padding: 0.5rem;
+    }
+    
+    .stat-card h3 {
+        font-size: 0.7rem;
+    }
+    
+    .stat-card .value {
+        font-size: 1.1rem;
+    }
+    
+    .clients-table {
+        font-size: 0.75rem;
+    }
+    
+    .clients-table th,
+    .clients-table td {
+        padding: 0.3rem;
+    }
+    
+    .client-avatar {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .client-avatar.small {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .status-badge {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    .client-actions .action-btn {
+        padding: 0.15rem 0.3rem;
+        font-size: 0.7rem;
+    }
+    
+    .detail-row {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .client-portraits {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+    
+    .portrait-thumb {
+        height: 60px;
+    }
+}
+
+/* Landscape mobile optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+    .client-stats {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .form-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Print styles */
+@media print {
+    .header-actions,
+    .bulk-actions,
+    .client-actions,
+    .export-options {
+        display: none !important;
+    }
+    
+    .client-stats,
+    .client-form,
+    .clients-table {
+        break-inside: avoid;
+    }
+    
+    .clients-table {
+        font-size: 0.8rem;
+    }
+}
