@@ -163,6 +163,10 @@ class PaginatedClientsResponse(BaseModel):
     total_pages: int
 
 
+class BulkIdsRequest(BaseModel):
+    ids: List[str] = Field(..., min_items=1, description="List of IDs to process")
+
+
 # Order models
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
