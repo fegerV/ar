@@ -324,6 +324,58 @@
             background: var(--danger-color);
         }
 
+        .stat-card {
+            position: relative;
+            cursor: help;
+        }
+
+        .stat-card[data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background-color: rgba(0, 0, 0, 0.9);
+            color: #ffffff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            white-space: normal;
+            max-width: 250px;
+            width: max-content;
+            text-align: center;
+            line-height: 1.4;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card[data-tooltip]::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .stat-card[data-tooltip]:hover::after,
+        .stat-card[data-tooltip]:hover::before {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-4px);
+        }
+
+        .stat-card[data-tooltip]:hover::before {
+            transform: translateX(-50%);
+        }
+
         @media (max-width: 768px) {
             .monitoring-controls {
                 justify-content: center;
@@ -378,49 +430,38 @@
         <!-- Statistics Section -->
         <section class="stats-section">
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Клиенты показывают рост базы и нагрузку на поддержку.">
                     <h3>Клиенты</h3>
                     <div class="value" id="totalClients">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Портреты и видео отражают фактический объём контента, который нужно хранить и обслуживать.">
                     <h3>Портреты</h3>
                     <div class="value" id="totalPortraits">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Портреты и видео отражают фактический объём контента, который нужно хранить и обслуживать.">
                     <h3>Видео</h3>
                     <div class="value" id="totalVideos">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Заказы помогают оценивать скорость производства и загрузку команды.">
                     <h3>Заказы</h3>
                     <div class="value" id="totalOrders">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Активные портреты показывают, сколько клиентов получают услугу прямо сейчас.">
                     <h3>Активные портреты</h3>
                     <div class="value" id="activePortraits">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Просмотры измеряют вовлечённость аудитории и эффективность кампаний.">
                     <h3>Просмотры</h3>
                     <div class="value" id="totalViews">0</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Использовано/доступно хранилища позволяют контролировать инфраструктурные ресурсы и планировать расширение.">
                     <h3>Использовано хранилища</h3>
                     <div class="value" id="storageUsed">0 B</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-tooltip="Использовано/доступно хранилища позволяют контролировать инфраструктурные ресурсы и планировать расширение.">
                     <h3>Доступно хранилища</h3>
                     <div class="value" id="storageAvailable">0 B</div>
                 </div>
-            </div>
-            <div class="metrics-explanation">
-                <h3>Зачем нужны эти метрики</h3>
-                <ul>
-                    <li><strong>Клиенты</strong> показывают рост базы и нагрузку на поддержку.</li>
-                    <li><strong>Портреты</strong> и <strong>видео</strong> отражают фактический объём контента, который нужно хранить и обслуживать.</li>
-                    <li><strong>Заказы</strong> помогают оценивать скорость производства и загрузку команды.</li>
-                    <li><strong>Активные портреты</strong> показывают, сколько клиентов получают услугу прямо сейчас.</li>
-                    <li><strong>Просмотры</strong> измеряют вовлечённость аудитории и эффективность кампаний.</li>
-                    <li><strong>Использовано/доступно хранилища</strong> позволяют контролировать инфраструктурные ресурсы и планировать расширение.</li>
-                </ul>
             </div>
         </section>
 
