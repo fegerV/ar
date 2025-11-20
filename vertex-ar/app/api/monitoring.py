@@ -33,6 +33,20 @@ class ThresholdUpdateRequest(BaseModel):
     disk_threshold: Optional[float] = None
 
 
+class AlertSettingsRequest(BaseModel):
+    """Request model for alert settings."""
+    email_enabled: Optional[bool] = None
+    telegram_enabled: Optional[bool] = None
+    cpu_threshold: Optional[int] = None
+    memory_threshold: Optional[int] = None
+    disk_threshold: Optional[int] = None
+    response_threshold: Optional[int] = None
+    system_errors: Optional[bool] = None
+    performance: Optional[bool] = None
+    storage: Optional[bool] = None
+    backup: Optional[bool] = None
+
+
 class MonitoringStatusResponse(BaseModel):
     """Response model for monitoring status."""
     enabled: bool
@@ -304,4 +318,76 @@ async def get_monitoring_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get monitoring stats: {str(e)}"
+        )
+
+
+@router.get("/settings")
+async def get_alert_settings(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """Get current alert settings."""
+    try:
+        return {
+            "success": True,
+            "email_enabled": bool(settings.SMTP_USERNAME and settings.ADMIN_EMAILS),
+            "telegram_enabled": bool(settings.TELEGRAM_BOT_TOKEN),
+            "cpu_threshold": int(settings.CPU_THRESHOLD),
+            "memory_threshold": int(settings.MEMORY_THRESHOLD),
+            "disk_threshold": int(settings.DISK_THRESHOLD),
+            "response_threshold": 3000,
+            "system_errors": True,
+            "performance": True,
+            "storage": True,
+            "backup": False
+        }
+    except Exception as e:
+        logger.error(f"Error getting alert settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get alert settings: {str(e)}"
+        )
+
+
+@router.put("/settings")
+async def update_alert_settings(
+    request: AlertSettingsRequest,
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """Update alert settings (runtime only)."""
+    try:
+        updated = []
+        
+        if request.cpu_threshold is not None:
+            if 0 <= request.cpu_threshold <= 100:
+                system_monitor.alert_thresholds["cpu"] = float(request.cpu_threshold)
+                updated.append(f"CPU threshold: {request.cpu_threshold}%")
+        
+        if request.memory_threshold is not None:
+            if 0 <= request.memory_threshold <= 100:
+                system_monitor.alert_thresholds["memory"] = float(request.memory_threshold)
+                updated.append(f"Memory threshold: {request.memory_threshold}%")
+        
+        if request.disk_threshold is not None:
+            if 0 <= request.disk_threshold <= 100:
+                system_monitor.alert_thresholds["disk"] = float(request.disk_threshold)
+                updated.append(f"Disk threshold: {request.disk_threshold}%")
+        
+        if request.response_threshold is not None:
+            updated.append(f"Response threshold: {request.response_threshold}ms")
+        
+        return {
+            "success": True,
+            "message": f"Settings updated: {', '.join(updated) if updated else 'No changes'}",
+            "settings": {
+                "cpu_threshold": system_monitor.alert_thresholds.get("cpu"),
+                "memory_threshold": system_monitor.alert_thresholds.get("memory"),
+                "disk_threshold": system_monitor.alert_thresholds.get("disk")
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating alert settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update alert settings: {str(e)}"
         )

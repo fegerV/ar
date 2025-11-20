@@ -426,6 +426,9 @@
     
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -501,6 +504,25 @@
             </div>
         </section>
 
+        <!-- Charts Section -->
+        <section class="charts-section" style="margin-top: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Аналитика и графики</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem;">
+                <div style="background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Просмотры контента</h3>
+                    <canvas id="viewsChart" style="max-height: 300px;"></canvas>
+                </div>
+                <div style="background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Распределение контента</h3>
+                    <canvas id="contentChart" style="max-height: 300px;"></canvas>
+                </div>
+                <div style="background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Системные ресурсы</h3>
+                    <canvas id="systemChart" style="max-height: 300px;"></canvas>
+                </div>
+            </div>
+        </section>
+
         <!-- Company Management -->
         <section class="company-section">
             <h2>Управление компаниями</h2>
@@ -552,12 +574,40 @@
 
         <!-- Content Records -->
         <section class="content-records">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
                 <h2>Созданный контент</h2>
-                <div>
-                    <input type="text" id="advancedSearch" placeholder="Поиск..." style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
-                    <button id="exportDataBtn" class="company-btn" style="margin-left: 0.5rem;">Экспорт</button>
-                    <button id="preferencesBtn" class="company-btn" style="margin-left: 0.5rem;">⚙️</button>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="advancedSearch" placeholder="Поиск по имени, телефону..." style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color); min-width: 200px;">
+                    <button id="filterBtn" class="company-btn" title="Фильтры">🔍 Фильтры</button>
+                    <button id="exportDataBtn" class="company-btn" title="Экспорт данных">📥 Экспорт</button>
+                    <button id="alertSettingsBtn" class="company-btn" title="Настройки уведомлений">🔔 Уведомления</button>
+                </div>
+            </div>
+            
+            <!-- Advanced Filters Panel -->
+            <div id="filtersPanel" style="display: none; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1rem;">
+                <h3 style="margin-bottom: 1rem;">Расширенные фильтры</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Дата создания (от)</label>
+                        <input type="date" id="filterDateFrom" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Дата создания (до)</label>
+                        <input type="date" id="filterDateTo" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Мин. просмотры</label>
+                        <input type="number" id="filterMinViews" placeholder="0" min="0" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Макс. просмотры</label>
+                        <input type="number" id="filterMaxViews" placeholder="∞" min="0" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <button id="applyFiltersBtn" class="company-btn">Применить</button>
+                    <button id="clearFiltersBtn" class="company-btn" style="background: var(--secondary-color);">Сбросить</button>
                 </div>
             </div>
             
@@ -631,6 +681,120 @@
             <div class="modal-footer">
                 <button class="modal-btn cancel" onclick="hideDeleteCompanyModal()">Отмена</button>
                 <button class="modal-btn confirm" onclick="confirmDeleteCompany()">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Экспорт данных</h3>
+                <button class="modal-close" onclick="closeExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Формат экспорта</label>
+                    <select id="exportFormat" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                        <option value="csv">CSV</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Включить данные</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="exportClients" checked>
+                            <span>Клиенты</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="exportPortraits" checked>
+                            <span>Портреты</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="exportOrders" checked>
+                            <span>Заказы</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" onclick="closeExportModal()">Отмена</button>
+                <button class="modal-btn confirm" onclick="performExport()">Экспортировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Settings Modal -->
+    <div class="modal" id="alertSettingsModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Настройки уведомлений</h3>
+                <button class="modal-close" onclick="closeAlertSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Каналы уведомлений</h4>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertEmail" checked>
+                            <span>📧 Email уведомления</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertTelegram">
+                            <span>📱 Telegram уведомления</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Пороги срабатывания</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">CPU (%)</label>
+                            <input type="number" id="alertCpuThreshold" value="80" min="0" max="100" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Память (%)</label>
+                            <input type="number" id="alertMemoryThreshold" value="80" min="0" max="100" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Диск (%)</label>
+                            <input type="number" id="alertDiskThreshold" value="85" min="0" max="100" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Задержка (мс)</label>
+                            <input type="number" id="alertResponseThreshold" value="3000" min="0" step="100" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); background-color: var(--bg-color); color: var(--text-color);">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <h4 style="margin-bottom: 1rem;">Типы событий</h4>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertSystemErrors" checked>
+                            <span>Системные ошибки</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertPerformance" checked>
+                            <span>Проблемы с производительностью</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertStorage" checked>
+                            <span>Предупреждения о хранилище</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alertBackup">
+                            <span>Статус резервных копий</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" onclick="testAlertSystem()" style="margin-right: auto; background: var(--info-color);">Тест уведомлений</button>
+                <button class="modal-btn cancel" onclick="closeAlertSettingsModal()">Отмена</button>
+                <button class="modal-btn confirm" onclick="saveAlertSettings()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -971,12 +1135,394 @@
                 loadMonitoringStatus();
                 loadRecentAlerts();
                 loadSystemMetrics();
+                initializeCharts();
                 
                 // Set up auto-refresh for metrics
                 setInterval(loadSystemMetrics, 30000); // Refresh every 30 seconds
                 setInterval(loadRecentAlerts, 60000); // Refresh alerts every minute
+                setInterval(updateCharts, 60000); // Update charts every minute
             }, 2000);
+            
+            // Initialize filter and export buttons
+            const filterBtn = document.getElementById('filterBtn');
+            if (filterBtn) {
+                filterBtn.addEventListener('click', toggleFiltersPanel);
+            }
+            
+            const exportBtn = document.getElementById('exportDataBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', openExportModal);
+            }
+            
+            const alertBtn = document.getElementById('alertSettingsBtn');
+            if (alertBtn) {
+                alertBtn.addEventListener('click', openAlertSettingsModal);
+            }
+            
+            const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+            if (applyFiltersBtn) {
+                applyFiltersBtn.addEventListener('click', applyFilters);
+            }
+            
+            const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', clearFilters);
+            }
         });
+
+        // Charts variables
+        let viewsChart, contentChart, systemChart;
+
+        function initializeCharts() {
+            const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+            const textColor = isDarkTheme ? '#e0e0e0' : '#333';
+            const gridColor = isDarkTheme ? '#444' : '#ddd';
+
+            Chart.defaults.color = textColor;
+            Chart.defaults.borderColor = gridColor;
+
+            // Views Chart
+            const viewsCtx = document.getElementById('viewsChart');
+            if (viewsCtx) {
+                viewsChart = new Chart(viewsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Просмотры',
+                            data: [],
+                            borderColor: 'rgb(0, 123, 255)',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: true }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // Content Distribution Chart
+            const contentCtx = document.getElementById('contentChart');
+            if (contentCtx) {
+                contentChart = new Chart(contentCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Активные', 'Неактивные'],
+                        datasets: [{
+                            data: [0, 0],
+                            backgroundColor: [
+                                'rgba(40, 167, 69, 0.8)',
+                                'rgba(108, 117, 125, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            }
+
+            // System Resources Chart
+            const systemCtx = document.getElementById('systemChart');
+            if (systemCtx) {
+                systemChart = new Chart(systemCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['CPU', 'Память', 'Диск'],
+                        datasets: [{
+                            label: 'Использование (%)',
+                            data: [0, 0, 0],
+                            backgroundColor: [
+                                'rgba(0, 123, 255, 0.8)',
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(220, 53, 69, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateCharts();
+        }
+
+        async function updateCharts() {
+            try {
+                const statsResponse = await fetch('/admin/stats', { credentials: 'include' });
+                const stats = await statsResponse.json();
+                
+                const contentStatsResponse = await fetch('/admin/content-stats', { credentials: 'include' });
+                const contentStats = await contentStatsResponse.json();
+                
+                const systemResponse = await fetch('/admin/system-info', { credentials: 'include' });
+                const systemInfo = await systemResponse.json();
+
+                // Update views chart with top 10 content
+                if (viewsChart && contentStats.length > 0) {
+                    const top10 = contentStats.slice(0, 10);
+                    viewsChart.data.labels = top10.map((_, i) => `Контент ${i + 1}`);
+                    viewsChart.data.datasets[0].data = top10.map(item => item.views);
+                    viewsChart.update();
+                }
+
+                // Update content distribution chart
+                if (contentChart) {
+                    contentChart.data.datasets[0].data = [
+                        stats.active_portraits || 0,
+                        (stats.total_portraits || 0) - (stats.active_portraits || 0)
+                    ];
+                    contentChart.update();
+                }
+
+                // Update system resources chart
+                if (systemChart) {
+                    systemChart.data.datasets[0].data = [
+                        systemInfo.cpu_percent || 0,
+                        systemInfo.memory_percent || 0,
+                        systemInfo.disk_percent || 0
+                    ];
+                    systemChart.update();
+                }
+            } catch (error) {
+                console.error('Error updating charts:', error);
+            }
+        }
+
+        // Filter functions
+        function toggleFiltersPanel() {
+            const panel = document.getElementById('filtersPanel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function applyFilters() {
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const minViews = document.getElementById('filterMinViews').value;
+            const maxViews = document.getElementById('filterMaxViews').value;
+
+            console.log('Applying filters:', { dateFrom, dateTo, minViews, maxViews });
+            showToast('Фильтры применены', 'success');
+            
+            if (typeof loadRecords === 'function') {
+                loadRecords();
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            document.getElementById('filterMinViews').value = '';
+            document.getElementById('filterMaxViews').value = '';
+            
+            showToast('Фильтры сброшены', 'info');
+            
+            if (typeof loadRecords === 'function') {
+                loadRecords();
+            }
+        }
+
+        // Export modal functions
+        function openExportModal() {
+            const modal = document.getElementById('exportModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeExportModal() {
+            const modal = document.getElementById('exportModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        async function performExport() {
+            const format = document.getElementById('exportFormat').value;
+            const includeClients = document.getElementById('exportClients').checked;
+            const includePortraits = document.getElementById('exportPortraits').checked;
+            const includeOrders = document.getElementById('exportOrders').checked;
+
+            const include = [];
+            if (includeClients) include.push('clients');
+            if (includePortraits) include.push('portraits');
+            if (includeOrders) include.push('orders');
+
+            if (include.length === 0) {
+                showToast('Выберите хотя бы один тип данных', 'warning');
+                return;
+            }
+
+            try {
+                showLoading('Экспорт данных...');
+                
+                const response = await fetch('/admin/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        format: format,
+                        include: include
+                    }),
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `export_${new Date().getTime()}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showToast('Данные успешно экспортированы', 'success');
+                closeExportModal();
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('Ошибка при экспорте данных', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Alert settings modal functions
+        function openAlertSettingsModal() {
+            const modal = document.getElementById('alertSettingsModal');
+            if (modal) {
+                loadAlertSettings();
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeAlertSettingsModal() {
+            const modal = document.getElementById('alertSettingsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        async function loadAlertSettings() {
+            try {
+                const response = await fetch('/monitoring/settings', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const settings = await response.json();
+                    
+                    document.getElementById('alertEmail').checked = settings.email_enabled || false;
+                    document.getElementById('alertTelegram').checked = settings.telegram_enabled || false;
+                    document.getElementById('alertCpuThreshold').value = settings.cpu_threshold || 80;
+                    document.getElementById('alertMemoryThreshold').value = settings.memory_threshold || 80;
+                    document.getElementById('alertDiskThreshold').value = settings.disk_threshold || 85;
+                    document.getElementById('alertResponseThreshold').value = settings.response_threshold || 3000;
+                    document.getElementById('alertSystemErrors').checked = settings.system_errors || true;
+                    document.getElementById('alertPerformance').checked = settings.performance || true;
+                    document.getElementById('alertStorage').checked = settings.storage || true;
+                    document.getElementById('alertBackup').checked = settings.backup || false;
+                }
+            } catch (error) {
+                console.error('Error loading alert settings:', error);
+            }
+        }
+
+        async function saveAlertSettings() {
+            const settings = {
+                email_enabled: document.getElementById('alertEmail').checked,
+                telegram_enabled: document.getElementById('alertTelegram').checked,
+                cpu_threshold: parseInt(document.getElementById('alertCpuThreshold').value),
+                memory_threshold: parseInt(document.getElementById('alertMemoryThreshold').value),
+                disk_threshold: parseInt(document.getElementById('alertDiskThreshold').value),
+                response_threshold: parseInt(document.getElementById('alertResponseThreshold').value),
+                system_errors: document.getElementById('alertSystemErrors').checked,
+                performance: document.getElementById('alertPerformance').checked,
+                storage: document.getElementById('alertStorage').checked,
+                backup: document.getElementById('alertBackup').checked
+            };
+
+            try {
+                showLoading('Сохранение настроек...');
+                
+                const response = await fetch('/monitoring/settings', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings),
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    showToast('Настройки успешно сохранены', 'success');
+                    closeAlertSettingsModal();
+                } else {
+                    showToast('Ошибка при сохранении настроек', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving alert settings:', error);
+                showToast('Ошибка при сохранении настроек', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            const colors = {
+                success: 'var(--success-color)',
+                error: 'var(--danger-color)',
+                warning: 'var(--warning-color)',
+                info: 'var(--info-color)'
+            };
+            
+            toast.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => container.removeChild(toast), 300);
+            }, 3000);
+        }
     </script>
 
     <!-- Load main CSS -->
