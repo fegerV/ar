@@ -69,6 +69,12 @@ function initializeDashboard() {
     // Apply theme
     applyTheme();
     
+    // Update current company name in UI
+    const currentNameElement = document.getElementById('currentCompanyName');
+    if (currentNameElement && AdminDashboard.state.currentCompany) {
+        currentNameElement.textContent = AdminDashboard.state.currentCompany.name || 'Vertex AR';
+    }
+    
     // Load initial data
     loadStatistics();
     loadSystemInfo();
@@ -1291,6 +1297,10 @@ async function handleOrderSubmit(e) {
     if (clientNotes) {
         formData.append('description', clientNotes);
     }
+    
+    // Add current company_id from state
+    const companyId = AdminDashboard.state.currentCompany?.id || 'vertex-ar-default';
+    formData.append('company_id', companyId);
     
     try {
         showLoading();
