@@ -191,7 +191,6 @@ pytest --cov=vertex-ar --cov-report=term-missing
 - 🧭 [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) — обзор архитектуры проекта
 - 🧹 [CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md) — отчёт об очистке и оптимизации (ноябрь 2024)
 - 🧾 [TASK_SUMMARY.md](TASK_SUMMARY.md) — сводка выполненной задачи по очистке
-- ✅ [VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md) — контрольный список проверки очистки
 
 ### Руководства
 - 🚀 [docs/guides/installation.md](docs/guides/installation.md) — полное руководство по установке и развёртыванию
