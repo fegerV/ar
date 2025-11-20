@@ -125,6 +125,7 @@ function refreshData() {
     loadSystemInfo();
     loadCompanies();
     loadBackupStats();
+    loadRecords(); // Also reload records with current company context
     addLog('Данные обновлены автоматически', 'info');
 }
 
@@ -263,7 +264,12 @@ function initializeEventListeners() {
 async function loadStatistics() {
     try {
         showLoading();
-        const response = await fetch('/admin/stats', {
+        
+        // Include current company ID in the request
+        const companyId = AdminDashboard.state.currentCompany?.id;
+        const url = companyId ? `/admin/stats?company_id=${encodeURIComponent(companyId)}` : '/admin/stats';
+        
+        const response = await fetch(url, {
             credentials: 'include'
         });
         
@@ -397,7 +403,12 @@ function updateSystemInfo(data) {
 async function loadRecords() {
     try {
         AdminDashboard.setState({ isLoading: true });
-        const response = await fetch('/admin/records', {
+        
+        // Include current company ID in the request
+        const companyId = AdminDashboard.state.currentCompany?.id;
+        const url = companyId ? `/admin/records?company_id=${encodeURIComponent(companyId)}` : '/admin/records';
+        
+        const response = await fetch(url, {
             credentials: 'include'
         });
         
@@ -461,7 +472,12 @@ function createRecordRow(record) {
     const noImageText = 'Нет фото';
     
     row.innerHTML = `
-        <td>${record.order_number || ''}</td>
+        <td>
+            ${record.id ? 
+                `<a href="/admin/order/${record.id}" class="order-link" title="Открыть детальную информацию">${record.order_number || ''}</a>` : 
+                `${record.order_number || ''}`
+            }
+        </td>
         <td>
             ${record.portrait_path ? 
                 `<img src="${record.portrait_path}" 
@@ -469,7 +485,7 @@ function createRecordRow(record) {
                      class="portrait-preview"
                      onclick="showLightbox('${record.portrait_path}')"
                      onerror="this.src='${placeholderImage}'; this.onerror=null;"
-                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` : 
+                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;">` : 
                 `<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">${noImageText}</div>`
             }
         </td>
@@ -477,8 +493,10 @@ function createRecordRow(record) {
             ${record.active_video_url ? 
                 `<video src="${record.active_video_url}" 
                        class="video-preview" 
-                       style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"
-                       onclick="window.open('${record.active_video_url}', '_blank')"></video>` : 
+                       style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+                       onclick="showVideoLightbox('${record.active_video_url}')"
+                       muted
+                       preload="metadata"></video>` : 
                 '<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">Нет видео</div>'
             }
         </td>
@@ -487,7 +505,10 @@ function createRecordRow(record) {
         <td>${record.views || 0}</td>
         <td>
             ${record.permanent_url ? 
-                `<a href="${record.permanent_url}" target="_blank" class="link-button">Открыть</a>` : 
+                `<div style="display: flex; gap: 0.25rem;">
+                    <button class="link-button small" onclick="window.open('${record.permanent_url}', '_blank')" title="Открыть в новой вкладке">Открыть</button>
+                    <button class="link-button small" onclick="copyToClipboard('${record.permanent_url}')" title="Скопировать ссылку">Копировать</button>
+                </div>` : 
                 'Нет ссылки'
             }
         </td>
@@ -497,7 +518,7 @@ function createRecordRow(record) {
                      alt="QR Code" 
                      class="qr-preview"
                      onclick="showLightbox('${record.qr_code}')"
-                     style="width: 30px; height: 30px;">` : 
+                     style="width: 30px; height: 30px; cursor: pointer;">` : 
                 '<div style="width: 30px; height: 30px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.6rem;">Нет QR</div>'
             }
         </td>
@@ -796,15 +817,109 @@ function showLightbox(imageSrc) {
     const lightboxContent = document.querySelector('.lightbox-content');
     
     if (lightbox && lightboxContent) {
+        // Remove any existing video element
+        const existingVideo = lightbox.querySelector('.lightbox-video');
+        if (existingVideo) {
+            existingVideo.remove();
+        }
+        
+        // Show image
+        lightboxContent.style.display = 'block';
         lightboxContent.src = imageSrc;
         lightbox.classList.add('active');
         addLog('Открыт просмотр изображения', 'info');
     }
 }
 
+function showVideoLightbox(videoSrc) {
+    const lightbox = document.querySelector('.lightbox');
+    const lightboxContent = document.querySelector('.lightbox-content');
+    
+    if (lightbox && lightboxContent) {
+        // Hide image
+        lightboxContent.style.display = 'none';
+        
+        // Remove existing video if any
+        const existingVideo = lightbox.querySelector('.lightbox-video');
+        if (existingVideo) {
+            existingVideo.remove();
+        }
+        
+        // Create video element
+        const videoElement = document.createElement('video');
+        videoElement.src = videoSrc;
+        videoElement.className = 'lightbox-video';
+        videoElement.controls = true;
+        videoElement.autoplay = true;
+        videoElement.style.maxWidth = '90%';
+        videoElement.style.maxHeight = '90%';
+        videoElement.style.display = 'block';
+        videoElement.style.margin = 'auto';
+        
+        // Insert video after the image content
+        lightboxContent.parentNode.insertBefore(videoElement, lightboxContent.nextSibling);
+        
+        lightbox.classList.add('active');
+        addLog('Открыт просмотр видео', 'info');
+    }
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Ссылка скопирована в буфер обмена', 'success');
+            addLog('Ссылка скопирована в буфер обмена', 'info');
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            fallbackCopyTextToClipboard(text);
+        });
+    } else {
+        fallbackCopyTextToClipboard(text);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showToast('Ссылка скопирована в буфер обмена', 'success');
+            addLog('Ссылка скопирована в буфер обмена', 'info');
+        } else {
+            showToast('Не удалось скопировать ссылку', 'error');
+        }
+    } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        showToast('Не удалось скопировать ссылку', 'error');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
 function closeLightbox() {
     const lightbox = document.querySelector('.lightbox');
     if (lightbox) {
+        // Remove any video element
+        const existingVideo = lightbox.querySelector('.lightbox-video');
+        if (existingVideo) {
+            existingVideo.pause();
+            existingVideo.remove();
+        }
+        
+        // Show image content again
+        const lightboxContent = lightbox.querySelector('.lightbox-content');
+        if (lightboxContent) {
+            lightboxContent.style.display = 'block';
+        }
+        
         lightbox.classList.remove('active');
     }
 }
@@ -925,9 +1040,8 @@ function updateBackupStats(data) {
 
 // Record operations
 async function editRecord(recordId) {
-    // This would open an edit modal or navigate to edit page
-    showToast(`Редактирование записи ${recordId}`, 'info');
-    addLog(`Начато редактирование записи: ${recordId}`, 'info');
+    // Navigate to the detail page for editing
+    window.location.href = `/admin/order/${recordId}`;
 }
 
 async function deleteRecord(recordId) {

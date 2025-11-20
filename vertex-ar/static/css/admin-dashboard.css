@@ -712,6 +712,12 @@ body {
     border-radius: var(--border-radius);
 }
 
+.lightbox-video {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: var(--border-radius);
+}
+
 .lightbox-close {
     position: absolute;
     top: 20px;
@@ -1307,6 +1313,18 @@ body {
     background-color: var(--primary-color);
     color: white;
     text-decoration: none;
+}
+
+/* Order link */
+.order-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.order-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
 }
 
 /* Company buttons */
