@@ -148,6 +148,94 @@ body {
     background-color: #c82333;
 }
 
+.hidden {
+    display: none !important;
+}
+
+.notifications-wrapper {
+    position: relative;
+}
+
+.notifications-dropdown {
+    position: absolute;
+    top: 130%;
+    right: 0;
+    width: 320px;
+    background-color: var(--light-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 1rem;
+    display: none;
+    z-index: 20;
+}
+
+.notifications-dropdown.open {
+    display: block;
+}
+
+.notifications-header,
+.notifications-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.notifications-list {
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+}
+
+.notification-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-title {
+    font-weight: 600;
+    display: block;
+}
+
+.notification-date {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+}
+
+.notification-empty {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.notification-badge.hidden {
+    display: none;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+}
+
+.link-button.ghost {
+    color: var(--secondary-color);
+}
+
+.notifications-link {
+    font-size: 0.85rem;
+    color: var(--primary-color);
+}
+
 /* Stats Section */
 .stats-section {
     margin-bottom: 2rem;
@@ -185,6 +273,30 @@ body {
     font-size: 1.75rem;
     font-weight: bold;
     color: var(--primary-color);
+}
+
+.metrics-explanation {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-color);
+}
+
+.metrics-explanation h3 {
+    margin-bottom: 0.5rem;
+}
+
+.metrics-explanation ul {
+    list-style: disc;
+    margin-left: 1.25rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.metrics-explanation li {
+    color: var(--secondary-color);
+    font-size: 0.95rem;
 }
 
 /* System Information */
