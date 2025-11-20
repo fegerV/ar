@@ -712,11 +712,17 @@ function showDeleteCompanyModal() {
         messageElement.textContent = `Вы уверены, что хотите удалить компанию "${companyName}"? Все данные будут удалены без возможности восстановления.`;
     }
     
-    showModal('deleteCompanyModal');
+    const modal = document.getElementById('deleteCompanyModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
 }
 
 function hideDeleteCompanyModal() {
-    hideModal('deleteCompanyModal');
+    const modal = document.getElementById('deleteCompanyModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
     AdminDashboard.setState({ selectedCompanyToDelete: null });
 }
 
@@ -729,6 +735,8 @@ async function confirmDeleteCompany() {
     }
     
     try {
+        showLoading();
+        
         const response = await fetch(`/companies/${selectedCompanyToDelete.id}`, {
             method: 'DELETE',
             credentials: 'include'
@@ -749,66 +757,8 @@ async function confirmDeleteCompany() {
     } catch (error) {
         showToast('Ошибка сети', 'error');
         addLog(`Ошибка сети при удалении компании: ${error.message}`, 'error');
-    }
-}
-
-// Order form handling
-async function handleOrderSubmit(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const submitBtn = e.target.querySelector('.upload-btn');
-    
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Загрузка...';
-    }
-    
-    try {
-        const response = await fetch('/admin/upload', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            showToast('Заказ успешно создан!', 'success');
-            addLog(`Создан новый заказ: ${result.order_id || 'unknown'}`, 'success');
-            
-            e.target.reset();
-            hideImagePreview();
-            loadRecords();
-            loadStatistics();
-        } else {
-            const error = await response.json();
-            let errorMessage = 'Не удалось создать заказ';
-            
-            if (error.detail) {
-                if (typeof error.detail === 'string') {
-                    errorMessage = error.detail;
-                } else if (Array.isArray(error.detail)) {
-                    errorMessage = error.detail.map(e => 
-                        typeof e === 'string' ? e : (e.msg || 'Ошибка')
-                    ).join(', ');
-                } else if (typeof error.detail === 'object') {
-                    errorMessage = Object.values(error.detail).map(v => 
-                        typeof v === 'string' ? v : JSON.stringify(v)
-                    ).join(', ');
-                }
-            }
-            
-            showToast(`Ошибка: ${errorMessage}`, 'error');
-            addLog(`Ошибка при создании заказа: ${errorMessage}`, 'error');
-        }
-    } catch (error) {
-        showToast('Ошибка сети', 'error');
-        addLog(`Ошибка сети при создании заказа: ${error.message}`, 'error');
     } finally {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Создать AR контент';
-        }
+        hideLoading();
     }
 }
 
@@ -1098,6 +1048,193 @@ document.addEventListener('DOMContentLoaded', function() {
         addLog(`Страница загружена за ${loadTime}ms`, 'info');
     }
 });
+
+// Toast notification system
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        console.warn('Toast container not found');
+        return;
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    // Add icon based on type
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    switch (type) {
+        case 'success':
+            icon.textContent = '✅';
+            break;
+        case 'error':
+            icon.textContent = '❌';
+            break;
+        case 'warning':
+            icon.textContent = '⚠️';
+            break;
+        default:
+            icon.textContent = 'ℹ️';
+    }
+    toast.insertBefore(icon, toast.firstChild);
+    
+    toastContainer.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Lightbox functionality
+function showLightbox(imageSrc) {
+    const lightbox = document.getElementById('lightbox');
+    const lightboxContent = document.getElementById('lightboxContent');
+    
+    if (lightbox && lightboxContent) {
+        lightboxContent.src = imageSrc;
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    if (lightbox) {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal.active').forEach(modal => {
+        modal.classList.remove('active');
+    });
+}
+
+// Order form submission
+async function handleOrderSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData();
+    
+    // Get form values
+    const clientName = document.getElementById('clientName').value.trim();
+    const clientPhone = document.getElementById('clientPhone').value.trim();
+    const clientPhoto = document.getElementById('clientPhoto').files[0];
+    const clientVideo = document.getElementById('clientVideo').files[0];
+    const clientNotes = document.getElementById('clientNotes').value.trim();
+    
+    // Validation
+    if (!clientName) {
+        showToast('Имя клиента обязательно', 'error');
+        return;
+    }
+    
+    if (!clientPhone) {
+        showToast('Телефон клиента обязателен', 'error');
+        return;
+    }
+    
+    if (!clientPhoto) {
+        showToast('Фото клиента обязательно', 'error');
+        return;
+    }
+    
+    if (!clientVideo) {
+        showToast('Видео клиента обязательно', 'error');
+        return;
+    }
+    
+    // Validate file types
+    if (!clientPhoto.type.startsWith('image/')) {
+        showToast('Выберите файл изображения', 'error');
+        return;
+    }
+    
+    if (!clientVideo.type.startsWith('video/')) {
+        showToast('Выберите видеофайл', 'error');
+        return;
+    }
+    
+    // Append data with correct field names for API
+    formData.append('name', clientName);
+    formData.append('phone', clientPhone);
+    formData.append('image', clientPhoto);
+    formData.append('video', clientVideo);
+    if (clientNotes) {
+        formData.append('description', clientNotes);
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch('/orders/create', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('AR контент создан успешно', 'success');
+            addLog(`Создан заказ для клиента: ${clientName}`, 'success');
+            
+            // Reset form
+            form.reset();
+            hideImagePreview();
+            
+            // Toggle form visibility
+            const formElement = document.getElementById('orderForm');
+            const btn = document.querySelector('.create-ar-btn');
+            if (formElement && btn) {
+                formElement.classList.remove('active');
+                btn.textContent = '+ Создать AR контент';
+            }
+            
+            // Reload data
+            loadRecords();
+            loadStatistics();
+            
+        } else {
+            let errorMessage = 'Ошибка при создании заказа';
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    if (Array.isArray(errorData.detail)) {
+                        errorMessage = errorData.detail.map(err => err.msg || err).join(', ');
+                    } else {
+                        errorMessage = errorData.detail;
+                    }
+                }
+            } catch (e) {
+                // If response is not JSON, use status text
+                errorMessage = `Ошибка ${response.status}: ${response.statusText}`;
+            }
+            
+            showToast(errorMessage, 'error');
+            addLog(`Ошибка при создании заказа: ${errorMessage}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error creating order:', error);
+        showToast('Ошибка сети при создании заказа', 'error');
+        addLog(`Ошибка сети при создании заказа: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
 
 // Logging functionality
 function addLog(message, type = 'info') {
