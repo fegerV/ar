@@ -1,6 +1,9 @@
 """
 Admin panel endpoints for Vertex AR API.
 """
+import csv
+import io
+import json
 import os
 import platform
 import shutil
@@ -10,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app.api.auth import require_admin
@@ -710,6 +713,136 @@ async def admin_logout(request: Request) -> RedirectResponse:
     )
     response.delete_cookie("authToken")
     return response
+
+
+@router.post("/export")
+async def export_data(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> StreamingResponse:
+    """Export admin data as CSV."""
+    try:
+        data = await request.json()
+        export_format = data.get("format", "csv")
+        include = data.get("include", ["clients", "portraits", "orders"])
+        company_id = data.get("company_id")
+        
+        database = get_database()
+        
+        if export_format == "csv":
+            return await _export_to_csv(database, include, company_id)
+        elif export_format == "json":
+            return await _export_to_json(database, include, company_id)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported export format")
+    except Exception as e:
+        logger.error(f"Export error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+async def _export_to_csv(
+    database: Database,
+    include: List[str],
+    company_id: Optional[str]
+) -> StreamingResponse:
+    """Export data to CSV format."""
+    output = io.StringIO()
+    
+    try:
+        if "clients" in include:
+            clients = database.list_clients(company_id=company_id) if company_id else database.list_clients()
+            if clients:
+                writer = csv.DictWriter(
+                    output,
+                    fieldnames=["id", "name", "phone", "email", "company_id", "created_at"]
+                )
+                writer.writeheader()
+                for client in clients:
+                    writer.writerow({
+                        "id": str(client.get("id", "")),
+                        "name": str(client.get("name", "")),
+                        "phone": str(client.get("phone", "")),
+                        "email": str(client.get("email", "")),
+                        "company_id": str(client.get("company_id", "")),
+                        "created_at": str(client.get("created_at", "")),
+                    })
+        
+        if "orders" in include or "portraits" in include:
+            if company_id:
+                clients = database.list_clients(company_id=company_id)
+                client_ids = [client["id"] for client in clients]
+                records = []
+                for client_id in client_ids:
+                    records.extend(database.list_ar_content(client_id))
+            else:
+                records = database.list_ar_content()
+            
+            if records:
+                writer = csv.DictWriter(
+                    output,
+                    fieldnames=[
+                        "portrait_id", "client_id", "client_name", "client_phone",
+                        "view_count", "created_at", "company_id"
+                    ]
+                )
+                writer.writeheader()
+                for record in records:
+                    writer.writerow({
+                        "portrait_id": str(record.get("id", "")),
+                        "client_id": str(record.get("client_id", "")),
+                        "client_name": str(record.get("client_name", "")),
+                        "client_phone": str(record.get("client_phone", "")),
+                        "view_count": str(record.get("view_count", 0)),
+                        "created_at": str(record.get("created_at", "")),
+                        "company_id": str(record.get("company_id", "")),
+                    })
+        
+        output.seek(0)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=export_{timestamp}.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting to CSV: {e}", exc_info=True)
+        raise
+
+
+async def _export_to_json(
+    database: Database,
+    include: List[str],
+    company_id: Optional[str]
+) -> StreamingResponse:
+    """Export data to JSON format."""
+    export_data = {}
+    
+    if "clients" in include:
+        clients = database.list_clients(company_id=company_id) if company_id else database.list_clients()
+        export_data["clients"] = clients
+    
+    if "orders" in include or "portraits" in include:
+        if company_id:
+            clients = database.list_clients(company_id=company_id)
+            client_ids = [client["id"] for client in clients]
+            records = []
+            for client_id in client_ids:
+                records.extend(database.list_ar_content(client_id))
+        else:
+            records = database.list_ar_content()
+        export_data["records"] = records
+    
+    output = io.BytesIO()
+    json_data = json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
+    output.write(json_data.encode())
+    output.seek(0)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=export_{timestamp}.json"}
+    )
 
 
 @router.get("/content-stats")
