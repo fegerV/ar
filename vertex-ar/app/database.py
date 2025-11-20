@@ -224,6 +224,35 @@ class Database:
             return None
         return dict(row)
     
+    def create_user(
+        self,
+        username: str,
+        hashed_password: str,
+        *,
+        is_admin: bool = False,
+        is_active: bool = True,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new user and return the stored record."""
+        try:
+            self._execute(
+                """
+                INSERT INTO users (
+                    username, hashed_password, is_admin, is_active, email, full_name
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (username, hashed_password, int(is_admin), int(is_active), email, full_name),
+            )
+            logger.info("Created user", username=username, is_admin=is_admin)
+        except sqlite3.IntegrityError as exc:
+            logger.warning("Attempted to create duplicate user", username=username)
+            raise ValueError("user_already_exists") from exc
+        user = self.get_user(username)
+        if user is None:
+            raise RuntimeError("Failed to retrieve user after creation")
+        return user
+    
     def update_user(self, username: str, **kwargs) -> bool:
         """Update user fields."""
         if not kwargs:
