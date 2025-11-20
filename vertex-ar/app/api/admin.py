@@ -650,20 +650,65 @@ async def list_dashboard_records(
 
 @router.get("/search")
 async def search_dashboard_records(
-    q: str,
+    q: str = "",
     company_id: Optional[str] = None,
     limit: int = 100,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    min_views: Optional[int] = None,
+    max_views: Optional[int] = None,
     _: str = Depends(require_admin)
 ) -> Dict[str, Any]:
-    """Search records by client name, phone or identifiers."""
-    if not q.strip():
-        return {"results": []}
+    """Search and filter records by various criteria."""
     database = get_database()
     _ensure_company_exists(database, company_id)
     safe_limit = max(10, min(limit, 500))
-    records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit, search=q.strip())
+    
+    if not q.strip() and not any([date_from, date_to, min_views is not None, max_views is not None]):
+        records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit)
+    else:
+        search_query = q.strip() if q.strip() else None
+        records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit, search=search_query)
+    
+    filtered_records = []
+    for record in records_raw:
+        if date_from or date_to:
+            created_at = record.get("created_at")
+            if created_at:
+                try:
+                    from datetime import datetime
+                    if isinstance(created_at, str):
+                        record_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    else:
+                        record_date = created_at
+                    
+                    if date_from:
+                        filter_date_from = datetime.fromisoformat(date_from)
+                        if record_date < filter_date_from:
+                            continue
+                    
+                    if date_to:
+                        filter_date_to = datetime.fromisoformat(date_to)
+                        if record_date > filter_date_to:
+                            continue
+                except (ValueError, AttributeError):
+                    pass
+        
+        if min_views is not None or max_views is not None:
+            views = record.get("view_count", 0) or 0
+            if min_views is not None and views < min_views:
+                continue
+            if max_views is not None and views > max_views:
+                continue
+        
+        filtered_records.append(record)
+    
     total_portraits = database.count_portraits(company_id=company_id)
-    return {"results": _serialize_records(records_raw, total_portraits)}
+    return {
+        "results": _serialize_records(filtered_records, total_portraits),
+        "total_filtered": len(filtered_records),
+        "total": total_portraits
+    }
 
 
 @router.delete("/records/{portrait_id}")

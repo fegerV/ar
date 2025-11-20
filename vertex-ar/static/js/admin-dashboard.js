@@ -244,6 +244,18 @@ function initializeEventListeners() {
         });
     }
     
+    // Advanced search with debounce
+    const advancedSearch = document.getElementById('advancedSearch');
+    if (advancedSearch) {
+        const debouncedSearch = debounce((query) => {
+            performSearch(query);
+        }, 500);
+        
+        advancedSearch.addEventListener('input', (e) => {
+            debouncedSearch(e.target.value);
+        });
+    }
+    
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         // Escape to close modals/lightbox
@@ -1489,21 +1501,49 @@ function updateNotifications(notifications) {
     });
 }
 
-// Search functionality
-async function performSearch(query) {
-    if (!query.trim()) {
-        loadRecords();
-        return;
-    }
-    
+// Search functionality with advanced filters
+async function performSearch(query = '', filters = {}) {
     try {
-        const response = await fetch(`/admin/search?q=${encodeURIComponent(query)}`, {
+        let url = '/admin/search?';
+        const params = [];
+        
+        if (query && query.trim()) {
+            params.push(`q=${encodeURIComponent(query.trim())}`);
+        }
+        
+        if (filters.dateFrom) {
+            params.push(`date_from=${encodeURIComponent(filters.dateFrom)}`);
+        }
+        
+        if (filters.dateTo) {
+            params.push(`date_to=${encodeURIComponent(filters.dateTo)}`);
+        }
+        
+        if (filters.minViews !== undefined && filters.minViews !== '') {
+            params.push(`min_views=${filters.minViews}`);
+        }
+        
+        if (filters.maxViews !== undefined && filters.maxViews !== '') {
+            params.push(`max_views=${filters.maxViews}`);
+        }
+        
+        const companyId = AdminDashboard.state.currentCompany?.id;
+        if (companyId) {
+            params.push(`company_id=${encodeURIComponent(companyId)}`);
+        }
+        
+        url += params.join('&');
+        
+        const response = await fetch(url, {
             credentials: 'include'
         });
         
         if (response.ok) {
             const data = await response.json();
             displayRecords(data.results || []);
+            if (data.total_filtered !== undefined) {
+                showToast(`Найдено записей: ${data.total_filtered}`, 'info');
+            }
         } else {
             showToast('Ошибка поиска', 'error');
         }
@@ -1512,6 +1552,41 @@ async function performSearch(query) {
         showToast('Ошибка сети при поиске', 'error');
     }
 }
+
+// Apply filters from filter panel
+window.applyFilters = function() {
+    const dateFrom = document.getElementById('filterDateFrom')?.value;
+    const dateTo = document.getElementById('filterDateTo')?.value;
+    const minViews = document.getElementById('filterMinViews')?.value;
+    const maxViews = document.getElementById('filterMaxViews')?.value;
+    const searchQuery = document.getElementById('advancedSearch')?.value;
+    
+    const filters = {};
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
+    if (minViews) filters.minViews = parseInt(minViews);
+    if (maxViews) filters.maxViews = parseInt(maxViews);
+    
+    performSearch(searchQuery || '', filters);
+};
+
+// Clear filters
+window.clearFilters = function() {
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
+    document.getElementById('filterMinViews').value = '';
+    document.getElementById('filterMaxViews').value = '';
+    loadRecords();
+    showToast('Фильтры сброшены', 'info');
+};
+
+// Toggle filters panel
+window.toggleFiltersPanel = function() {
+    const panel = document.getElementById('filtersPanel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+};
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
