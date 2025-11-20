@@ -1,0 +1,323 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Vertex AR Mobile API",
+    "version": "1.3.0",
+    "description": "Optimized API for React Native mobile applications to view AR content created in Vertex AR service"
+  },
+  "servers": [
+    {
+      "url": "https://your-server.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "mobile",
+      "description": "Mobile API endpoints"
+    }
+  ],
+  "paths": {
+    "/api/mobile/portraits": {
+      "get": {
+        "summary": "Get list of portraits",
+        "tags": ["mobile"],
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Filter by company ID"
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Filter by client ID"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "schema": {"type": "boolean", "default": false},
+            "description": "Include portraits without active video"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "minimum": 1, "default": 1}
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PortraitsListResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mobile/portraits/{permanent_link}": {
+      "get": {
+        "summary": "Get portrait by permanent link (public)",
+        "tags": ["mobile"],
+        "parameters": [
+          {
+            "name": "permanent_link",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portrait found",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MobilePortraitResponse"}
+              }
+            }
+          },
+          "404": {
+            "description": "Portrait not found"
+          }
+        }
+      }
+    },
+    "/api/mobile/portraits/{portrait_id}/view": {
+      "post": {
+        "summary": "Track portrait view (public)",
+        "tags": ["mobile"],
+        "parameters": [
+          {
+            "name": "portrait_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/PortraitViewRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "View tracked successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ViewResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mobile/companies": {
+      "get": {
+        "summary": "Get list of companies",
+        "tags": ["mobile"],
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "List of companies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/CompanyInfo"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mobile/portraits/{portrait_id}/marker-status": {
+      "get": {
+        "summary": "Check NFT marker files status",
+        "tags": ["mobile"],
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "portrait_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marker status",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/MarkerStatusResponse"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "DeviceInfo": {
+        "type": "object",
+        "required": ["platform", "os_version", "app_version"],
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": ["ios", "android"]
+          },
+          "os_version": {"type": "string"},
+          "app_version": {"type": "string"},
+          "model": {"type": "string"}
+        }
+      },
+      "ARInfo": {
+        "type": "object",
+        "properties": {
+          "scan_time_ms": {"type": "integer"},
+          "fps_average": {"type": "number"},
+          "marker_lost_count": {"type": "integer"}
+        }
+      },
+      "PortraitViewRequest": {
+        "type": "object",
+        "required": ["timestamp", "duration_seconds", "device_info"],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "device_info": {"$ref": "#/components/schemas/DeviceInfo"},
+          "ar_info": {"$ref": "#/components/schemas/ARInfo"},
+          "session_id": {"type": "string"}
+        }
+      },
+      "ImageInfo": {
+        "type": "object",
+        "properties": {
+          "url": {"type": "string"},
+          "preview_url": {"type": "string"},
+          "width": {"type": "integer"},
+          "height": {"type": "integer"}
+        }
+      },
+      "MarkersInfo": {
+        "type": "object",
+        "required": ["fset", "fset3", "iset"],
+        "properties": {
+          "fset": {"type": "string"},
+          "fset3": {"type": "string"},
+          "iset": {"type": "string"}
+        }
+      },
+      "VideoInfo": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "url": {"type": "string"},
+          "preview_url": {"type": "string"},
+          "description": {"type": "string"},
+          "file_size_mb": {"type": "number"},
+          "duration_seconds": {"type": "integer"}
+        }
+      },
+      "ClientInfo": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "phone": {"type": "string"}
+        }
+      },
+      "MobilePortraitResponse": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "permanent_link": {"type": "string"},
+          "client": {"$ref": "#/components/schemas/ClientInfo"},
+          "image": {"$ref": "#/components/schemas/ImageInfo"},
+          "markers": {"$ref": "#/components/schemas/MarkersInfo"},
+          "active_video": {"$ref": "#/components/schemas/VideoInfo"},
+          "qr_code": {"type": "string"},
+          "view_count": {"type": "integer"},
+          "created_at": {"type": "string"}
+        }
+      },
+      "PortraitsListResponse": {
+        "type": "object",
+        "properties": {
+          "portraits": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/MobilePortraitResponse"}
+          },
+          "total": {"type": "integer"},
+          "page": {"type": "integer"},
+          "page_size": {"type": "integer"}
+        }
+      },
+      "ViewResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "view_count": {"type": "integer"}
+        }
+      },
+      "CompanyInfo": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "portraits_count": {"type": "integer"},
+          "created_at": {"type": "string"}
+        }
+      },
+      "MarkerStatusFile": {
+        "type": "object",
+        "properties": {
+          "size": {"type": "integer"},
+          "updated_at": {"type": "string"}
+        }
+      },
+      "MarkerStatusResponse": {
+        "type": "object",
+        "properties": {
+          "available": {"type": "boolean"},
+          "files": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/components/schemas/MarkerStatusFile"}
+          },
+          "total_size_mb": {"type": "number"}
+        }
+      }
+    }
+  }
+}

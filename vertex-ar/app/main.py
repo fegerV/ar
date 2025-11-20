@@ -136,7 +136,7 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring
+    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring, mobile
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -152,6 +152,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
     app.include_router(monitoring.router)
+    app.include_router(mobile.router, prefix="/api/mobile", tags=["mobile"])
     
     # Favicon endpoint
     @app.get("/favicon.ico")
