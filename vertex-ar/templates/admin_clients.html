@@ -545,6 +545,144 @@
             color: var(--primary-color);
         }
 
+        .logs-section {
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .logs-header h2 {
+            color: var(--text-color);
+            font-size: 1.3rem;
+            margin: 0;
+        }
+
+        .log-container {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-empty {
+            color: var(--secondary-color);
+            text-align: center;
+            font-style: italic;
+            margin: 0;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: var(--secondary-color);
+            margin-right: 1rem;
+            font-size: 0.8rem;
+            min-width: 80px;
+        }
+
+        .log-message {
+            flex: 1;
+            color: var(--text-color);
+        }
+
+        .log-type {
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .log-info .log-type {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .log-success .log-type {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .log-warning .log-type {
+            background-color: var(--warning-color);
+            color: black;
+        }
+
+        .log-error .log-type {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--secondary-color);
+        }
+
+        .footer p {
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color var(--transition-speed);
+        }
+
+        .footer a:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0;
+            transition: color var(--transition-speed);
+        }
+
+        .link-button:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .link-button.ghost {
+            color: var(--secondary-color);
+        }
+
+        .link-button.ghost:hover {
+            color: var(--text-color);
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -602,23 +740,6 @@
             <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
         </div>
 
-        <!-- Company Management -->
-        <section class="company-section">
-            <h2>🏢 Управление компаниями</h2>
-            <div class="company-info">
-                <strong>Текущая компания:</strong> <span id="currentCompanyName">Загрузка...</span>
-            </div>
-            <div class="company-controls">
-                <select id="companySelect" class="company-select">
-                    <option value="">Загрузка компаний...</option>
-                </select>
-                <button onclick="switchCompany()" class="company-btn">Переключить</button>
-                <input type="text" id="companyNameInput" class="company-input" placeholder="Название новой компании">
-                <button onclick="createCompany()" class="company-btn">Создать компанию</button>
-                <button onclick="deleteCompany()" class="company-btn danger">Удалить компанию</button>
-            </div>
-        </section>
-
         <!-- Client Statistics -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -638,30 +759,6 @@
                 <div class="value" id="totalPortraits">0</div>
             </div>
         </div>
-
-        <!-- Create Client Form -->
-        <section class="section">
-            <h2>➕ Создать нового клиента</h2>
-            <form id="clientForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="clientCompany">Компания *</label>
-                        <select id="clientCompany" name="company_id" required>
-                            <option value="">Выберите компанию</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="clientName">Имя клиента *</label>
-                        <input type="text" id="clientName" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="clientPhone">Телефон *</label>
-                        <input type="tel" id="clientPhone" name="phone" placeholder="+7 (999) 123-45-67" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-success">Создать клиента</button>
-            </form>
-        </section>
 
         <!-- Filters and Search -->
         <section class="section">
@@ -733,6 +830,27 @@
                 <button onclick="changePage(1)" id="nextBtn">Вперед ▶</button>
             </div>
         </section>
+
+        <!-- Logs Section -->
+        <section class="logs-section">
+            <div class="logs-header">
+                <h2>Системные логи</h2>
+                <button type="button" id="clearLogsBtn" class="link-button ghost">Очистить</button>
+            </div>
+            <div class="log-container" id="logContainer">
+                <p class="log-empty">Логи появятся во время работы системы</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 Vertex AR. Все права защищены.</p>
+            <p>
+                <a href="/admin">Dashboard</a> | 
+                <a href="/admin/clients">Клиенты</a> | 
+                <a href="/admin/backups">Backup</a>
+            </p>
+        </footer>
     </div>
 
     <!-- Loading Overlay -->
@@ -799,28 +917,17 @@
                 const data = await response.json();
                 allCompanies = data.items || [];
                 
-                const companySelect = document.getElementById('companySelect');
                 const filterCompany = document.getElementById('filterCompany');
-                const clientCompany = document.getElementById('clientCompany');
                 
-                companySelect.innerHTML = '<option value="">Выберите компанию</option>';
                 filterCompany.innerHTML = '<option value="">Все компании</option>';
-                clientCompany.innerHTML = '<option value="">Выберите компанию</option>';
                 
                 allCompanies.forEach(company => {
-                    const option1 = new Option(company.name, company.id);
-                    const option2 = new Option(company.name, company.id);
-                    const option3 = new Option(company.name, company.id);
-                    
-                    companySelect.add(option1);
-                    filterCompany.add(option2);
-                    clientCompany.add(option3);
+                    const option = new Option(company.name, company.id);
+                    filterCompany.add(option);
                 });
                 
                 if (allCompanies.length > 0) {
                     currentCompanyId = allCompanies[0].id;
-                    document.getElementById('currentCompanyName').textContent = allCompanies[0].name;
-                    companySelect.value = currentCompanyId;
                     filterCompany.value = currentCompanyId;
                 }
                 
@@ -829,112 +936,6 @@
             } catch (error) {
                 console.error('Error loading companies:', error);
                 showToast('Ошибка загрузки компаний', 'error');
-            }
-        }
-
-        function switchCompany() {
-            const companySelect = document.getElementById('companySelect');
-            const selectedId = companySelect.value;
-            
-            if (!selectedId) {
-                showToast('Выберите компанию', 'error');
-                return;
-            }
-            
-            currentCompanyId = selectedId;
-            const company = allCompanies.find(c => c.id === selectedId);
-            
-            if (company) {
-                document.getElementById('currentCompanyName').textContent = company.name;
-                document.getElementById('filterCompany').value = selectedId;
-                showToast(`Переключено на компанию: ${company.name}`, 'success');
-                loadClients();
-            }
-        }
-
-        async function createCompany() {
-            const nameInput = document.getElementById('companyNameInput');
-            const name = nameInput.value.trim();
-            
-            if (!name) {
-                showToast('Введите название компании', 'error');
-                return;
-            }
-            
-            showLoading();
-            
-            try {
-                const response = await fetch('/api/companies', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({ name })
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to create company');
-                }
-                
-                const data = await response.json();
-                showToast('Компания создана успешно', 'success');
-                nameInput.value = '';
-                
-                await loadCompanies();
-                
-            } catch (error) {
-                console.error('Error creating company:', error);
-                showToast(error.message || 'Ошибка создания компании', 'error');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function deleteCompany() {
-            const companySelect = document.getElementById('companySelect');
-            const selectedId = companySelect.value;
-            
-            if (!selectedId) {
-                showToast('Выберите компанию для удаления', 'error');
-                return;
-            }
-            
-            if (selectedId === 'vertex-ar-default') {
-                showToast('Нельзя удалить компанию по умолчанию', 'error');
-                return;
-            }
-            
-            const company = allCompanies.find(c => c.id === selectedId);
-            
-            if (!confirm(`Удалить компанию "${company?.name}"? Все связанные клиенты также будут удалены!`)) {
-                return;
-            }
-            
-            showLoading();
-            
-            try {
-                const response = await fetch(`/api/companies/${selectedId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to delete company');
-                }
-                
-                showToast('Компания удалена успешно', 'success');
-                
-                await loadCompanies();
-                await loadClients();
-                
-            } catch (error) {
-                console.error('Error deleting company:', error);
-                showToast(error.message || 'Ошибка удаления компании', 'error');
-            } finally {
-                hideLoading();
             }
         }
 
@@ -1174,50 +1175,6 @@
             showToast('Функция редактирования в разработке', 'info');
         }
 
-        document.getElementById('clientForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = new FormData(e.target);
-            const data = {
-                company_id: formData.get('company_id'),
-                name: formData.get('name'),
-                phone: formData.get('phone')
-            };
-            
-            if (!data.company_id) {
-                showToast('Выберите компанию', 'error');
-                return;
-            }
-            
-            showLoading();
-            
-            try {
-                const response = await fetch('/api/clients', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(data)
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to create client');
-                }
-                
-                showToast('Клиент создан успешно', 'success');
-                e.target.reset();
-                loadClients();
-                
-            } catch (error) {
-                console.error('Error creating client:', error);
-                showToast(error.message || 'Ошибка создания клиента', 'error');
-            } finally {
-                hideLoading();
-            }
-        });
-
         document.getElementById('clientSearch').addEventListener('input', () => {
             currentPage = 1;
             loadClients();
@@ -1243,9 +1200,60 @@
             themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
         })();
 
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const emptyMessage = logContainer.querySelector('.log-empty');
+            
+            if (emptyMessage) {
+                emptyMessage.remove();
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            
+            const time = new Date().toLocaleTimeString('ru-RU');
+            const typeLabel = {
+                'info': 'INFO',
+                'success': 'OK',
+                'warning': 'WARN',
+                'error': 'ERR'
+            }[type] || 'INFO';
+            
+            logEntry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-type">${typeLabel}</span>
+                <span class="log-message">${message}</span>
+            `;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            const maxLogs = 50;
+            const logs = logContainer.querySelectorAll('.log-entry');
+            if (logs.length > maxLogs) {
+                logs[0].remove();
+            }
+        }
+
+        function clearLogs() {
+            const logContainer = document.getElementById('logContainer');
+            logContainer.innerHTML = '<p class="log-empty">Логи появятся во время работы системы</p>';
+            addLog('Логи очищены', 'info');
+        }
+
+        document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
+
+        const originalShowToast = showToast;
+        showToast = function(message, type = 'info') {
+            originalShowToast(message, type);
+            addLog(message, type);
+        };
+
         async function initialize() {
+            addLog('Инициализация страницы клиентов', 'info');
             await loadCompanies();
             await loadClients();
+            addLog('Страница клиентов загружена', 'success');
         }
 
         initialize();
