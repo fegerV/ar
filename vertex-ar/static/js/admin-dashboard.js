@@ -75,6 +75,7 @@ function initializeDashboard() {
     loadRecords();
     loadCompanies();
     loadBackupStats();
+    loadNotifications();
     
     addLog('Админ панель загружена', 'info');
     
@@ -154,6 +155,50 @@ function initializeEventListeners() {
             if (e.key === 'Enter') {
                 createCompany();
             }
+        });
+    }
+    
+    // Notifications toggle
+    const notificationToggle = document.getElementById('notificationToggle');
+    if (notificationToggle) {
+        notificationToggle.addEventListener('click', function() {
+            const dropdown = document.getElementById('notificationDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active');
+                loadNotifications();
+            }
+        });
+    }
+    
+    // Search functionality
+    const searchInput = document.getElementById('advancedSearch');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performSearch(e.target.value);
+            }, 300);
+        });
+    }
+    
+    // Clear logs button
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    if (clearLogsBtn) {
+        clearLogsBtn.addEventListener('click', clearLogs);
+    }
+    
+    // Clear notifications button
+    const markNotificationsRead = document.getElementById('markNotificationsRead');
+    if (markNotificationsRead) {
+        markNotificationsRead.addEventListener('click', function() {
+            updateNotifications([]);
+            const badge = document.getElementById('notificationBadge');
+            if (badge) {
+                badge.classList.add('hidden');
+                badge.textContent = '0';
+            }
+            addLog('Уведомления очищены', 'info');
         });
     }
     
@@ -291,7 +336,8 @@ function updateSystemInfo(data) {
         'systemUptime': data.uptime || 'N/A',
         'systemMemory': data.memory_usage || 'N/A',
         'systemDisk': data.disk_usage || 'N/A',
-        'systemCPU': data.cpu_usage || 'N/A'
+        'systemCPU': data.cpu_usage || 'N/A',
+        'systemHost': data.hostname || 'N/A'
     };
     
     Object.entries(elements).forEach(([id, value]) => {
@@ -300,6 +346,40 @@ function updateSystemInfo(data) {
             element.textContent = value;
         }
     });
+    
+    // Update platform info
+    const platformElement = document.getElementById('systemPlatform');
+    if (platformElement && data.platform) {
+        platformElement.textContent = data.platform;
+    }
+    
+    // Update progress bars
+    if (data.memory_percent !== undefined && data.memory_percent !== null) {
+        const memoryBar = document.getElementById('memoryUsageBar');
+        if (memoryBar) {
+            memoryBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
+            memoryBar.style.backgroundColor = data.memory_percent > 80 ? '#dc3545' : 
+                                           data.memory_percent > 60 ? '#ffc107' : '#28a745';
+        }
+    }
+    
+    if (data.disk_percent !== undefined && data.disk_percent !== null) {
+        const diskBar = document.getElementById('diskUsageBar');
+        if (diskBar) {
+            diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
+            diskBar.style.backgroundColor = data.disk_percent > 80 ? '#dc3545' : 
+                                          data.disk_percent > 60 ? '#ffc107' : '#28a745';
+        }
+    }
+    
+    if (data.cpu_percent !== undefined && data.cpu_percent !== null) {
+        const cpuBar = document.getElementById('cpuUsageBar');
+        if (cpuBar) {
+            cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
+            cpuBar.style.backgroundColor = data.cpu_percent > 80 ? '#dc3545' : 
+                                         data.cpu_percent > 60 ? '#ffc107' : '#28a745';
+        }
+    }
 }
 
 // Records management
@@ -326,11 +406,12 @@ async function loadRecords() {
     }
 }
 
-function displayRecords() {
-    const { allRecords, currentPage, recordsPerPage } = AdminDashboard.state;
+function displayRecords(records = null) {
+    const recordsToDisplay = records || AdminDashboard.state.allRecords;
+    const { currentPage, recordsPerPage } = AdminDashboard.state;
     const startIndex = (currentPage - 1) * recordsPerPage;
     const endIndex = startIndex + recordsPerPage;
-    const pageRecords = allRecords.slice(startIndex, endIndex);
+    const pageRecords = recordsToDisplay.slice(startIndex, endIndex);
     
     const tbody = document.querySelector('.records-table tbody');
     if (!tbody) return;
@@ -338,7 +419,7 @@ function displayRecords() {
     tbody.innerHTML = '';
     
     if (pageRecords.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Нет записей</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">Нет записей</td></tr>';
         return;
     }
     
@@ -347,26 +428,61 @@ function displayRecords() {
         tbody.appendChild(row);
     });
     
-    updatePagination();
+    if (!records) {
+        updatePagination();
+    }
 }
 
 function createRecordRow(record) {
     const row = document.createElement('tr');
+    const placeholderImage = '/static/images/placeholder.svg';
+    const noImageText = 'Нет фото';
+    
     row.innerHTML = `
-        <td>${record.id || ''}</td>
+        <td>${record.order_number || ''}</td>
+        <td>
+            ${record.portrait_path ? 
+                `<img src="${record.portrait_path}" 
+                     alt="Portrait" 
+                     class="portrait-preview"
+                     onclick="showLightbox('${record.portrait_path}')"
+                     onerror="this.src='${placeholderImage}'; this.onerror=null;"
+                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` : 
+                `<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">${noImageText}</div>`
+            }
+        </td>
+        <td>
+            ${record.active_video_url ? 
+                `<video src="${record.active_video_url}" 
+                       class="video-preview" 
+                       style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"
+                       onclick="window.open('${record.active_video_url}', '_blank')"></video>` : 
+                '<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">Нет видео</div>'
+            }
+        </td>
         <td>${record.client_name || ''}</td>
         <td>${record.client_phone || ''}</td>
+        <td>${record.views || 0}</td>
         <td>
-            <img src="${record.portrait_path || '/static/placeholder.jpg'}" 
-                 alt="Portrait" 
-                 class="portrait-preview"
-                 onclick="showLightbox('${record.portrait_path || '/static/placeholder.jpg'}')"
-                 onerror="this.src='/static/placeholder.jpg'">
+            ${record.permanent_url ? 
+                `<a href="${record.permanent_url}" target="_blank" class="link-button">Открыть</a>` : 
+                'Нет ссылки'
+            }
         </td>
-        <td>${new Date(record.created_at).toLocaleString('ru-RU')}</td>
         <td>
-            <button class="action-btn edit-btn" onclick="editRecord('${record.id}')">✏️</button>
-            <button class="action-btn delete-btn" onclick="deleteRecord('${record.id}')">🗑️</button>
+            ${record.qr_code ? 
+                `<img src="${record.qr_code}" 
+                     alt="QR Code" 
+                     class="qr-preview"
+                     onclick="showLightbox('${record.qr_code}')"
+                     style="width: 30px; height: 30px;">` : 
+                '<div style="width: 30px; height: 30px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.6rem;">Нет QR</div>'
+            }
+        </td>
+        <td>${record.created_at ? new Date(record.created_at).toLocaleString('ru-RU') : ''}</td>
+        <td>
+            <button class="action-btn edit-btn" onclick="editRecord('${record.id}')" title="Редактировать">✏️</button>
+            <button class="action-btn delete-btn" onclick="deleteRecord('${record.id}')" title="Удалить">🗑️</button>
         </td>
     `;
     return row;
@@ -410,6 +526,32 @@ function createPaginationButton(text, page, isDisabled) {
     }
     
     return button;
+}
+
+// Image preview functionality
+function handleImagePreview(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagePreview');
+            if (preview) {
+                preview.src = e.target.result;
+                preview.classList.add('active');
+            }
+        };
+        reader.readAsDataURL(file);
+    } else {
+        hideImagePreview();
+    }
+}
+
+function hideImagePreview() {
+    const preview = document.getElementById('imagePreview');
+    if (preview) {
+        preview.src = '';
+        preview.classList.remove('active');
+    }
 }
 
 // Company management
@@ -525,6 +667,66 @@ async function switchCompany() {
     } catch (error) {
         showToast('Ошибка сети', 'error');
         addLog(`Ошибка сети при переключении компании: ${error.message}`, 'error');
+    }
+}
+
+// Delete company functionality
+function showDeleteCompanyModal() {
+    const select = document.getElementById('companySelect');
+    const companyId = select?.value;
+    
+    if (!companyId) {
+        showToast('Выберите компанию для удаления', 'warning');
+        return;
+    }
+    
+    const companyOption = select.querySelector(`option[value="${companyId}"]`);
+    const companyName = companyOption ? companyOption.textContent.replace(/ \([^)]*\)/, '') : 'Unknown';
+    
+    AdminDashboard.setState({ selectedCompanyToDelete: { id: companyId, name: companyName } });
+    
+    const messageElement = document.getElementById('deleteCompanyMessage');
+    if (messageElement) {
+        messageElement.textContent = `Вы уверены, что хотите удалить компанию "${companyName}"? Все данные будут удалены без возможности восстановления.`;
+    }
+    
+    showModal('deleteCompanyModal');
+}
+
+function hideDeleteCompanyModal() {
+    hideModal('deleteCompanyModal');
+    AdminDashboard.setState({ selectedCompanyToDelete: null });
+}
+
+async function confirmDeleteCompany() {
+    const { selectedCompanyToDelete } = AdminDashboard.state;
+    
+    if (!selectedCompanyToDelete) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/companies/${selectedCompanyToDelete.id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            showToast(`Компания "${selectedCompanyToDelete.name}" удалена`, 'success');
+            addLog(`Удалена компания: ${selectedCompanyToDelete.name}`, 'success');
+            
+            hideDeleteCompanyModal();
+            loadCompanies();
+            loadRecords();
+            loadStatistics();
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка: ${error.detail || 'Не удалось удалить компанию'}`, 'error');
+        }
+    } catch (error) {
+        showToast('Ошибка сети', 'error');
+        addLog(`Ошибка сети при удалении компании: ${error.message}`, 'error');
     }
 }
 
@@ -717,7 +919,10 @@ async function loadBackupStats() {
 function updateBackupStats(data) {
     const elements = {
         'totalBackups': data.total_backups || 0,
-        'backupSize': data.total_size || '0 B',
+        'databaseBackups': data.database_backups || 0,
+        'storageBackups': data.storage_backups || 0,
+        'fullBackups': data.full_backups || 0,
+        'backupSize': data.total_size_mb ? formatBytes(data.total_size_mb * 1024 * 1024) : '0 B',
         'lastBackup': data.last_backup ? new Date(data.last_backup).toLocaleString('ru-RU') : 'N/A'
     };
     
@@ -854,6 +1059,137 @@ document.addEventListener('DOMContentLoaded', function() {
         addLog(`Страница загружена за ${loadTime}ms`, 'info');
     }
 });
+
+// Logging functionality
+function addLog(message, type = 'info') {
+    const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
+    
+    // Remove empty message if exists
+    const emptyMessage = logContainer.querySelector('.log-empty');
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry log-${type}`;
+    
+    const timestamp = new Date().toLocaleTimeString('ru-RU');
+    logEntry.innerHTML = `
+        <span class="log-time">${timestamp}</span>
+        <span class="log-message">${message}</span>
+        <span class="log-type">${type}</span>
+    `;
+    
+    logContainer.appendChild(logEntry);
+    
+    // Keep only last 50 log entries
+    const entries = logContainer.querySelectorAll('.log-entry');
+    if (entries.length > 50) {
+        entries[0].remove();
+    }
+    
+    // Scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Clear logs functionality
+function clearLogs() {
+    const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
+    
+    logContainer.innerHTML = '<p class="log-empty">Логи появятся во время работы системы</p>';
+    addLog('Логи очищены', 'info');
+}
+
+// Initialize tooltips
+function initializeTooltips() {
+    // Basic tooltip implementation
+    document.querySelectorAll('[title]').forEach(element => {
+        element.addEventListener('mouseenter', function(e) {
+            // Could implement tooltip display here
+        });
+    });
+}
+
+// Load charts (placeholder)
+function loadCharts() {
+    // Chart loading would be implemented here
+    console.log('Charts loaded');
+}
+
+// Notifications functionality
+async function loadNotifications() {
+    try {
+        const response = await fetch('/notifications?limit=10', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            updateNotifications(data || []);
+        } else {
+            console.error('Failed to load notifications:', response.status);
+            updateNotifications([]);
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+        updateNotifications([]);
+    }
+}
+
+function updateNotifications(notifications) {
+    const notificationList = document.getElementById('notificationList');
+    const notificationBadge = document.getElementById('notificationBadge');
+    
+    if (!notificationList || !notificationBadge) return;
+    
+    if (notifications.length === 0) {
+        notificationList.innerHTML = '<p class="notification-empty">Новых уведомлений нет</p>';
+        notificationBadge.classList.add('hidden');
+        notificationBadge.textContent = '0';
+        return;
+    }
+    
+    notificationBadge.textContent = notifications.length;
+    notificationBadge.classList.remove('hidden');
+    
+    notificationList.innerHTML = '';
+    notifications.forEach(notification => {
+        const notifElement = document.createElement('div');
+        notifElement.className = 'notification-item';
+        notifElement.innerHTML = `
+            <div class="notification-title">${notification.title || 'Уведомление'}</div>
+            <div class="notification-message">${notification.message || ''}</div>
+            <div class="notification-time">${notification.created_at ? new Date(notification.created_at).toLocaleString('ru-RU') : ''}</div>
+        `;
+        notificationList.appendChild(notifElement);
+    });
+}
+
+// Search functionality
+async function performSearch(query) {
+    if (!query.trim()) {
+        loadRecords();
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/search?q=${encodeURIComponent(query)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayRecords(data.results || []);
+        } else {
+            showToast('Ошибка поиска', 'error');
+        }
+    } catch (error) {
+        console.error('Error searching:', error);
+        showToast('Ошибка сети при поиске', 'error');
+    }
+}
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
