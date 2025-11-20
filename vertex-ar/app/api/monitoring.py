@@ -84,7 +84,7 @@ async def trigger_health_check(
 
 @router.get("/metrics")
 async def get_system_metrics(
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Get current system metrics."""
     try:
@@ -112,7 +112,7 @@ async def get_system_metrics(
 @router.post("/test-alert")
 async def test_alert_system(
     request: AlertTestRequest,
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Test the alert system by sending a test alert."""
     try:
@@ -142,7 +142,7 @@ async def test_alert_system(
 @router.get("/alerts")
 async def get_recent_alerts(
     hours: int = 24,
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Get recent alerts from the system."""
     try:
@@ -164,7 +164,7 @@ async def get_recent_alerts(
 @router.post("/send-report")
 async def send_weekly_report_now(
     background_tasks: BackgroundTasks,
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Send the weekly report immediately."""
     try:
@@ -185,7 +185,7 @@ async def send_weekly_report_now(
 
 @router.get("/report-preview")
 async def get_weekly_report_preview(
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Get a preview of the weekly report without sending it."""
     try:
@@ -210,7 +210,7 @@ async def get_weekly_report_preview(
 @router.put("/thresholds")
 async def update_alert_thresholds(
     request: ThresholdUpdateRequest,
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Update alert thresholds (runtime only, not persisted)."""
     try:
@@ -264,7 +264,7 @@ async def update_alert_thresholds(
 
 @router.get("/stats")
 async def get_monitoring_stats(
-    _: str = Depends(require_admin),
+    _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
     """Get comprehensive monitoring statistics."""
     try:
