@@ -1,0 +1,17 @@
+[Unit]
+Description=Vertex AR Backup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=vertex-ar
+Group=vertex-ar
+WorkingDirectory=/opt/vertex-ar
+Environment="PATH=/opt/vertex-ar/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/opt/vertex-ar/.venv/bin/python /opt/vertex-ar/backup_cli.py create full
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vertex-ar-backup
+
+[Install]
+WantedBy=multi-user.target

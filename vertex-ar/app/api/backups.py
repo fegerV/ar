@@ -62,7 +62,10 @@ def format_backup_info(metadata: Dict[str, Any]) -> BackupInfo:
         st_meta = metadata.get("storage", {})
         file_size = db_meta.get("file_size", 0) + st_meta.get("file_size", 0)
         file_count = st_meta.get("file_count", 0)
-        backup_path = None
+        # Return paths as comma-separated string for full backups
+        db_path = db_meta.get("backup_path", "")
+        st_path = st_meta.get("backup_path", "")
+        backup_path = f"{db_path},{st_path}" if db_path and st_path else None
     else:
         file_size = metadata.get("file_size")
         file_count = metadata.get("file_count")
@@ -271,6 +274,35 @@ async def rotate_backups(
         raise HTTPException(status_code=500, detail=f"Failed to rotate backups: {str(e)}")
 
 
+@router.get("/schedule")
+async def get_backup_schedule(_admin=Depends(require_admin)) -> Dict[str, Any]:
+    """
+    Get automated backup schedule information.
+    
+    Requires admin authentication.
+    """
+    try:
+        from backup_scheduler import get_backup_scheduler
+        
+        scheduler = get_backup_scheduler()
+        next_runs = scheduler.get_next_run_times()
+        
+        return {
+            "success": True,
+            "scheduler_running": scheduler.scheduler.running,
+            "jobs": next_runs,
+            "schedules": {
+                "database": scheduler.database_schedule if scheduler.enable_database else "disabled",
+                "storage": scheduler.storage_schedule if scheduler.enable_storage else "disabled",
+                "full": scheduler.full_schedule if scheduler.enable_full else "disabled",
+                "rotation": scheduler.rotation_schedule if scheduler.enable_rotation else "disabled"
+            }
+        }
+    except Exception as e:
+        logger.error("Failed to get backup schedule", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to get backup schedule: {str(e)}")
+
+
 @router.delete("/delete")
 async def delete_backup(
     backup_path: str,
@@ -278,31 +310,50 @@ async def delete_backup(
 ) -> Dict[str, Any]:
     """
     Delete a specific backup file.
+    For full backups, backup_path can be comma-separated paths.
     
     Requires admin authentication.
     """
     try:
         manager = create_backup_manager()
-        
-        # Validate backup path exists and is within backup directory
-        backup_file = Path(backup_path)
-        if not backup_file.exists():
-            raise HTTPException(status_code=404, detail="Backup file not found")
-        
-        # Ensure the backup is within the backup directory (security check)
         backup_dir = Path(manager.backup_dir)
-        if not str(backup_file.resolve()).startswith(str(backup_dir.resolve())):
-            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
         
-        logger.info("Deleting backup", backup_path=str(backup_file), admin=_admin)
+        # Handle multiple paths (for full backups)
+        paths = [p.strip() for p in backup_path.split(",") if p.strip()]
+        deleted_files = []
         
-        # Delete the backup file
-        backup_file.unlink()
+        for path_str in paths:
+            backup_file = Path(path_str)
+            
+            # Validate backup path exists
+            if not backup_file.exists():
+                logger.warning("Backup file not found", backup_path=str(backup_file))
+                continue
+            
+            # Ensure the backup is within the backup directory (security check)
+            if not str(backup_file.resolve()).startswith(str(backup_dir.resolve())):
+                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            
+            logger.info("Deleting backup file", backup_path=str(backup_file), admin=_admin)
+            
+            # Delete the backup file
+            backup_file.unlink()
+            
+            # Delete associated metadata file if exists
+            metadata_file = backup_file.with_suffix(".json")
+            if metadata_file.exists() and metadata_file != backup_file:
+                metadata_file.unlink()
+                logger.info("Deleted metadata file", metadata_path=str(metadata_file))
+            
+            deleted_files.append(str(backup_file))
+        
+        if not deleted_files:
+            raise HTTPException(status_code=404, detail="Backup file not found")
         
         return {
             "success": True,
-            "message": "Backup deleted successfully",
-            "backup_path": str(backup_file)
+            "message": f"Deleted {len(deleted_files)} backup file(s)",
+            "deleted_files": deleted_files
         }
         
     except HTTPException:
