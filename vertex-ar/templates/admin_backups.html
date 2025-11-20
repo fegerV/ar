@@ -348,6 +348,18 @@
             transform: scale(1.1);
         }
 
+        .backup-delete-btn:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .backup-delete-btn:disabled:hover {
+            background-color: var(--secondary-color);
+            transform: none;
+        }
+
         .backup-restore-btn {
             background-color: var(--success-color);
             color: white;
@@ -1254,30 +1266,59 @@
                         const date = new Date(backup.created_at);
                         const fileSize = formatBytes(backup.file_size || 0);
                         
+                        // Check for backup errors (for full backups)
+                        const hasErrors = backup.errors && backup.errors.length > 0;
+                        const isPartialSuccess = backup.type === 'full' && (
+                            (backup.db_success && !backup.storage_success) || 
+                            (!backup.db_success && backup.storage_success)
+                        );
+                        
                         // Prepare restore button (disabled for full backups as they need special handling)
-                        const canRestore = backup.backup_path && backup.type !== 'full';
+                        const canRestore = backup.backup_path && backup.type !== 'full' && !hasErrors;
                         const restoreBtn = canRestore 
                             ? `<button class="backup-restore-btn" onclick="restoreBackup('${backup.backup_path}', '${backup.type}', '${backup.timestamp}')" title="Восстановить из бэкапа">
                                 ♻️
                             </button>`
                             : '';
                         
+                        // Prepare delete button - disable if no backup path
+                        const canDelete = backup.backup_path && backup.backup_path.trim() !== '';
+                        const deleteBtn = canDelete
+                            ? `<button class="backup-delete-btn" onclick="deleteBackup('${backup.backup_path}', '${backup.timestamp}')" title="Удалить бэкап">
+                                🗑️
+                              </button>`
+                            : `<button class="backup-delete-btn" disabled title="Файл бэкапа недоступен для удаления">
+                                🗑️
+                              </button>`;
+                        
+                        let statusInfo = '';
+                        if (hasErrors || isPartialSuccess) {
+                            statusInfo = '<span style="color: var(--warning-color); margin-left: 0.5rem; font-size: 0.85rem;">⚠️ Неполный бэкап</span>';
+                        } else if (!canDelete) {
+                            statusInfo = '<span style="color: var(--warning-color); margin-left: 0.5rem; font-size: 0.85rem;">⚠️ Файл отсутствует</span>';
+                        }
+                        
+                        let detailsInfo = `${date.toLocaleString('ru-RU')} • ${fileSize}`;
+                        if (backup.file_count) {
+                            detailsInfo += ` • ${backup.file_count} файлов`;
+                        }
+                        
                         item.innerHTML = `
                             <div class="backup-item-info">
                                 <div>
                                     <span class="backup-item-type ${backup.type}">${backup.type}</span>
                                     <strong>${backup.timestamp}</strong>
+                                    ${statusInfo}
                                 </div>
                                 <div class="backup-item-details">
-                                    ${date.toLocaleString('ru-RU')} • ${fileSize}
-                                    ${backup.file_count ? ` • ${backup.file_count} файлов` : ''}
+                                    ${detailsInfo}
+                                    ${backup.db_success !== undefined ? ` • DB: ${backup.db_success ? '✓' : '✗'}` : ''}
+                                    ${backup.storage_success !== undefined ? ` • Storage: ${backup.storage_success ? '✓' : '✗'}` : ''}
                                 </div>
                             </div>
                             <div class="backup-item-actions">
                                 ${restoreBtn}
-                                <button class="backup-delete-btn" onclick="deleteBackup('${backup.backup_path || ''}', '${backup.timestamp}')" title="Удалить бэкап">
-                                    🗑️
-                                </button>
+                                ${deleteBtn}
                             </div>
                         `;
                         
@@ -1309,8 +1350,18 @@
                 });
                 
                 if (response.ok) {
-                    showBackupStatus('✓ Бэкап успешно удален', 'success');
-                    addLog(`Удален бэкап: ${timestamp}`, 'success');
+                    const result = await response.json();
+                    let message = `✓ Бэкап успешно удален`;
+                    
+                    // Handle partial deletions (some files missing)
+                    if (result.missing_files && result.missing_files.length > 0) {
+                        message += ` (${result.missing_files.length} файлов уже отсутствовали)`;
+                        addLog(`Удален бэкап: ${timestamp} (некоторые файлы уже отсутствовали)`, 'warning');
+                    } else {
+                        addLog(`Удален бэкап: ${timestamp}`, 'success');
+                    }
+                    
+                    showBackupStatus(message, 'success');
                     // Reload backup list
                     await loadBackupList();
                     // Reload stats
