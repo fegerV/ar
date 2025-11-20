@@ -260,6 +260,22 @@ class Database:
         )
         return cursor.rowcount > 0
     
+    def create_user(
+        self,
+        username: str,
+        hashed_password: str,
+        *,
+        is_admin: bool = False,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+    ) -> bool:
+        """Create a new user."""
+        cursor = self._execute(
+            "INSERT INTO users (username, hashed_password, is_admin, email, full_name) VALUES (?, ?, ?, ?, ?)",
+            (username, hashed_password, int(is_admin), email, full_name)
+        )
+        return cursor.rowcount > 0
+    
     def ensure_admin_user(
         self,
         username: str,
