@@ -1523,23 +1523,38 @@
          // Load Monitoring Data
          async function loadMonitoringData() {
              try {
-                 const response = await fetch('/admin/monitoring-status', {
-                     credentials: 'include'
-                 });
+                 const [statusResponse, alertsResponse, reportResponse] = await Promise.all([
+                     fetch('/admin/monitoring/status', { credentials: 'include' }),
+                     fetch('/admin/monitoring/alerts?hours=24', { credentials: 'include' }),
+                     fetch('/admin/monitoring/report-preview', { credentials: 'include' })
+                 ]);
 
-                 if (response.ok) {
-                     const data = await response.json();
-                     updateMonitoringStatus(data);
-                 }
+                 const statusData = statusResponse.ok ? await statusResponse.json() : null;
+                 const alertsData = alertsResponse.ok ? await alertsResponse.json() : null;
+                 const reportData = reportResponse.ok ? await reportResponse.json() : null;
+
+                 const aggregatedData = {
+                     status: statusData?.status,
+                     enabled: statusData?.enabled,
+                     channels: statusData?.channels || statusData?.alert_channels || {},
+                     thresholds: statusData?.thresholds,
+                     recent_alerts: alertsData?.data || statusData?.recent_alerts || [],
+                     check_interval: statusData?.check_interval,
+                     report_schedule: reportData?.data?.schedule
+                 };
+
+                 updateMonitoringStatus(aggregatedData);
              } catch (error) {
                  console.error('Error loading monitoring data:', error);
+                 addLog(`Ошибка загрузки мониторинга: ${error.message}`, 'error');
              }
          }
 
          function updateMonitoringStatus(data) {
              const monitoringStatus = document.getElementById('monitoringStatus');
              if (monitoringStatus) {
-                 monitoringStatus.textContent = data.status || 'Unknown';
+                 const statusText = data.status || (data.enabled ? 'Активен' : 'Отключен') || 'Unknown';
+                 monitoringStatus.textContent = statusText;
              }
 
              const telegramStatus = document.getElementById('telegramStatus');
@@ -1576,12 +1591,34 @@
              const recentAlerts = document.getElementById('recentAlerts');
              if (recentAlerts) {
                  if (data.recent_alerts && data.recent_alerts.length > 0) {
-                     recentAlerts.innerHTML = data.recent_alerts.map(alert =>
-                         `<div class="alert-item ${alert.type}">${alert.message}</div>`
+                     recentAlerts.innerHTML = data.recent_alerts.slice(0, 5).map(alert =>
+                         `<div class="alert-item ${alert.type}">${alert.title || alert.message}</div>`
                      ).join('');
                  } else {
                      recentAlerts.innerHTML = '<p class="no-alerts">Нет недавних оповещений</p>';
                  }
+             }
+
+             // Update thresholds
+             if (data.thresholds) {
+                 const cpuThreshold = document.getElementById('cpuThreshold');
+                 if (cpuThreshold) {
+                     cpuThreshold.textContent = `${data.thresholds.cpu}%`;
+                 }
+                 const memoryThreshold = document.getElementById('memoryThreshold');
+                 if (memoryThreshold) {
+                     memoryThreshold.textContent = `${data.thresholds.memory}%`;
+                 }
+                 const diskThreshold = document.getElementById('diskThreshold');
+                 if (diskThreshold) {
+                     diskThreshold.textContent = `${data.thresholds.disk}%`;
+                 }
+             }
+
+             // Update report schedule
+             const reportSchedule = document.getElementById('reportSchedule');
+             if (reportSchedule) {
+                 reportSchedule.textContent = data.report_schedule || '—';
              }
          }
 
@@ -1636,16 +1673,70 @@
              }
          }
 
-         // Placeholder functions for button handlers
-         function testAlertSystem() {
-             alert('Функция тестирования оповещений будет реализована');
+         // Test Alert System
+         async function testAlertSystem() {
+             try {
+                 addLog('Отправка тестового оповещения...', 'info');
+                 const response = await fetch('/admin/monitoring/test-alert', {
+                     method: 'POST',
+                     headers: {
+                         'Content-Type': 'application/json'
+                     },
+                     credentials: 'include',
+                     body: JSON.stringify({
+                         message: 'Тестовое оповещение от Vertex AR',
+                         severity: 'info'
+                     })
+                 });
+
+                 if (response.ok) {
+                     const data = await response.json();
+                     addLog(`✓ Тестовое оповещение отправлено успешно`, 'success');
+                     alert('✓ Тестовое оповещение отправлено!\n\nПроверьте ваши каналы оповещений (Telegram/Email).');
+                 } else {
+                     const error = await response.json();
+                     addLog(`✗ Ошибка отправки оповещения: ${error.detail}`, 'error');
+                     alert(`✗ Ошибка отправки оповещения: ${error.detail}`);
+                 }
+             } catch (error) {
+                 console.error('Error testing alert system:', error);
+                 addLog(`✗ Сетевая ошибка: ${error.message}`, 'error');
+                 alert(`✗ Сетевая ошибка: ${error.message}`);
+             }
          }
 
-         function sendWeeklyReport() {
-             alert('Функция отправки отчета будет реализована');
+         // Send Weekly Report
+         async function sendWeeklyReport() {
+             if (!confirm('Отправить еженедельный отчет сейчас?')) {
+                 return;
+             }
+
+             try {
+                 addLog('Генерация и отправка отчета...', 'info');
+                 const response = await fetch('/admin/monitoring/send-report', {
+                     method: 'POST',
+                     credentials: 'include'
+                 });
+
+                 if (response.ok) {
+                     const data = await response.json();
+                     addLog(`✓ ${data.message}`, 'success');
+                     alert('✓ Отчет генерируется и будет отправлен в фоновом режиме.\n\nПроверьте ваши каналы оповещений через несколько минут.');
+                 } else {
+                     const error = await response.json();
+                     addLog(`✗ Ошибка отправки отчета: ${error.detail}`, 'error');
+                     alert(`✗ Ошибка отправки отчета: ${error.detail}`);
+                 }
+             } catch (error) {
+                 console.error('Error sending weekly report:', error);
+                 addLog(`✗ Сетевая ошибка: ${error.message}`, 'error');
+                 alert(`✗ Сетевая ошибка: ${error.message}`);
+             }
          }
 
+         // Refresh Monitoring Data
          function refreshMonitoringData() {
+             addLog('Обновление данных мониторинга...', 'info');
              loadMonitoringData();
              updateRealtimeMetrics();
          }
