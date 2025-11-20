@@ -63,9 +63,15 @@ def format_backup_info(metadata: Dict[str, Any]) -> BackupInfo:
         file_size = db_meta.get("file_size", 0) + st_meta.get("file_size", 0)
         file_count = st_meta.get("file_count", 0)
         # Return paths as comma-separated string for full backups
-        db_path = db_meta.get("backup_path", "")
-        st_path = st_meta.get("backup_path", "")
-        backup_path = f"{db_path},{st_path}" if db_path and st_path else None
+        # Include only available paths
+        paths = []
+        db_path = db_meta.get("backup_path")
+        st_path = st_meta.get("backup_path")
+        if db_path:
+            paths.append(db_path)
+        if st_path:
+            paths.append(st_path)
+        backup_path = ",".join(paths) if paths else None
     else:
         file_size = metadata.get("file_size")
         file_count = metadata.get("file_count")
@@ -318,9 +324,14 @@ async def delete_backup(
         manager = create_backup_manager()
         backup_dir = Path(manager.backup_dir)
         
+        # Handle empty backup path
+        if not backup_path or not backup_path.strip():
+            raise HTTPException(status_code=400, detail="Backup path is required")
+        
         # Handle multiple paths (for full backups)
         paths = [p.strip() for p in backup_path.split(",") if p.strip()]
         deleted_files = []
+        missing_files = []
         
         for path_str in paths:
             backup_file = Path(path_str)
@@ -328,6 +339,7 @@ async def delete_backup(
             # Validate backup path exists
             if not backup_file.exists():
                 logger.warning("Backup file not found", backup_path=str(backup_file))
+                missing_files.append(str(backup_file))
                 continue
             
             # Ensure the backup is within the backup directory (security check)
@@ -347,13 +359,23 @@ async def delete_backup(
             
             deleted_files.append(str(backup_file))
         
-        if not deleted_files:
+        if not deleted_files and not missing_files:
             raise HTTPException(status_code=404, detail="Backup file not found")
+        elif not deleted_files and missing_files:
+            # All files were missing
+            if len(missing_files) == 1:
+                raise HTTPException(status_code=404, detail=f"Backup file not found: {missing_files[0]}")
+            else:
+                raise HTTPException(status_code=404, detail=f"Backup files not found: {', '.join(missing_files)}")
+        elif missing_files:
+            # Some files were deleted, some were missing
+            logger.warning("Some backup files were not found", missing_files=missing_files, deleted_files=deleted_files)
         
         return {
             "success": True,
-            "message": f"Deleted {len(deleted_files)} backup file(s)",
-            "deleted_files": deleted_files
+            "message": f"Deleted {len(deleted_files)} backup file(s)" + (f" ({len(missing_files)} not found)" if missing_files else ""),
+            "deleted_files": deleted_files,
+            "missing_files": missing_files if missing_files else None
         }
         
     except HTTPException:

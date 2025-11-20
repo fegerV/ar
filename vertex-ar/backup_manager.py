@@ -222,21 +222,34 @@ class BackupManager:
         metadata = {
             "timestamp": timestamp,
             "type": "full",
-            "database": db_result.get("metadata"),
-            "storage": storage_result.get("metadata"),
+            "database": db_result.get("metadata") if db_result.get("success") else None,
+            "storage": storage_result.get("metadata") if storage_result.get("success") else None,
             "created_at": datetime.now().isoformat(),
-            "success": db_result.get("success") and storage_result.get("success")
+            "success": db_result.get("success") and storage_result.get("success"),
+            "db_success": db_result.get("success", False),
+            "storage_success": storage_result.get("success", False),
+            "errors": []
         }
         
-        # Save full backup metadata
-        metadata_path = self.full_backup_dir / f"full_backup_{timestamp}.json"
-        with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
+        # Add error messages if components failed
+        if not db_result.get("success"):
+            metadata["errors"].append(f"Database backup failed: {db_result.get('error', 'Unknown error')}")
+            logger.error("Database backup failed in full backup", timestamp=timestamp, error=db_result.get("error"))
+        
+        if not storage_result.get("success"):
+            metadata["errors"].append(f"Storage backup failed: {storage_result.get('error', 'Unknown error')}")
+            logger.error("Storage backup failed in full backup", timestamp=timestamp, error=storage_result.get("error"))
+        
+        # Save full backup metadata only if at least one component succeeded
+        if db_result.get("success") or storage_result.get("success"):
+            metadata_path = self.full_backup_dir / f"full_backup_{timestamp}.json"
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f, indent=2)
         
         if metadata["success"]:
             logger.info("Full backup completed successfully", timestamp=timestamp)
         else:
-            logger.error("Full backup completed with errors", timestamp=timestamp)
+            logger.error("Full backup completed with errors", timestamp=timestamp, errors=metadata["errors"])
         
         return metadata
     
