@@ -170,6 +170,7 @@ class PaginatedCompaniesResponse(BaseModel):
 class ClientCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
+    company_id: str = Field(..., description="Company ID")
     
     @field_validator('phone')
     @classmethod
@@ -180,6 +181,13 @@ class ClientCreate(BaseModel):
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
+    
+    @field_validator('company_id')
+    @classmethod
+    def validate_company_id_field(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Company ID is required')
+        return v.strip()
 
 
 class ClientUpdate(BaseModel):
@@ -211,6 +219,7 @@ class ClientResponse(BaseModel):
 class ClientListItem(ClientResponse):
     portraits_count: int = 0
     latest_portrait_preview: Optional[str] = None  # Base64 encoded preview of latest portrait
+    company_id: Optional[str] = None
 
 
 class PaginatedClientsResponse(BaseModel):

@@ -80,30 +80,33 @@ async def create_client(
         "client_creation_attempt",
         phone=client.phone,
         name=client.name,
+        company_id=client.company_id,
         username=username,
     )
     
-    # Check if client with this phone already exists
-    existing_client = database.get_client_by_phone(client.phone)
+    # Check if client with this phone already exists in the same company
+    existing_client = database.get_client_by_phone(client.phone, client.company_id)
     if existing_client:
         logger.warning(
             "client_creation_failed_duplicate_phone",
             phone=client.phone,
+            company_id=client.company_id,
             username=username,
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Client with this phone number already exists"
+            detail="Client with this phone number already exists in this company"
         )
     
     client_id = str(uuid.uuid4())
-    db_client = database.create_client(client_id, client.phone, client.name)
+    db_client = database.create_client(client_id, client.phone, client.name, client.company_id)
     
     logger.info(
         "client_created_successfully",
         client_id=client_id,
         phone=client.phone,
         name=client.name,
+        company_id=client.company_id,
         username=username,
     )
     
@@ -129,6 +132,7 @@ async def list_clients_admin(
     page: int = 1,
     page_size: int = 25,
     search: Optional[str] = None,
+    company_id: Optional[str] = None,
     _: str = Depends(require_admin),
 ) -> PaginatedClientsResponse:
     """List clients with pagination and optional search (admin only)."""
@@ -137,9 +141,9 @@ async def list_clients_admin(
     page = max(page, 1)
     page_size = max(1, min(page_size, 100))
 
-    total = database.count_clients(search=search)
+    total = database.count_clients(search=search, company_id=company_id)
     if total == 0:
-        logger.info("clients_list_empty", search=search)
+        logger.info("clients_list_empty", search=search, company_id=company_id)
         return PaginatedClientsResponse(
             items=[],
             total=0,
@@ -153,7 +157,7 @@ async def list_clients_admin(
         page = total_pages
 
     offset = (page - 1) * page_size
-    clients = database.list_clients(search=search, limit=page_size, offset=offset)
+    clients = database.list_clients(search=search, limit=page_size, offset=offset, company_id=company_id)
     client_ids = [client["id"] for client in clients]
     portrait_counts = database.get_portrait_counts(client_ids)
     
@@ -187,7 +191,8 @@ async def list_clients_admin(
             name=client["name"],
             created_at=client["created_at"],
             portraits_count=portrait_counts.get(client["id"], 0),
-            latest_portrait_preview=latest_previews.get(client_id)
+            latest_portrait_preview=latest_previews.get(client_id),
+            company_id=client.get("company_id")
         )
         for client in clients
     ]
@@ -199,6 +204,7 @@ async def list_clients_admin(
         page_size=page_size,
         returned=len(items),
         search=search,
+        company_id=company_id,
     )
 
     return PaginatedClientsResponse(
@@ -411,9 +417,9 @@ async def update_client(
             detail="Client not found"
         )
     
-    # If updating phone, check for duplicates
+    # If updating phone, check for duplicates in the same company
     if client_update.phone:
-        phone_client = database.get_client_by_phone(client_update.phone)
+        phone_client = database.get_client_by_phone(client_update.phone, existing_client.get('company_id'))
         if phone_client and phone_client["id"] != client_id:
             logger.warning(
                 "client_update_failed_duplicate_phone",
@@ -423,7 +429,7 @@ async def update_client(
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Client with this phone number already exists"
+                detail="Client with this phone number already exists in this company"
             )
     
     # Update client

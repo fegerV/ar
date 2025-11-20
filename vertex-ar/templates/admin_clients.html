@@ -223,6 +223,12 @@
             color: var(--text-color);
         }
 
+        .company-filter {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
         .table-footer {
             margin-top: 1rem;
             display: flex;
@@ -300,6 +306,31 @@
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             margin-bottom: 2rem;
+        }
+
+        .company-group {
+            margin-bottom: 2rem;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .company-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .company-client-count {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
         }
 
         .clients-table {
@@ -619,6 +650,12 @@
                 <input type="text" id="searchInput" placeholder="🔍 Поиск по телефону или имени..." oninput="handleSearch()">
             </div>
             <div class="toolbar-actions">
+                <div class="company-filter">
+                    <label for="companyFilter" style="font-size: 0.9rem; color: var(--secondary-color);">Компания:</label>
+                    <select id="companyFilter" class="page-size-select" onchange="handleCompanyFilter()">
+                        <option value="">Все компании</option>
+                    </select>
+                </div>
                 <div id="selectedCount" class="toolbar-indicator"></div>
                 <label class="page-size-label">
                     <span>На странице:</span>
@@ -669,6 +706,12 @@
             <form id="clientForm" onsubmit="handleSubmit(event)">
                 <input type="hidden" id="clientId">
                 <div class="form-group">
+                    <label for="clientCompany">Компания *</label>
+                    <select id="clientCompany" required>
+                        <option value="">Выберите компанию</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="clientName">Имя клиента *</label>
                     <input type="text" id="clientName" required>
                 </div>
@@ -707,12 +750,14 @@
     <script>
         const clientsState = {
             items: [],
+            companies: [],
             total: 0,
             page: 1,
             pageSize: 25,
             totalPages: 0,
             search: '',
-            selectedIds: new Set()
+            selectedIds: new Set(),
+            currentCompany: ''
         };
         let searchDebounce = null;
 
@@ -725,6 +770,48 @@
 
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
+
+        async function loadCompanies() {
+            try {
+                const response = await fetch('/companies/list', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const companies = await response.json();
+                    clientsState.companies = companies;
+                    populateCompanyFilter();
+                }
+            } catch (error) {
+                console.error('Error loading companies:', error);
+            }
+        }
+
+        function populateCompanyFilter() {
+            const select = document.getElementById('companyFilter');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="">Все компании</option>';
+            clientsState.companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name;
+                select.appendChild(option);
+            });
+            
+            // Restore selected company
+            if (clientsState.currentCompany) {
+                select.value = clientsState.currentCompany;
+            }
+        }
+
+        function handleCompanyFilter() {
+            const select = document.getElementById('companyFilter');
+            clientsState.currentCompany = select.value;
+            clientsState.page = 1;
+            clientsState.selectedIds.clear();
+            updateBulkActionsState();
+            loadClients();
+        }
 
         function escapeHtml(value) {
             if (value === null || value === undefined) {
@@ -757,6 +844,9 @@
                 if (clientsState.search) {
                     params.append('search', clientsState.search);
                 }
+                if (clientsState.currentCompany) {
+                    params.append('company_id', clientsState.currentCompany);
+                }
 
                 const response = await fetch(`/clients/list?${params.toString()}`, {
                     credentials: 'include'
@@ -783,7 +873,7 @@
                     pageSizeSelect.value = String(clientsState.pageSize);
                 }
 
-                renderClients();
+                renderClientsGroupedByCompany();
                 renderPagination();
                 updateSummary();
                 updateSelectAllState();
@@ -803,7 +893,7 @@
             }
         }
 
-        function renderClients() {
+        function renderClientsGroupedByCompany() {
             const container = document.getElementById('clientsContainer');
             if (!container) {
                 return;
@@ -821,17 +911,55 @@
                 return;
             }
 
+            // Group clients by company
+            const groupedClients = {};
+            clientsState.items.forEach(client => {
+                const companyId = client.company_id || 'vertex-ar-default';
+                if (!groupedClients[companyId]) {
+                    groupedClients[companyId] = [];
+                }
+                groupedClients[companyId].push(client);
+            });
+
+            let html = '';
+
+            // Get company names
+            Object.keys(groupedClients).forEach(companyId => {
+                const company = clientsState.companies.find(c => c.id === companyId);
+                const companyName = company ? company.name : 'Неизвестная компания';
+                const clients = groupedClients[companyId];
+
+                html += `
+                    <div class="company-group">
+                        <div class="company-header">
+                            <span>${escapeHtml(companyName)}</span>
+                            <span class="company-client-count">${clients.length} ${getClientsWordForm(clients.length)}</span>
+                        </div>
+                        <div class="company-content">
+                            ${renderClientsTable(clients)}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            updateSelectAllState();
+        }
+
+        function renderClientsTable(clients) {
             const baseIndex = (clientsState.page - 1) * clientsState.pageSize;
             let rows = '';
 
-            clientsState.items.forEach((client, index) => {
+            clients.forEach((client, index) => {
                 const displayIndex = baseIndex + index + 1;
                 const createdAt = client.created_at ? new Date(client.created_at).toLocaleDateString('ru-RU') : '-';
                 const portraitsCount = client.portraits_count ?? 0;
                 const isChecked = clientsState.selectedIds.has(client.id) ? 'checked' : '';
                 const safeNameParam = JSON.stringify(client.name || '');
+                
+                // Fix preview loading - use proper base64 encoding
                 const previewHtml = client.latest_portrait_preview 
-                    ? `<img src="${client.latest_portrait_preview}" class="client-preview" onclick="viewClient('${client.id}')" style="cursor: pointer; width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" alt="Preview">`
+                    ? `<img src="${client.latest_portrait_preview}" class="client-preview" onclick="viewClient('${client.id}')" style="cursor: pointer; width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" alt="Preview" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjY2NjIi8+Cjx0ZXh0IHg9IjI1IiB5PSIzMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1zaXplPSIxMCIgZm9udC1mYW1pbHk9IkFyaWFsIj7RgNC10LLQsNC9PC90ZXh0Pgo8L3N2Zz4K';">`
                     : '<div class="no-preview" style="width: 50px; height: 50px; background: #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 12px;">Нет</div>';
 
                 rows += `
@@ -868,7 +996,7 @@
                 `;
             });
 
-            container.innerHTML = `
+            return `
                 <table class="clients-table">
                     <thead>
                         <tr>
@@ -889,8 +1017,25 @@
                     </tbody>
                 </table>
             `;
+        }
 
-            updateSelectAllState();
+        function getClientsWordForm(count) {
+            const lastDigit = count % 10;
+            const lastTwoDigits = count % 100;
+            
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+                return 'клиентов';
+            }
+            
+            if (lastDigit === 1) {
+                return 'клиент';
+            }
+            
+            if (lastDigit >= 2 && lastDigit <= 4) {
+                return 'клиента';
+            }
+            
+            return 'клиентов';
         }
 
         function updateSelectAllState() {
@@ -1030,7 +1175,7 @@
             } else {
                 pageIds.forEach(id => clientsState.selectedIds.delete(id));
             }
-            renderClients();
+            renderClientsGroupedByCompany();
             updateBulkActionsState();
         }
 
@@ -1085,6 +1230,7 @@
             document.getElementById('clientId').value = '';
             document.getElementById('clientName').value = '';
             document.getElementById('clientPhone').value = '';
+            populateCompanySelect();
             document.getElementById('submitBtn').textContent = 'Создать';
             document.getElementById('clientModal').classList.add('active');
         }
@@ -1099,8 +1245,25 @@
             document.getElementById('clientId').value = client.id;
             document.getElementById('clientName').value = client.name;
             document.getElementById('clientPhone').value = client.phone;
+            populateCompanySelect(client.company_id);
             document.getElementById('submitBtn').textContent = 'Сохранить';
             document.getElementById('clientModal').classList.add('active');
+        }
+
+        function populateCompanySelect(selectedCompanyId = '') {
+            const select = document.getElementById('clientCompany');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="">Выберите компанию</option>';
+            clientsState.companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name;
+                if (company.id === selectedCompanyId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
         }
 
         function closeModal() {
@@ -1117,6 +1280,12 @@
             const clientId = document.getElementById('clientId').value;
             const name = document.getElementById('clientName').value;
             const phone = document.getElementById('clientPhone').value;
+            const companyId = document.getElementById('clientCompany').value;
+
+            if (!companyId) {
+                alert('Пожалуйста, выберите компанию');
+                return;
+            }
 
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
@@ -1129,7 +1298,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ name, phone })
+                    body: JSON.stringify({ name, phone, company_id: companyId })
                 });
 
                 if (!response.ok) {
@@ -1267,7 +1436,10 @@
             }
         }
 
-        loadClients();
+        // Initialize page
+        loadCompanies().then(() => {
+            loadClients();
+        });
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
