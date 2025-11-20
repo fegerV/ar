@@ -79,6 +79,35 @@
             gap: 1rem;
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .nav-tab {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--light-color);
+        }
+
+        .nav-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
         .theme-toggle {
             background: none;
             border: 2px solid var(--border-color);
@@ -234,15 +263,22 @@
 <body>
     <div class="container">
         <!-- Header -->
-        <header class="header">
-            <h1>👥 Управление клиентами</h1>
-            <div class="header-actions">
-                <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
-                <a href="/admin" class="btn btn-secondary">← Назад к Dashboard</a>
-            </div>
-        </header>
+         <header class="header">
+             <h1>👥 Управление клиентами</h1>
+             <div class="header-actions">
+                 <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                 <a href="/admin/logout" class="btn btn-secondary">Выйти</a>
+             </div>
+         </header>
 
-        <!-- Client Statistics -->
+         <!-- Navigation Tabs -->
+         <div class="nav-tabs">
+             <a href="/admin" class="nav-tab">🏠 Dashboard</a>
+             <a href="/admin/clients" class="nav-tab active">👥 Клиенты</a>
+             <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+         </div>
+
+         <!-- Client Statistics -->
         <section class="client-stats">
             <div class="stat-card">
                 <h3>Всего клиентов</h3>

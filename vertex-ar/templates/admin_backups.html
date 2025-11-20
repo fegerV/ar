@@ -471,6 +471,249 @@
             color: var(--success-color);
         }
 
+        /* System Information Styles */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .section-subtitle {
+            margin: 0.5rem 0 0 0;
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+
+        .system-info {
+            background-color: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+        }
+
+        [data-theme="light"] .system-info {
+            background-color: #ffffff;
+        }
+
+        .system-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .system-item {
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+
+        .system-item .label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .system-item .value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .system-note {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin: 0.5rem 0 0 0;
+        }
+
+        .progress-bar-small {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill-small {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .metric-with-bar {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.25rem 0.5rem;
+            transition: color var(--transition-speed);
+        }
+
+        .link-button:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .link-button.small {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .monitoring-channels {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .channel-status {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .channel-status.active {
+            opacity: 1;
+            color: var(--success-color);
+        }
+
+        .channel-status.inactive {
+            opacity: 0.6;
+            color: var(--secondary-color);
+        }
+
+        .recent-alerts {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+
+        .recent-alerts .no-alerts {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        .alert-item {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.8rem;
+        }
+
+        .alert-item:last-child {
+            border-bottom: none;
+        }
+
+        .alert-item.error {
+            color: var(--danger-color);
+        }
+
+        .alert-item.warning {
+            color: var(--warning-color);
+        }
+
+        .thresholds-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin: 0.5rem 0;
+        }
+
+        .threshold-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .monitoring-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .monitoring-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .realtime-metrics {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .realtime-metrics h3 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: var(--light-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-color);
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .latest-backup {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+        }
+
+        .latest-backup .label {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+
+        .latest-backup .value {
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
@@ -497,6 +740,22 @@
 
             .nav-tabs {
                 flex-wrap: wrap;
+            }
+
+            .system-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .monitoring-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .monitoring-controls {
+                justify-content: center;
             }
         }
 
@@ -528,9 +787,142 @@
         <div class="nav-tabs">
             <a href="/admin" class="nav-tab">🏠 Dashboard</a>
             <a href="/admin/clients" class="nav-tab">👥 Клиенты</a>
-            <a href="/admin/users" class="nav-tab">👤 Пользователи</a>
-            <a href="/admin/backups" class="nav-tab active">🔒 Бэкапы</a>
+            <a href="/admin/backups" class="nav-tab active">🔒 Backup</a>
         </div>
+
+        <!-- System Information -->
+        <section class="system-info">
+            <div class="section-header">
+                <h2>Системная информация</h2>
+                <p class="section-subtitle">Следите за состоянием сервера, чтобы панель оставалась стабильной</p>
+            </div>
+            <div class="system-grid">
+                <div class="system-item">
+                    <div class="label">Версия системы</div>
+                    <div class="value" id="systemVersion">-</div>
+                    <p class="system-note">Сборка и конфигурация backend</p>
+                </div>
+                <div class="system-item">
+                    <div class="label">Время работы</div>
+                    <div class="value" id="systemUptime">-</div>
+                    <p class="system-note">Позволяет выявить незапланированные перезапуски</p>
+                </div>
+                <div class="system-item metric-with-bar">
+                    <div class="label">Использование памяти</div>
+                    <div class="value" id="systemMemory">-</div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" id="memoryUsageBar"></div>
+                    </div>
+                </div>
+                <div class="system-item metric-with-bar">
+                    <div class="label">Использование диска</div>
+                    <div class="value" id="systemDisk">-</div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" id="diskUsageBar"></div>
+                    </div>
+                </div>
+                <div class="system-item metric-with-bar">
+                    <div class="label">Загрузка CPU</div>
+                    <div class="value" id="systemCPU">-</div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" id="cpuUsageBar"></div>
+                    </div>
+                </div>
+                <div class="system-item">
+                    <div class="label">Хост</div>
+                    <div class="value" id="systemHost">-</div>
+                    <p class="system-note" id="systemPlatform">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring and Alerting Section -->
+        <section class="system-info monitoring-section">
+            <div class="section-header">
+                <h2>Мониторинг и оповещения</h2>
+                <div class="monitoring-controls">
+                    <button onclick="testAlertSystem()" class="link-button">🧪 Тестировать оповещения</button>
+                    <button onclick="sendWeeklyReport()" class="link-button">📊 Отправить отчет</button>
+                    <button onclick="refreshMonitoringData()" class="link-button">🔄 Обновить</button>
+                </div>
+            </div>
+            
+            <div class="monitoring-grid">
+                <!-- Alert Status -->
+                <div class="system-item">
+                    <div class="label">Статус мониторинга</div>
+                    <div class="value" id="monitoringStatus">-</div>
+                    <div class="monitoring-channels" id="monitoringChannels">
+                        <span class="channel-status" id="telegramStatus">📱 Telegram: -</span>
+                        <span class="channel-status" id="emailStatus">📧 Email: -</span>
+                    </div>
+                </div>
+                
+                <!-- Recent Alerts -->
+                <div class="system-item">
+                    <div class="label">Последние оповещения</div>
+                    <div class="value" id="recentAlertsCount">0</div>
+                    <div class="recent-alerts" id="recentAlerts">
+                        <p class="no-alerts">Нет недавних оповещений</p>
+                    </div>
+                </div>
+                
+                <!-- Alert Thresholds -->
+                <div class="system-item">
+                    <div class="label">Пороги оповещений</div>
+                    <div class="thresholds-info">
+                        <div class="threshold-item">
+                            <span>CPU:</span>
+                            <span id="cpuThreshold">80%</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>Память:</span>
+                            <span id="memoryThreshold">85%</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>Диск:</span>
+                            <span id="diskThreshold">90%</span>
+                        </div>
+                    </div>
+                    <button onclick="showThresholdEditor()" class="link-button small">Изменить</button>
+                </div>
+                
+                <!-- Weekly Report Schedule -->
+                <div class="system-item">
+                    <div class="label">Расписание отчетов</div>
+                    <div class="value" id="reportSchedule">-</div>
+                    <p class="system-note">Автоматическая отправка еженедельных отчетов</p>
+                </div>
+            </div>
+            
+            <!-- Real-time System Metrics -->
+            <div class="realtime-metrics">
+                <h3>Метрики в реальном времени</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">CPU</div>
+                        <div class="metric-value" id="realtimeCPU">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeCPUBar"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Память</div>
+                        <div class="metric-value" id="realtimeMemory">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeMemoryBar"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Диск</div>
+                        <div class="metric-value" id="realtimeDisk">0%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="realtimeDiskBar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- Backup Management Section -->
         <section class="backup-management">
@@ -1057,19 +1449,229 @@
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            loadBackupStats();
-            loadBackupList();
-            loadBackupSchedule();
-            addLog('Страница управления бэкапами загружена', 'info');
-            
-            // Auto-refresh every 30 seconds
-            setInterval(() => {
-                loadBackupStats();
-                loadBackupSchedule();
-            }, 30000);
-        });
+        // ============================================
+         // SYSTEM INFO AND MONITORING FUNCTIONS
+         // ============================================
+
+         // Load System Info
+         async function loadSystemInfo() {
+             try {
+                 const response = await fetch('/admin/system-info', {
+                     credentials: 'include'
+                 });
+
+                 if (response.ok) {
+                     const data = await response.json();
+                     updateSystemInfo(data);
+                 }
+             } catch (error) {
+                 console.error('Error loading system info:', error);
+             }
+         }
+
+         function updateSystemInfo(data) {
+             const elements = {
+                 'systemVersion': data.version || 'N/A',
+                 'systemUptime': data.uptime || 'N/A',
+                 'systemMemory': data.memory_usage || 'N/A',
+                 'systemDisk': data.disk_usage || 'N/A',
+                 'systemCPU': data.cpu_usage || 'N/A',
+                 'systemHost': data.hostname || 'N/A'
+             };
+
+             Object.entries(elements).forEach(([id, value]) => {
+                 const element = document.getElementById(id);
+                 if (element) {
+                     element.textContent = value;
+                 }
+             });
+
+             const platformElement = document.getElementById('systemPlatform');
+             if (platformElement && data.platform) {
+                 platformElement.textContent = data.platform;
+             }
+
+             // Update progress bars
+             if (data.memory_percent !== undefined && data.memory_percent !== null) {
+                 const memoryBar = document.getElementById('memoryUsageBar');
+                 if (memoryBar) {
+                     memoryBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
+                     memoryBar.style.backgroundColor = data.memory_percent > 80 ? '#dc3545' :
+                                                    data.memory_percent > 60 ? '#ffc107' : '#28a745';
+                 }
+             }
+
+             if (data.disk_percent !== undefined && data.disk_percent !== null) {
+                 const diskBar = document.getElementById('diskUsageBar');
+                 if (diskBar) {
+                     diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
+                     diskBar.style.backgroundColor = data.disk_percent > 80 ? '#dc3545' :
+                                                   data.disk_percent > 60 ? '#ffc107' : '#28a745';
+                 }
+             }
+
+             if (data.cpu_percent !== undefined && data.cpu_percent !== null) {
+                 const cpuBar = document.getElementById('cpuUsageBar');
+                 if (cpuBar) {
+                     cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
+                     cpuBar.style.backgroundColor = data.cpu_percent > 80 ? '#dc3545' :
+                                                  data.cpu_percent > 60 ? '#ffc107' : '#28a745';
+                 }
+             }
+         }
+
+         // Load Monitoring Data
+         async function loadMonitoringData() {
+             try {
+                 const response = await fetch('/admin/monitoring-status', {
+                     credentials: 'include'
+                 });
+
+                 if (response.ok) {
+                     const data = await response.json();
+                     updateMonitoringStatus(data);
+                 }
+             } catch (error) {
+                 console.error('Error loading monitoring data:', error);
+             }
+         }
+
+         function updateMonitoringStatus(data) {
+             const monitoringStatus = document.getElementById('monitoringStatus');
+             if (monitoringStatus) {
+                 monitoringStatus.textContent = data.status || 'Unknown';
+             }
+
+             const telegramStatus = document.getElementById('telegramStatus');
+             if (telegramStatus) {
+                 const status = data.channels?.telegram ? '✓ Включен' : '✗ Отключен';
+                 telegramStatus.textContent = `📱 Telegram: ${status}`;
+                 if (data.channels?.telegram) {
+                     telegramStatus.classList.add('active');
+                     telegramStatus.classList.remove('inactive');
+                 } else {
+                     telegramStatus.classList.add('inactive');
+                     telegramStatus.classList.remove('active');
+                 }
+             }
+
+             const emailStatus = document.getElementById('emailStatus');
+             if (emailStatus) {
+                 const status = data.channels?.email ? '✓ Включен' : '✗ Отключен';
+                 emailStatus.textContent = `📧 Email: ${status}`;
+                 if (data.channels?.email) {
+                     emailStatus.classList.add('active');
+                     emailStatus.classList.remove('inactive');
+                 } else {
+                     emailStatus.classList.add('inactive');
+                     emailStatus.classList.remove('active');
+                 }
+             }
+
+             const recentAlertsCount = document.getElementById('recentAlertsCount');
+             if (recentAlertsCount) {
+                 recentAlertsCount.textContent = data.recent_alerts?.length || 0;
+             }
+
+             const recentAlerts = document.getElementById('recentAlerts');
+             if (recentAlerts) {
+                 if (data.recent_alerts && data.recent_alerts.length > 0) {
+                     recentAlerts.innerHTML = data.recent_alerts.map(alert =>
+                         `<div class="alert-item ${alert.type}">${alert.message}</div>`
+                     ).join('');
+                 } else {
+                     recentAlerts.innerHTML = '<p class="no-alerts">Нет недавних оповещений</p>';
+                 }
+             }
+         }
+
+         // Update Real-time Metrics
+         async function updateRealtimeMetrics() {
+             try {
+                 const response = await fetch('/admin/system-info', {
+                     credentials: 'include'
+                 });
+
+                 if (response.ok) {
+                     const data = await response.json();
+
+                     const realtimeCPU = document.getElementById('realtimeCPU');
+                     if (realtimeCPU) {
+                         const cpuValue = data.cpu_percent || 0;
+                         realtimeCPU.textContent = `${Math.round(cpuValue)}%`;
+                         const cpuBar = document.getElementById('realtimeCPUBar');
+                         if (cpuBar) {
+                             cpuBar.style.width = `${Math.min(cpuValue, 100)}%`;
+                             cpuBar.style.backgroundColor = cpuValue > 80 ? '#dc3545' :
+                                                          cpuValue > 60 ? '#ffc107' : '#28a745';
+                         }
+                     }
+
+                     const realtimeMemory = document.getElementById('realtimeMemory');
+                     if (realtimeMemory) {
+                         const memValue = data.memory_percent || 0;
+                         realtimeMemory.textContent = `${Math.round(memValue)}%`;
+                         const memBar = document.getElementById('realtimeMemoryBar');
+                         if (memBar) {
+                             memBar.style.width = `${Math.min(memValue, 100)}%`;
+                             memBar.style.backgroundColor = memValue > 80 ? '#dc3545' :
+                                                          memValue > 60 ? '#ffc107' : '#28a745';
+                         }
+                     }
+
+                     const realtimeDisk = document.getElementById('realtimeDisk');
+                     if (realtimeDisk) {
+                         const diskValue = data.disk_percent || 0;
+                         realtimeDisk.textContent = `${Math.round(diskValue)}%`;
+                         const diskBar = document.getElementById('realtimeDiskBar');
+                         if (diskBar) {
+                             diskBar.style.width = `${Math.min(diskValue, 100)}%`;
+                             diskBar.style.backgroundColor = diskValue > 80 ? '#dc3545' :
+                                                           diskValue > 60 ? '#ffc107' : '#28a745';
+                         }
+                     }
+                 }
+             } catch (error) {
+                 console.error('Error updating realtime metrics:', error);
+             }
+         }
+
+         // Placeholder functions for button handlers
+         function testAlertSystem() {
+             alert('Функция тестирования оповещений будет реализована');
+         }
+
+         function sendWeeklyReport() {
+             alert('Функция отправки отчета будет реализована');
+         }
+
+         function refreshMonitoringData() {
+             loadMonitoringData();
+             updateRealtimeMetrics();
+         }
+
+         function showThresholdEditor() {
+             alert('Редактор порогов будет реализован');
+         }
+
+         // Initialize page
+         document.addEventListener('DOMContentLoaded', function() {
+             loadBackupStats();
+             loadBackupList();
+             loadBackupSchedule();
+             loadSystemInfo();
+             loadMonitoringData();
+             updateRealtimeMetrics();
+             addLog('Страница управления бэкапами загружена', 'info');
+
+             // Auto-refresh every 30 seconds
+             setInterval(() => {
+                 loadBackupStats();
+                 loadBackupSchedule();
+                 loadSystemInfo();
+                 updateRealtimeMetrics();
+             }, 30000);
+         });
     </script>
 </body>
 </html>
