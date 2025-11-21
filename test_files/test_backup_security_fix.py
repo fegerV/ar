@@ -92,7 +92,7 @@ def test_path_traversal_security():
         print(f"   Problematic path: {repr(problematic_path)}")
 
         # Apply the same cleaning logic as in our API
-        clean_path = problematic_path.strip().replace('\u000b', '').replace('\u008', '').replace('\n', '').replace('\r', '').replace('\t', '')
+        clean_path = problematic_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
         print(f"   Cleaned path: {clean_path}")
 
         clean_path_obj = Path(clean_path).resolve()
