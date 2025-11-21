@@ -14,14 +14,8 @@ from logging_setup import get_logger
 logger = get_logger(__name__)
 
 
-def _hash_password(password: str) -> str:
-    """Hash password using SHA-256 (consider using bcrypt in production)."""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-def _verify_password(password: str, hashed: str) -> bool:
-    """Verify password against hash."""
-    return _hash_password(password) == hashed
+# Import hash functions from utils to avoid circular dependencies
+from app.utils import hash_password as _hash_password, verify_password as _verify_password
 
 
 @dataclass
@@ -73,6 +67,16 @@ class TokenManager:
     def revoke_user(self, username: str) -> None:
         with self._lock:
             tokens_to_remove = [token for token, session in self._tokens.items() if session.username == username]
+            for token in tokens_to_remove:
+                self._tokens.pop(token, None)
+
+    def revoke_user_except_current(self, username: str, current_token: Optional[str] = None) -> None:
+        """Revoke all tokens for a user except the current one."""
+        with self._lock:
+            tokens_to_remove = [
+                token for token, session in self._tokens.items()
+                if session.username == username and token != current_token
+            ]
             for token in tokens_to_remove:
                 self._tokens.pop(token, None)
 

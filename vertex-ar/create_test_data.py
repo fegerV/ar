@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from pathlib import Path
 from app.database import Database
-from app.auth import _hash_password
+from app.utils import hash_password as _hash_password
 import uuid
 import shutil
 

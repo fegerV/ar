@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Vertex AR - Управление клиентами и компаниями">
     <title>Управление клиентами - Vertex AR</title>
-    
+
     <style>
         :root {
             --primary-color: #007bff;
@@ -21,7 +22,7 @@
             --text-color: #e0e0e0;
             --border-color: #444;
             --border-radius: 8px;
-            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             --transition-speed: 0.3s;
         }
 
@@ -31,7 +32,7 @@
             --border-color: #ddd;
             --light-color: #ffffff;
             --dark-color: #343a40;
-            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -181,7 +182,8 @@
             align-items: center;
         }
 
-        .company-select, .company-input {
+        .company-select,
+        .company-input {
             flex: 1;
             min-width: 200px;
             padding: 0.5rem;
@@ -469,8 +471,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .loading-text {
@@ -722,6 +729,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -846,8 +854,8 @@
         <footer class="footer">
             <p>&copy; 2024 Vertex AR. Все права защищены.</p>
             <p>
-                <a href="/admin">Dashboard</a> | 
-                <a href="/admin/clients">Клиенты</a> | 
+                <a href="/admin">Dashboard</a> |
+                <a href="/admin/clients">Клиенты</a> |
                 <a href="/admin/backups">Backup</a>
             </p>
         </footer>
@@ -885,9 +893,9 @@
             toast.className = `toast ${type}`;
             toast.textContent = message;
             container.appendChild(toast);
-            
+
             setTimeout(() => toast.classList.add('show'), 10);
-            
+
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => container.removeChild(toast), 300);
@@ -899,40 +907,40 @@
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('admin-theme', newTheme);
-            
+
             const themeToggle = document.getElementById('themeToggle');
             themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
         }
 
         async function loadCompanies() {
             try {
-                const response = await fetch('/api/companies', {
+                const response = await fetch('/companies', {
                     credentials: 'include'
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Failed to load companies');
                 }
-                
+
                 const data = await response.json();
                 allCompanies = data.items || [];
-                
+
                 const filterCompany = document.getElementById('filterCompany');
-                
+
                 filterCompany.innerHTML = '<option value="">Все компании</option>';
-                
+
                 allCompanies.forEach(company => {
                     const option = new Option(company.name, company.id);
                     filterCompany.add(option);
                 });
-                
+
                 if (allCompanies.length > 0) {
                     currentCompanyId = allCompanies[0].id;
                     filterCompany.value = currentCompanyId;
                 }
-                
+
                 document.getElementById('totalCompanies').textContent = allCompanies.length;
-                
+
             } catch (error) {
                 console.error('Error loading companies:', error);
                 showToast('Ошибка загрузки компаний', 'error');
@@ -941,53 +949,53 @@
 
         async function loadClients() {
             showLoading();
-            
+
             try {
                 const search = document.getElementById('clientSearch').value;
                 const companyFilter = document.getElementById('filterCompany').value;
-                
-                let url = `/api/clients/list?page=${currentPage}&page_size=${pageSize}`;
-                
+
+                let url = `/clients/list?page=${currentPage}&page_size=${pageSize}`;
+
                 if (search) {
                     url += `&search=${encodeURIComponent(search)}`;
                 }
-                
+
                 if (companyFilter) {
                     url += `&company_id=${companyFilter}`;
                 }
-                
+
                 const response = await fetch(url, {
                     credentials: 'include'
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Failed to load clients');
                 }
-                
+
                 const data = await response.json();
-                
+
                 renderClients(data.items);
                 updatePagination(data.page, data.total_pages, data.total);
-                
+
                 const companyFilter2 = document.getElementById('filterCompany').value;
                 if (companyFilter2) {
                     document.getElementById('companyClients').textContent = data.total;
                 }
-                
-                const statsResponse = await fetch('/api/statistics', {
+
+                const statsResponse = await fetch('/admin/stats', {
                     credentials: 'include'
                 });
-                
+
                 if (statsResponse.ok) {
                     const stats = await statsResponse.json();
                     document.getElementById('totalClients').textContent = stats.total_clients || 0;
                     document.getElementById('totalPortraits').textContent = stats.total_portraits || 0;
                 }
-                
+
             } catch (error) {
                 console.error('Error loading clients:', error);
                 showToast('Ошибка загрузки клиентов', 'error');
-                
+
                 document.getElementById('clientsTableBody').innerHTML = `
                     <tr>
                         <td colspan="8" class="empty-state">
@@ -1003,7 +1011,7 @@
 
         function renderClients(clients) {
             const tbody = document.getElementById('clientsTableBody');
-            
+
             if (!clients || clients.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -1015,12 +1023,12 @@
                 `;
                 return;
             }
-            
+
             tbody.innerHTML = clients.map(client => {
                 const companyName = allCompanies.find(c => c.id === client.company_id)?.name || 'Неизвестно';
                 const date = new Date(client.created_at).toLocaleDateString('ru-RU');
                 const avatar = client.latest_portrait_preview || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="%23ccc"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23666" font-size="20">?</text></svg>';
-                
+
                 return `
                     <tr>
                         <td>
@@ -1046,10 +1054,10 @@
         function updatePagination(page, totalPages, total) {
             document.getElementById('currentPage').textContent = page;
             document.getElementById('totalPages').textContent = totalPages;
-            
+
             const prevBtn = document.getElementById('prevBtn');
             const nextBtn = document.getElementById('nextBtn');
-            
+
             prevBtn.disabled = page <= 1;
             nextBtn.disabled = page >= totalPages;
         }
@@ -1062,7 +1070,7 @@
         function toggleSelectAll() {
             const selectAll = document.getElementById('selectAll');
             const checkboxes = document.querySelectorAll('.client-checkbox');
-            
+
             checkboxes.forEach(cb => {
                 cb.checked = selectAll.checked;
                 const clientId = cb.dataset.clientId;
@@ -1072,7 +1080,7 @@
                     selectedClients.delete(clientId);
                 }
             });
-            
+
             updateBulkActions();
         }
 
@@ -1082,14 +1090,14 @@
             } else {
                 selectedClients.add(clientId);
             }
-            
+
             updateBulkActions();
         }
 
         function updateBulkActions() {
             const bulkActions = document.getElementById('bulkActions');
             const selectedCount = document.getElementById('selectedCount');
-            
+
             if (selectedClients.size > 0) {
                 bulkActions.classList.add('show');
                 selectedCount.textContent = selectedClients.size;
@@ -1110,13 +1118,13 @@
                 showToast('Выберите клиентов для удаления', 'error');
                 return;
             }
-            
+
             if (!confirm(`Удалить ${selectedClients.size} клиентов?`)) {
                 return;
             }
-            
+
             showLoading();
-            
+
             try {
                 const response = await fetch('/api/clients/bulk-delete', {
                     method: 'POST',
@@ -1126,15 +1134,15 @@
                     credentials: 'include',
                     body: JSON.stringify({ ids: Array.from(selectedClients) })
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Failed to delete clients');
                 }
-                
+
                 showToast('Клиенты удалены успешно', 'success');
                 clearSelection();
                 loadClients();
-                
+
             } catch (error) {
                 console.error('Error deleting clients:', error);
                 showToast('Ошибка удаления клиентов', 'error');
@@ -1147,22 +1155,22 @@
             if (!confirm('Удалить этого клиента?')) {
                 return;
             }
-            
+
             showLoading();
-            
+
             try {
                 const response = await fetch(`/api/clients/${clientId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Failed to delete client');
                 }
-                
+
                 showToast('Клиент удален успешно', 'success');
                 loadClients();
-                
+
             } catch (error) {
                 console.error('Error deleting client:', error);
                 showToast('Ошибка удаления клиента', 'error');
@@ -1193,7 +1201,7 @@
 
         document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('admin-theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const themeToggle = document.getElementById('themeToggle');
@@ -1203,14 +1211,14 @@
         function addLog(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');
             const emptyMessage = logContainer.querySelector('.log-empty');
-            
+
             if (emptyMessage) {
                 emptyMessage.remove();
             }
-            
+
             const logEntry = document.createElement('div');
             logEntry.className = `log-entry log-${type}`;
-            
+
             const time = new Date().toLocaleTimeString('ru-RU');
             const typeLabel = {
                 'info': 'INFO',
@@ -1218,16 +1226,16 @@
                 'warning': 'WARN',
                 'error': 'ERR'
             }[type] || 'INFO';
-            
+
             logEntry.innerHTML = `
                 <span class="log-time">${time}</span>
                 <span class="log-type">${typeLabel}</span>
                 <span class="log-message">${message}</span>
             `;
-            
+
             logContainer.appendChild(logEntry);
             logContainer.scrollTop = logContainer.scrollHeight;
-            
+
             const maxLogs = 50;
             const logs = logContainer.querySelectorAll('.log-entry');
             if (logs.length > maxLogs) {
@@ -1244,7 +1252,7 @@
         document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
 
         const originalShowToast = showToast;
-        showToast = function(message, type = 'info') {
+        showToast = function (message, type = 'info') {
             originalShowToast(message, type);
             addLog(message, type);
         };
@@ -1259,4 +1267,5 @@
         initialize();
     </script>
 </body>
+
 </html>

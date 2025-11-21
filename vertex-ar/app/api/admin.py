@@ -21,7 +21,7 @@ from app.database import Database
 from app.main import get_current_app
 from app.models import ARContentResponse
 from app.rate_limiter import create_rate_limit_dependency
-from app.auth import _verify_password
+from app.utils import verify_password as _verify_password
 from logging_setup import get_logger
 from nft_marker_generator import analyze_image
 from utils import format_bytes, get_disk_usage, get_storage_usage
@@ -209,7 +209,7 @@ async def admin_panel(request: Request) -> HTMLResponse:
             return _redirect_to_login("unauthorized")
         error = request.query_params.get("error")
         return templates.TemplateResponse("login.html", {"request": request, "error": error})
-    
+
     context = {"request": request, "username": username}
     return templates.TemplateResponse("admin_dashboard.html", context)
 
@@ -220,7 +220,7 @@ async def admin_orders_panel(request: Request) -> HTMLResponse:
     username = _validate_admin_session(request)
     if not username:
         return _redirect_to_login("unauthorized")
-    
+
     templates = get_templates()
     context = {"request": request, "username": username}
     return templates.TemplateResponse("admin_dashboard.html", context)
@@ -232,7 +232,7 @@ async def admin_clients_panel(request: Request) -> HTMLResponse:
     username = _validate_admin_session(request)
     if not username:
         return _redirect_to_login("unauthorized")
-    
+
     templates = get_templates()
     context = {"request": request, "username": username}
     return templates.TemplateResponse("admin_clients.html", context)
@@ -244,7 +244,7 @@ async def admin_backups_panel(request: Request) -> HTMLResponse:
     username = _validate_admin_session(request)
     if not username:
         return _redirect_to_login("unauthorized")
-    
+
     templates = get_templates()
     context = {"request": request, "username": username}
     return templates.TemplateResponse("admin_backups.html", context)
@@ -256,7 +256,7 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     username = _validate_admin_session(request)
     if not username:
         return _redirect_to_login("unauthorized")
-    
+
     templates = get_templates()
     database = get_database()
     app = get_current_app()
@@ -314,7 +314,7 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
         if contrast_float < 90:
             return "60 ≤ Контраст < 90 → хорошее"
         return "Контраст ≥ 90 → отличное"
-    
+
     def build_public_url(path: Optional[str]) -> str:
         if not path:
             return ""
@@ -342,12 +342,12 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
             logger.warning(f"Failed to build public URL for path {path_str}: {exc}")
             cleaned = path_str.lstrip("/")
             return f"{base_url}/storage/{cleaned}"
-    
+
     # Get portrait information
     portrait = database.get_portrait(portrait_id)
     if not portrait:
         return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
-    
+
     # Load image preview if available
     image_preview_data = None
     image_preview_path = portrait.get("image_preview_path")
@@ -360,10 +360,10 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
                     image_preview_data = base64.b64encode(f.read()).decode()
         except Exception as e:
             logger.warning(f"Failed to load portrait preview: {e}")
-    
+
     portrait["image_preview_data"] = image_preview_data
     portrait_preview_url = f"data:image/jpeg;base64,{image_preview_data}" if image_preview_data else None
-    
+
     # Get client information
     client = database.get_client(portrait["client_id"])
 
@@ -503,7 +503,7 @@ async def admin_login(
 ) -> RedirectResponse:
     """Handle admin login from HTML form."""
     database = get_database()
-    
+
     try:
         user = database.get_user(username)
         if user is None or not _verify_password(password, user["hashed_password"]):
@@ -512,14 +512,14 @@ async def admin_login(
                 url="/admin?error=invalid_credentials",
                 status_code=status.HTTP_302_FOUND
             )
-        
+
         if not user.get("is_admin"):
             logger.warning(f"Non-admin login attempt by user: {username}")
             return RedirectResponse(
                 url="/admin?error=invalid_credentials",
                 status_code=status.HTTP_302_FOUND
             )
-        
+
         app = get_current_app()
         tokens = app.state.tokens
         token = tokens.issue_token(username)
@@ -527,7 +527,7 @@ async def admin_login(
         database.update_last_login(username)
 
         logger.info(f"Admin login successful for user: {username}")
-        
+
         response = RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="authToken",
@@ -663,13 +663,13 @@ async def search_dashboard_records(
     database = get_database()
     _ensure_company_exists(database, company_id)
     safe_limit = max(10, min(limit, 500))
-    
+
     if not q.strip() and not any([date_from, date_to, min_views is not None, max_views is not None]):
         records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit)
     else:
         search_query = q.strip() if q.strip() else None
         records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit, search=search_query)
-    
+
     filtered_records = []
     for record in records_raw:
         if date_from or date_to:
@@ -681,28 +681,28 @@ async def search_dashboard_records(
                         record_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
                     else:
                         record_date = created_at
-                    
+
                     if date_from:
                         filter_date_from = datetime.fromisoformat(date_from)
                         if record_date < filter_date_from:
                             continue
-                    
+
                     if date_to:
                         filter_date_to = datetime.fromisoformat(date_to)
                         if record_date > filter_date_to:
                             continue
                 except (ValueError, AttributeError):
                     pass
-        
+
         if min_views is not None or max_views is not None:
             views = record.get("view_count", 0) or 0
             if min_views is not None and views < min_views:
                 continue
             if max_views is not None and views > max_views:
                 continue
-        
+
         filtered_records.append(record)
-    
+
     total_portraits = database.count_portraits(company_id=company_id)
     return {
         "results": _serialize_records(filtered_records, total_portraits),
@@ -771,9 +771,9 @@ async def export_data(
         export_format = data.get("format", "csv")
         include = data.get("include", ["clients", "portraits", "orders"])
         company_id = data.get("company_id")
-        
+
         database = get_database()
-        
+
         if export_format == "csv":
             return await _export_to_csv(database, include, company_id)
         elif export_format == "json":
@@ -792,7 +792,7 @@ async def _export_to_csv(
 ) -> StreamingResponse:
     """Export data to CSV format."""
     output = io.StringIO()
-    
+
     try:
         if "clients" in include:
             clients = database.list_clients(company_id=company_id) if company_id else database.list_clients()
@@ -811,7 +811,7 @@ async def _export_to_csv(
                         "company_id": str(client.get("company_id", "")),
                         "created_at": str(client.get("created_at", "")),
                     })
-        
+
         if "orders" in include or "portraits" in include:
             if company_id:
                 clients = database.list_clients(company_id=company_id)
@@ -821,7 +821,7 @@ async def _export_to_csv(
                     records.extend(database.list_ar_content(client_id))
             else:
                 records = database.list_ar_content()
-            
+
             if records:
                 writer = csv.DictWriter(
                     output,
@@ -841,7 +841,7 @@ async def _export_to_csv(
                         "created_at": str(record.get("created_at", "")),
                         "company_id": str(record.get("company_id", "")),
                     })
-        
+
         output.seek(0)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return StreamingResponse(
@@ -861,11 +861,11 @@ async def _export_to_json(
 ) -> StreamingResponse:
     """Export data to JSON format."""
     export_data = {}
-    
+
     if "clients" in include:
         clients = database.list_clients(company_id=company_id) if company_id else database.list_clients()
         export_data["clients"] = clients
-    
+
     if "orders" in include or "portraits" in include:
         if company_id:
             clients = database.list_clients(company_id=company_id)
@@ -876,12 +876,12 @@ async def _export_to_json(
         else:
             records = database.list_ar_content()
         export_data["records"] = records
-    
+
     output = io.BytesIO()
     json_data = json.dumps(export_data, ensure_ascii=False, indent=2, default=str)
     output.write(json_data.encode())
     output.seek(0)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -897,7 +897,7 @@ async def get_content_stats(
 ) -> List[Dict[str, Any]]:
     """Return aggregated AR content statistics for the admin dashboard."""
     database = get_database()
-    
+
     # Get portraits for the specified company
     if company_id:
         clients = database.list_clients(company_id=company_id)
@@ -908,7 +908,7 @@ async def get_content_stats(
             records.extend(client_records)
     else:
         records = database.list_ar_content()
-    
+
     stats: List[Dict[str, Any]] = []
     for record in records:
         stats.append({

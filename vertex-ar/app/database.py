@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 class Database:
     """Simplified database with just users and AR content."""
-    
+
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         # Ensure directory exists
@@ -26,7 +26,7 @@ class Database:
         # Enable foreign key constraints for cascade delete
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._initialise_schema()
-    
+
     def _initialise_schema(self) -> None:
         with self._connection:
             self._connection.execute(
@@ -74,7 +74,7 @@ class Database:
                 )
                 """
             )
-            
+
             # Create new tables for clients, portraits and videos
             self._connection.execute(
                 """
@@ -133,7 +133,7 @@ class Database:
                     logger.info("Created default company 'Vertex AR'")
             except sqlite3.OperationalError as e:
                 logger.warning(f"Error ensuring default company: {e}")
-            
+
             # Migrate existing clients to default company if needed
             try:
                 cursor = self._connection.execute("SELECT COUNT(*) FROM clients WHERE company_id IS NULL")
@@ -146,7 +146,7 @@ class Database:
                     logger.info("Migrated existing clients to default company")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add columns to existing tables if they don't exist
             try:
                 self._connection.execute("ALTER TABLE ar_content ADD COLUMN image_preview_path TEXT")
@@ -177,7 +177,7 @@ class Database:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Migrate existing users table to new schema
             try:
                 self._connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
@@ -199,7 +199,7 @@ class Database:
                 self._connection.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Create indexes for user management
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
@@ -209,13 +209,13 @@ class Database:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)")
             except sqlite3.OperationalError:
                 pass
-    
+
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
             cursor = self._connection.execute(query, parameters)
             self._connection.commit()
             return cursor
-    
+
     # User methods (for admin authentication and profile management only)
     def get_user(self, username: str) -> Optional[Dict[str, Any]]:
         cursor = self._execute("SELECT * FROM users WHERE username = ?", (username,))
@@ -223,35 +223,35 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def update_user(self, username: str, **kwargs) -> bool:
         """Update user fields."""
         if not kwargs:
             return False
-        
+
         # Filter valid fields
         valid_fields = {'email', 'full_name', 'is_admin', 'is_active'}
         update_fields = {k: v for k, v in kwargs.items() if k in valid_fields and v is not None}
-        
+
         if not update_fields:
             return False
-        
+
         set_clause = ", ".join(f"{field} = ?" for field in update_fields.keys())
         values = list(update_fields.values()) + [username]
-        
+
         cursor = self._execute(
             f"UPDATE users SET {set_clause} WHERE username = ?",
             values
         )
         return cursor.rowcount > 0
-    
+
     def update_last_login(self, username: str) -> None:
         """Update the last login timestamp for a user."""
         self._execute(
             "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = ?",
             (username,)
         )
-    
+
     def change_password(self, username: str, new_hashed_password: str) -> bool:
         """Change user password."""
         cursor = self._execute(
@@ -259,7 +259,7 @@ class Database:
             (new_hashed_password, username)
         )
         return cursor.rowcount > 0
-    
+
     def create_user(
         self,
         username: str,
@@ -275,7 +275,7 @@ class Database:
             (username, hashed_password, int(is_admin), email, full_name)
         )
         return cursor.rowcount > 0
-    
+
     def ensure_admin_user(
         self,
         username: str,
@@ -315,7 +315,7 @@ class Database:
         except Exception as exc:
             logger.error("Failed to ensure default admin user", username=username, exc_info=exc)
             raise
-    
+
     # AR Content methods
     def create_ar_content(
         self,
@@ -346,14 +346,14 @@ class Database:
              marker_fset, marker_fset3, marker_iset, ar_url, qr_code),
         )
         return self.get_ar_content(content_id)
-    
+
     def get_ar_content(self, content_id: str) -> Optional[Dict[str, Any]]:
         cursor = self._execute("SELECT * FROM ar_content WHERE id = ?", (content_id,))
         row = cursor.fetchone()
         if row is None:
             return None
         return dict(row)
-    
+
     def list_ar_content(self, username: Optional[str] = None) -> List[Dict[str, Any]]:
         if username:
             cursor = self._execute(
@@ -363,26 +363,26 @@ class Database:
         else:
             cursor = self._execute("SELECT * FROM ar_content ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def increment_view_count(self, content_id: str) -> None:
         """Increase view count for AR content."""
         self._execute(
             "UPDATE ar_content SET view_count = view_count + 1 WHERE id = ?",
             (content_id,),
         )
-    
+
     def increment_click_count(self, content_id: str) -> None:
         """Increase click count for AR content."""
         self._execute(
             "UPDATE ar_content SET click_count = click_count + 1 WHERE id = ?",
             (content_id,),
         )
-    
+
     def delete_ar_content(self, content_id: str) -> bool:
         """Delete AR content from database."""
         cursor = self._execute("DELETE FROM ar_content WHERE id = ?", (content_id,))
         return cursor.rowcount > 0
-    
+
     # Client methods
     def create_client(self, client_id: str, phone: str, name: str, company_id: str = "vertex-ar-default") -> Dict[str, Any]:
         """Create a new client."""
@@ -391,7 +391,7 @@ class Database:
             (client_id, company_id, phone, name),
         )
         return self.get_client(client_id)
-    
+
     def get_client(self, client_id: str) -> Optional[Dict[str, Any]]:
         """Get client by ID."""
         cursor = self._execute("SELECT * FROM clients WHERE id = ?", (client_id,))
@@ -399,7 +399,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def get_client_by_phone(self, phone: str, company_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get client by phone number, optionally filtered by company."""
         if company_id:
@@ -410,7 +410,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def search_clients(self, query: str, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
         """Search clients by name or phone (partial match)."""
         return self.list_clients(search=query, limit=limit, offset=offset)
@@ -507,20 +507,20 @@ class Database:
         if name is not None:
             updates.append("name = ?")
             params.append(name)
-        
+
         if not updates:
             return False
-        
+
         params.append(client_id)
         query = f"UPDATE clients SET {', '.join(updates)} WHERE id = ?"
         cursor = self._execute(query, tuple(params))
         return cursor.rowcount > 0
-    
+
     def delete_client(self, client_id: str) -> bool:
         """Delete client."""
         cursor = self._execute("DELETE FROM clients WHERE id = ?", (client_id,))
         return cursor.rowcount > 0
-    
+
     # Portrait methods
     def create_portrait(
         self,
@@ -547,7 +547,7 @@ class Database:
              marker_fset, marker_fset3, marker_iset, permanent_link, qr_code),
         )
         return self.get_portrait(portrait_id)
-    
+
     def update_portrait_marker_paths(
         self,
         portrait_id: str,
@@ -575,7 +575,7 @@ class Database:
         query = f"UPDATE portraits SET {', '.join(updates)} WHERE id = ?"
         cursor = self._execute(query, tuple(params))
         return cursor.rowcount > 0
-    
+
     def get_portrait(self, portrait_id: str) -> Optional[Dict[str, Any]]:
         """Get portrait by ID."""
         cursor = self._execute("SELECT * FROM portraits WHERE id = ?", (portrait_id,))
@@ -583,7 +583,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def get_portrait_by_link(self, permanent_link: str) -> Optional[Dict[str, Any]]:
         """Get portrait by permanent link."""
         cursor = self._execute("SELECT * FROM portraits WHERE permanent_link = ?", (permanent_link,))
@@ -591,7 +591,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def list_portraits(self, client_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get list of portraits."""
         if client_id:
@@ -602,19 +602,19 @@ class Database:
         else:
             cursor = self._execute("SELECT * FROM portraits ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def increment_portrait_views(self, portrait_id: str) -> None:
         """Increase portrait view count."""
         self._execute(
             "UPDATE portraits SET view_count = view_count + 1 WHERE id = ?",
             (portrait_id,),
         )
-    
+
     def delete_portrait(self, portrait_id: str) -> bool:
         """Delete portrait."""
         cursor = self._execute("DELETE FROM portraits WHERE id = ?", (portrait_id,))
         return cursor.rowcount > 0
-    
+
     # Video methods
     def create_video(
         self,
@@ -636,7 +636,7 @@ class Database:
             (video_id, portrait_id, video_path, video_preview_path, description, int(is_active), file_size_mb),
         )
         return self.get_video(video_id)
-    
+
     def get_video(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Get video by ID."""
         cursor = self._execute("SELECT * FROM videos WHERE id = ?", (video_id,))
@@ -644,7 +644,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def get_active_video(self, portrait_id: str) -> Optional[Dict[str, Any]]:
         """Get active video for portrait."""
         cursor = self._execute(
@@ -655,7 +655,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def list_videos(self, portrait_id: str) -> List[Dict[str, Any]]:
         """Get list of videos for portrait."""
         cursor = self._execute(
@@ -663,7 +663,7 @@ class Database:
             (portrait_id,),
         )
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def set_active_video(self, video_id: str, portrait_id: str) -> bool:
         """Set active video for portrait."""
         with self._lock:
@@ -679,7 +679,7 @@ class Database:
             )
             self._connection.commit()
             return cursor.rowcount > 0
-    
+
     def get_videos_by_portrait(self, portrait_id: str) -> List[Dict[str, Any]]:
         """Get all videos for a portrait."""
         cursor = self._execute(
@@ -687,12 +687,12 @@ class Database:
             (portrait_id,),
         )
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def delete_video(self, video_id: str) -> bool:
         """Delete video."""
         cursor = self._execute("DELETE FROM videos WHERE id = ?", (video_id,))
         return cursor.rowcount > 0
-    
+
     # Dashboard/statistics helpers
     def count_portraits(self, company_id: Optional[str] = None) -> int:
         """Count portraits with optional company filter."""
@@ -704,7 +704,7 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["count"] if row else 0
-    
+
     def count_videos(self, company_id: Optional[str] = None) -> int:
         """Count videos with optional company filter."""
         query = "SELECT COUNT(*) as count FROM videos"
@@ -721,7 +721,7 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["count"] if row else 0
-    
+
     def count_active_portraits(self, company_id: Optional[str] = None) -> int:
         """Count portraits that have an active video."""
         query = (
@@ -737,7 +737,7 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["count"] if row else 0
-    
+
     def sum_portrait_views(self, company_id: Optional[str] = None) -> int:
         """Sum view counts for portraits with optional company filter."""
         query = "SELECT COALESCE(SUM(view_count), 0) as total FROM portraits"
@@ -748,7 +748,7 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["total"] if row else 0
-    
+
     def get_admin_records(
         self,
         company_id: Optional[str] = None,
@@ -797,7 +797,7 @@ class Database:
             params.append(limit)
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
-    
+
     # Company methods
     def create_company(self, company_id: str, name: str) -> None:
         """Create a new company."""
@@ -810,7 +810,7 @@ class Database:
         except sqlite3.IntegrityError as exc:
             logger.error(f"Failed to create company: {exc}")
             raise ValueError("company_already_exists") from exc
-    
+
     def get_company(self, company_id: str) -> Optional[Dict[str, Any]]:
         """Get company by ID."""
         cursor = self._execute("SELECT * FROM companies WHERE id = ?", (company_id,))
@@ -818,7 +818,7 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def get_company_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get company by name."""
         cursor = self._execute("SELECT * FROM companies WHERE name = ?", (name,))
@@ -826,12 +826,12 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def list_companies(self) -> List[Dict[str, Any]]:
         """Get all companies."""
         cursor = self._execute("SELECT * FROM companies ORDER BY name ASC")
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def delete_company(self, company_id: str) -> bool:
         """Delete company and all related data (clients, portraits, videos)."""
         try:
@@ -844,7 +844,7 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to delete company: {exc}")
             return False
-    
+
     def get_companies_with_client_count(self) -> List[Dict[str, Any]]:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
@@ -860,7 +860,7 @@ class Database:
 def ensure_default_admin_user(database: "Database") -> None:
     """Ensure the default admin user exists in the provided database instance."""
     from app.config import settings
-    from app.auth import _hash_password
+    from app.utils import hash_password
 
     username = getattr(settings, "DEFAULT_ADMIN_USERNAME", None)
     password = getattr(settings, "DEFAULT_ADMIN_PASSWORD", None)
@@ -869,7 +869,7 @@ def ensure_default_admin_user(database: "Database") -> None:
         logger.warning("Default admin credentials are not configured; skipping bootstrap")
         return
 
-    hashed_password = _hash_password(password)
+    hashed_password = hash_password(password)
     email = getattr(settings, "DEFAULT_ADMIN_EMAIL", None)
     full_name = getattr(settings, "DEFAULT_ADMIN_FULL_NAME", None)
 
