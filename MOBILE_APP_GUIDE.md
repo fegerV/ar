@@ -182,13 +182,13 @@ const ARViewer = ({ portrait }) => {
       <body style="margin: 0;">
         <a-scene embedded arjs>
           <a-assets>
-            <video id="vid" src="${portrait.active_video.url}" 
+            <video id="vid" src="${portrait.active_video.url}"
                    loop playsinline></video>
           </a-assets>
-          <a-nft type="nft" 
+          <a-nft type="nft"
                  url="${portrait.markers.fset.replace('.fset', '')}"
                  smooth="true">
-            <a-video src="#vid" width="1" height="1" 
+            <a-video src="#vid" width="1" height="1"
                      rotation="-90 0 0"></a-video>
           </a-nft>
           <a-entity camera></a-entity>
@@ -198,7 +198,7 @@ const ARViewer = ({ portrait }) => {
   `;
 
   return (
-    <WebView 
+    <WebView
       source={{ html }}
       mediaPlaybackRequiresUserAction={false}
       allowsInlineMediaPlayback={true}
@@ -286,7 +286,7 @@ await trackPortraitView(portraitId, duration, {
 ## 🆘 Поддержка
 
 **Вопросы и проблемы:**
-- GitHub Issues: [создать issue](https://github.com/your-repo/issues)
+- GitHub Issues: [создать issue](https://github.com/fegerV/AR/issues)
 - Email: dev@vertex-ar.example.com
 - Документация: [docs/api/mobile-rn-requirements.md](docs/api/mobile-rn-requirements.md)
 
@@ -301,6 +301,6 @@ await trackPortraitView(portraitId, duration, {
 
 ---
 
-**Версия:** 1.0.0  
-**Последнее обновление:** 2024  
+**Версия:** 1.0.0
+**Последнее обновление:** 2024
 **Статус:** ✅ Готово к использованию
