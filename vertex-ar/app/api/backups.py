@@ -1,6 +1,7 @@
 """
 Backup management API endpoints.
 """
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,67 @@ from logging_setup import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/backups", tags=["backups"])
+
+
+def resolve_backup_path(path_str: str, manager) -> Optional[Path]:
+    """
+    Resolve a backup path that may be from a different platform.
+    Handles Windows paths on Linux and vice versa.
+    
+    Args:
+        path_str: The path string from the backup metadata
+        manager: BackupManager instance
+        
+    Returns:
+        Resolved Path object or None if not found
+    """
+    clean_path_str = path_str.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
+    
+    # Check if this is a Windows path (has drive letter with colon, backslashes, or mixed separators)
+    is_windows_path = (
+        re.match(r'^[A-Za-z]:[/\\]', clean_path_str) is not None or 
+        '\\' in clean_path_str
+    )
+    
+    if is_windows_path:
+        # Extract filename from Windows path
+        filename = clean_path_str.replace('\\', '/').split('/')[-1]
+        
+        # Determine backup type from filename and construct local path
+        if filename.startswith('db_backup_'):
+            return manager.db_backup_dir / filename
+        elif filename.startswith('storage_backup_'):
+            return manager.storage_backup_dir / filename
+        else:
+            # Try to find the file in all backup directories
+            for search_dir in [manager.db_backup_dir, manager.storage_backup_dir]:
+                potential_path = search_dir / filename
+                if potential_path.exists():
+                    return potential_path
+            return None
+    else:
+        # Handle Unix-style path
+        backup_file = Path(clean_path_str)
+        backup_dir = Path(manager.backup_dir).resolve()
+        
+        # Try to resolve the path
+        try:
+            backup_file = backup_file.resolve()
+            backup_file.relative_to(backup_dir)
+            return backup_file
+        except ValueError:
+            # If relative path fails, try with original backup path
+            try:
+                original_path = Path(clean_path_str)
+                if not original_path.is_absolute():
+                    # If it's a relative path, join it with backup_dir
+                    backup_file = (backup_dir / original_path).resolve()
+                    backup_file.relative_to(backup_dir)
+                    return backup_file
+            except (ValueError, RuntimeError):
+                pass
+        
+        return None
 
 
 class BackupCreateRequest(BaseModel):
@@ -206,36 +268,22 @@ async def restore_backup(
     """
     try:
         manager = create_backup_manager()
-
-        # Normalize the backup path to handle potential URL encoding issues
-        # Remove control characters that might be included in URL-encoded paths
-        clean_backup_path = request.backup_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
-        backup_path = Path(clean_backup_path)
-
-        # Handle potential path traversal security issues and normalize path
-        backup_path = backup_path.resolve()
         backup_dir = Path(manager.backup_dir).resolve()
 
-        # Verify that the backup file is within the allowed backup directory
-        # Check if backup_path is a subpath of backup_dir using relative_to for security
-        try:
-            backup_path.relative_to(backup_dir)
-        except ValueError:
-            # If relative path fails, try with original backup path without full resolution
-            # This handles cases where path is already relative to backup_dir
-            try:
-                original_path = Path(clean_backup_path)
-                if not original_path.is_absolute():
-                    # If it's a relative path, join it with backup_dir
-                    backup_path = (backup_dir / original_path).resolve()
-                    backup_path.relative_to(backup_dir)  # Verify again
-                else:
-                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-            except (ValueError, RuntimeError):
-                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-
+        # Resolve backup path using cross-platform helper
+        backup_path = resolve_backup_path(request.backup_path, manager)
+        
+        if backup_path is None:
+            raise HTTPException(status_code=404, detail=f"Backup file not found: {request.backup_path}")
+        
         if not backup_path.exists():
             raise HTTPException(status_code=404, detail=f"Backup file not found: {str(backup_path)}")
+        
+        # Security check: Ensure the backup is within the allowed backup directory
+        try:
+            backup_path.resolve().relative_to(backup_dir)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
         logger.warning(
             "Restoring from backup",
@@ -394,34 +442,22 @@ async def test_restore_backup(
     """
     try:
         manager = create_backup_manager()
-        
-        # Normalize the backup path
-        clean_backup_path = request.backup_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
-        backup_path = Path(clean_backup_path)
-        
-        # Handle potential path traversal security issues
-        backup_path = backup_path.resolve()
         backup_dir = Path(manager.backup_dir).resolve()
         
-        # Verify that the backup file is within the allowed backup directory
-        try:
-            backup_path.relative_to(backup_dir)
-        except ValueError:
-            # If relative path fails, try with original backup path without full resolution
-            # This handles cases where path is already relative to backup_dir
-            try:
-                original_path = Path(clean_backup_path)
-                if not original_path.is_absolute():
-                    # If it's a relative path, join it with backup_dir
-                    backup_path = (backup_dir / original_path).resolve()
-                    backup_path.relative_to(backup_dir)  # Verify again
-                else:
-                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-            except (ValueError, RuntimeError):
-                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+        # Resolve backup path using cross-platform helper
+        backup_path = resolve_backup_path(request.backup_path, manager)
+        
+        if backup_path is None:
+            raise HTTPException(status_code=404, detail=f"Backup file not found")
         
         if not backup_path.exists():
             raise HTTPException(status_code=404, detail=f"Backup file not found")
+        
+        # Security check: Ensure the backup is within the allowed backup directory
+        try:
+            backup_path.resolve().relative_to(backup_dir)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
         
         logger.info("Testing restore for backup", backup_path=str(backup_path), admin=_admin)
         
@@ -488,31 +524,19 @@ async def verify_backup(
     """
     try:
         manager = create_backup_manager()
-
-        # Normalize the backup path
-        clean_backup_path = request.backup_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
-        backup_path = Path(clean_backup_path)
-
-        # Handle potential path traversal security issues
-        backup_path = backup_path.resolve()
         backup_dir = Path(manager.backup_dir).resolve()
 
-        # Verify that the backup file is within the allowed backup directory
+        # Resolve backup path using cross-platform helper
+        backup_path = resolve_backup_path(request.backup_path, manager)
+        
+        if backup_path is None:
+            raise HTTPException(status_code=404, detail=f"Backup file not found: {request.backup_path}")
+        
+        # Security check: Ensure the backup is within the allowed backup directory
         try:
-            backup_path.relative_to(backup_dir)
+            backup_path.resolve().relative_to(backup_dir)
         except ValueError:
-            # If relative path fails, try with original backup path without full resolution
-            # This handles cases where path is already relative to backup_dir
-            try:
-                original_path = Path(clean_backup_path)
-                if not original_path.is_absolute():
-                    # If it's a relative path, join it with backup_dir
-                    backup_path = (backup_dir / original_path).resolve()
-                    backup_path.relative_to(backup_dir)  # Verify again
-                else:
-                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-            except (ValueError, RuntimeError):
-                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
         logger.info("Verifying backup", backup_path=str(backup_path), admin=_admin)
 
@@ -566,36 +590,27 @@ async def delete_backup(
         missing_files = []
 
         for path_str in paths:
-            # Normalize the path to handle potential URL encoding issues
-            # Remove control characters that might be included in URL-encoded paths
-            clean_path_str = path_str.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
-            backup_file = Path(clean_path_str)
-
-            # Resolve the path to handle any relative components and normalize it
-            backup_file = backup_file.resolve()
-
-            # Ensure the backup is within the allowed backup directory (security check)
-            try:
-                backup_file.relative_to(backup_dir)
-            except ValueError:
-                # If relative path fails, try with original backup path without full resolution
-                # This handles cases where path is already relative to backup_dir
-                try:
-                    original_path = Path(clean_path_str)
-                    if not original_path.is_absolute():
-                        # If it's a relative path, join it with backup_dir
-                        backup_file = (backup_dir / original_path).resolve()
-                        backup_file.relative_to(backup_dir)  # Verify again
-                    else:
-                        raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-                except (ValueError, RuntimeError):
-                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
-
+            # Resolve backup path using cross-platform helper
+            backup_file = resolve_backup_path(path_str, manager)
+            
+            if backup_file is None:
+                logger.warning("Backup file not found or invalid path", original_path=path_str)
+                missing_files.append(path_str)
+                continue
+            
             # Validate backup path exists
             if not backup_file.exists():
                 logger.warning("Backup file not found", backup_path=str(backup_file))
                 missing_files.append(str(backup_file))
                 continue
+            
+            # Security check: Ensure the backup is within the allowed backup directory
+            try:
+                backup_file.resolve().relative_to(backup_dir)
+            except ValueError:
+                logger.error("Security violation: backup path outside backup directory", 
+                           backup_path=str(backup_file), backup_dir=str(backup_dir))
+                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
             logger.info("Deleting backup file", backup_path=str(backup_file), admin=_admin)
 
