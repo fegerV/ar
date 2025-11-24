@@ -511,9 +511,10 @@
         .pagination button.active {
             background-color: var(--primary-color);
             color: white;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
         }
 
-        .pagination .page-info {
+        .pagination-info {
             padding: 0.5rem 1.5rem;
             color: var(--text-color);
             font-weight: 500;
@@ -926,13 +927,7 @@
             </table>
 
             <!-- Pagination -->
-            <div class="pagination" id="pagination">
-                <button onclick="changePage(-1)" id="prevBtn">◀ Назад</button>
-                <span class="page-info">
-                    Страница <span id="currentPage">1</span> из <span id="totalPages">1</span>
-                </span>
-                <button onclick="changePage(1)" id="nextBtn">Вперед ▶</button>
-            </div>
+            <div class="pagination" id="pagination"></div>
         </section>
 
         <!-- Logs Section -->
@@ -1070,8 +1065,9 @@
 
                 const data = await response.json();
 
+                currentPage = data.page || currentPage;
                 renderClients(data.items);
-                updatePagination(data.page, data.total_pages, data.total);
+                updatePagination(currentPage, data.total_pages, data.total);
 
                 const companyFilter2 = document.getElementById('filterCompany').value;
                 if (companyFilter2) {
@@ -1148,19 +1144,56 @@
         }
 
         function updatePagination(page, totalPages, total) {
-            document.getElementById('currentPage').textContent = page;
-            document.getElementById('totalPages').textContent = totalPages;
+            const pagination = document.getElementById('pagination');
+            if (!pagination) {
+                return;
+            }
 
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
+            const safeTotalPages = Math.max(1, totalPages || 1);
+            currentPage = Math.min(Math.max(page || 1, 1), safeTotalPages);
 
-            prevBtn.disabled = page <= 1;
-            nextBtn.disabled = page >= totalPages;
+            pagination.innerHTML = '';
+
+            const prevBtn = createPaginationButton('←', currentPage - 1, currentPage <= 1);
+            pagination.appendChild(prevBtn);
+
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(safeTotalPages, startPage + 4);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const btn = createPaginationButton(i, i, false, i === currentPage);
+                pagination.appendChild(btn);
+            }
+
+            const nextBtn = createPaginationButton('→', currentPage + 1, currentPage >= safeTotalPages);
+            pagination.appendChild(nextBtn);
+
+            const info = document.createElement('div');
+            info.className = 'pagination-info';
+            const totalText = typeof total === 'number' ? ` (${total} записей)` : '';
+            info.textContent = `Страница ${currentPage} из ${safeTotalPages}${totalText}`;
+            pagination.appendChild(info);
         }
 
-        function changePage(delta) {
-            currentPage += delta;
-            loadClients();
+        function createPaginationButton(label, targetPage, disabled, isActive = false) {
+            const button = document.createElement('button');
+            button.textContent = label;
+            button.className = 'pagination-btn';
+
+            if (isActive) {
+                button.classList.add('active');
+            }
+
+            button.disabled = disabled;
+
+            if (!disabled) {
+                button.addEventListener('click', () => {
+                    currentPage = targetPage;
+                    loadClients();
+                });
+            }
+
+            return button;
         }
 
         function toggleSelectAll() {
@@ -1222,7 +1255,7 @@
             showLoading();
 
             try {
-                const response = await fetch('/api/clients/bulk-delete', {
+                const response = await fetch('/clients/bulk-delete', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1255,7 +1288,7 @@
             showLoading();
 
             try {
-                const response = await fetch(`/api/clients/${clientId}`, {
+                const response = await fetch(`/clients/${clientId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
