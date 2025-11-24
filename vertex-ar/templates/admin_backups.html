@@ -431,6 +431,17 @@
             color: var(--secondary-color);
         }
 
+        .backup-filename {
+            display: inline-block;
+            max-width: 240px;
+            vertical-align: bottom;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
         .backup-status {
             padding: 0.75rem;
             border-radius: var(--border-radius);
@@ -916,6 +927,63 @@
         // BACKUP MANAGEMENT FUNCTIONS
         // ============================================
         
+        function escapeHtml(text) {
+            if (typeof text !== 'string') {
+                return '';
+            }
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            };
+            return text.replace(/[&<>"']/g, char => map[char] || char);
+        }
+
+        function truncateText(text, maxLength = 42) {
+            if (typeof text !== 'string' || maxLength <= 0) {
+                return '';
+            }
+            if (text.length <= maxLength) {
+                return text;
+            }
+            return `${text.slice(0, maxLength - 1)}…`;
+        }
+
+        function formatBackupFileLabel(backupPath) {
+            if (!backupPath || typeof backupPath !== 'string') {
+                return '';
+            }
+
+            const cleanedPath = backupPath.replace(/[\u0000-\u001F]+/g, ' ').trim();
+            if (!cleanedPath) {
+                return '';
+            }
+
+            const parts = cleanedPath
+                .split(',')
+                .map(part => part.trim())
+                .filter(Boolean);
+
+            if (!parts.length) {
+                return '';
+            }
+
+            const fileNames = parts.map(part => {
+                const normalized = part.replace(/\\/g, '/');
+                const segments = normalized.split('/');
+                return segments.pop() || normalized;
+            });
+
+            const combined = fileNames.join(', ');
+            const shortLabel = truncateText(combined, 40);
+            const safeShort = escapeHtml(shortLabel);
+            const safeTitle = escapeHtml(cleanedPath);
+
+            return ` • Файл: <span class="backup-filename" title="${safeTitle}">${safeShort}</span>`;
+        }
+        
         // Load Backup Statistics
         async function loadBackupStats() {
             try {
@@ -1155,6 +1223,11 @@
                         let detailsInfo = `${date.toLocaleString('ru-RU')} • ${fileSize}`;
                         if (backup.file_count) {
                             detailsInfo += ` • ${backup.file_count} файлов`;
+                        }
+
+                        const fileLabel = formatBackupFileLabel(backup.backup_path);
+                        if (fileLabel) {
+                            detailsInfo += fileLabel;
                         }
                         
                         item.innerHTML = `
