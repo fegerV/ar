@@ -221,7 +221,18 @@ async def restore_backup(
         try:
             backup_path.relative_to(backup_dir)
         except ValueError:
-            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            # If relative path fails, try with original backup path without full resolution
+            # This handles cases where path is already relative to backup_dir
+            try:
+                original_path = Path(clean_backup_path)
+                if not original_path.is_absolute():
+                    # If it's a relative path, join it with backup_dir
+                    backup_path = (backup_dir / original_path).resolve()
+                    backup_path.relative_to(backup_dir)  # Verify again
+                else:
+                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            except (ValueError, RuntimeError):
+                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
         if not backup_path.exists():
             raise HTTPException(status_code=404, detail=f"Backup file not found: {str(backup_path)}")
@@ -396,7 +407,18 @@ async def test_restore_backup(
         try:
             backup_path.relative_to(backup_dir)
         except ValueError:
-            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            # If relative path fails, try with original backup path without full resolution
+            # This handles cases where path is already relative to backup_dir
+            try:
+                original_path = Path(clean_backup_path)
+                if not original_path.is_absolute():
+                    # If it's a relative path, join it with backup_dir
+                    backup_path = (backup_dir / original_path).resolve()
+                    backup_path.relative_to(backup_dir)  # Verify again
+                else:
+                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            except (ValueError, RuntimeError):
+                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
         
         if not backup_path.exists():
             raise HTTPException(status_code=404, detail=f"Backup file not found")
@@ -479,7 +501,18 @@ async def verify_backup(
         try:
             backup_path.relative_to(backup_dir)
         except ValueError:
-            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            # If relative path fails, try with original backup path without full resolution
+            # This handles cases where path is already relative to backup_dir
+            try:
+                original_path = Path(clean_backup_path)
+                if not original_path.is_absolute():
+                    # If it's a relative path, join it with backup_dir
+                    backup_path = (backup_dir / original_path).resolve()
+                    backup_path.relative_to(backup_dir)  # Verify again
+                else:
+                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+            except (ValueError, RuntimeError):
+                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
         logger.info("Verifying backup", backup_path=str(backup_path), admin=_admin)
 
@@ -545,7 +578,18 @@ async def delete_backup(
             try:
                 backup_file.relative_to(backup_dir)
             except ValueError:
-                raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+                # If relative path fails, try with original backup path without full resolution
+                # This handles cases where path is already relative to backup_dir
+                try:
+                    original_path = Path(clean_path_str)
+                    if not original_path.is_absolute():
+                        # If it's a relative path, join it with backup_dir
+                        backup_file = (backup_dir / original_path).resolve()
+                        backup_file.relative_to(backup_dir)  # Verify again
+                    else:
+                        raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+                except (ValueError, RuntimeError):
+                    raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
 
             # Validate backup path exists
             if not backup_file.exists():

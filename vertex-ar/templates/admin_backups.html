@@ -473,6 +473,98 @@
             opacity: 1;
         }
 
+        /* Logs Section */
+        .logs-section {
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .logs-header h2 {
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .log-container {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-empty {
+            color: var(--secondary-color);
+            text-align: center;
+            font-style: italic;
+            margin: 0;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: var(--secondary-color);
+            margin-right: 1rem;
+            font-size: 0.8rem;
+            min-width: 80px;
+        }
+
+        .log-message {
+            flex: 1;
+            color: var(--text-color);
+        }
+
+        .log-type {
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .log-info .log-type {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .log-success .log-type {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .log-warning .log-type {
+            background-color: var(--warning-color);
+            color: black;
+        }
+
+        .log-error .log-type {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
         /* Pagination Styles */
         .pagination {
             display: flex !important;
@@ -804,6 +896,17 @@
                 </div>
             </div>
         </section>
+
+        <!-- Logs Section -->
+        <section class="logs-section">
+            <div class="logs-header">
+                <h2>Системные логи</h2>
+                <button type="button" id="clearLogsBtn" class="backup-btn" style="background: var(--secondary-color); padding: 0.5rem 1rem; font-size: 0.9rem;">Очистить</button>
+            </div>
+            <div class="log-container" id="logContainer">
+                <p class="log-empty">Логи появятся во время работы системы</p>
+            </div>
+        </section>
     </div>
 
     <!-- Footer -->
@@ -946,7 +1049,9 @@
             progressFill.style.width = '0%';
             progressText.textContent = `Создание ${type} бэкапа...`;
             progressPercent.textContent = '0%';
-            
+
+            addLog(`Начало создания ${type} бэкапа`, 'info');
+
             // Simulate progress (since we don't have real progress from the API)
             let progress = 0;
             const progressInterval = setInterval(() => {
@@ -983,7 +1088,9 @@
                             `✓ Бэкап успешно создан! Размер: ${formatBytes(backup.file_size || 0)}`,
                             'success'
                         );
-                        
+
+                        addLog(`${type} бэкап успешно создан. Размер: ${formatBytes(backup.file_size || 0)}`, 'success');
+
                         // Reload stats and list
                         setTimeout(() => {
                             loadBackupStats();
@@ -995,14 +1102,16 @@
                     const error = await response.json();
                     progressDiv.style.display = 'none';
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
+                    addLog(`Ошибка создания ${type} бэкапа: ${error.detail}`, 'error');
                 }
-            } catch (error) {
+                } catch (error) {
                 clearInterval(progressInterval);
                 progressDiv.style.display = 'none';
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-            } finally {
+                addLog(`Сетевая ошибка при создании ${type} бэкапа: ${error.message}`, 'error');
+                } finally {
                 buttons.forEach(btn => btn.disabled = false);
-            }
+                }
         }
         
         // Load Backup List
@@ -1111,9 +1220,12 @@
         async function deleteBackup(backupPath, timestamp) {
             if (!backupPath) {
                 showBackupStatus('✗ Невозможно удалить: путь к бэкапу не указан', 'error');
+                addLog('Попытка удаления бэкапа с пустым путем', 'error');
                 return;
             }
-            
+
+            addLog(`Проверка возможности удаления бэкапа от ${timestamp}`, 'info');
+
             // Check if this is the last backup
             try {
                 const checkResponse = await fetch(`/backups/can-delete?backup_path=${encodeURIComponent(backupPath)}`, {
@@ -1127,6 +1239,7 @@
                             `✗ ${checkResult.reason || 'Невозможно удалить этот бэкап'}`,
                             'error'
                         );
+                        addLog(`Удаление бэкапа запрещено: ${checkResult.reason || 'Невозможно удалить этот бэкап'}`, 'warning');
                         return;
                     }
                 }
@@ -1135,9 +1248,12 @@
             }
             
             if (!confirm(`Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`)) {
+                addLog(`Отмена удаления бэкапа от ${timestamp}`, 'info');
                 return;
             }
-            
+
+            addLog(`Удаление бэкапа от ${timestamp}`, 'info');
+
             try {
                 const response = await fetch(`/backups/delete?backup_path=${encodeURIComponent(backupPath)}`, {
                     method: 'DELETE',
@@ -1154,6 +1270,7 @@
                     }
                     
                     showBackupStatus(message, 'success');
+                    addLog(`Бэкап от ${timestamp} успешно удален. ${result.missing_files && result.missing_files.length > 0 ? `(${result.missing_files.length} файлов уже отсутствовали)` : ''}`, 'success');
                     // Reload backup list
                     await loadBackupList();
                     // Reload stats
@@ -1162,10 +1279,12 @@
                 } else {
                     const error = await response.json();
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
+                    addLog(`Ошибка удаления бэкапа: ${error.detail}`, 'error');
                 }
-            } catch (error) {
+                } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-            }
+                addLog(`Сетевая ошибка при удалении бэкапа: ${error.message}`, 'error');
+                }
         }
         
         // Restore Backup
@@ -1275,7 +1394,9 @@
             button.disabled = true;
             const originalText = button.textContent;
             button.textContent = '⏳';
-            
+
+            addLog(`Начало проверки бэкапа от ${timestamp}`, 'info');
+
             try {
                 const response = await fetch('/backups/verify', {
                     method: 'POST',
@@ -1296,20 +1417,24 @@
                             `Размер: ${formatBytes(result.file_size)}, Контрольная сумма: ${result.checksum.substring(0, 16)}...`,
                             'success'
                         );
+                        addLog(`Бэкап ${timestamp} прошел проверку целостности. Размер: ${formatBytes(result.file_size)}`, 'success');
                         setTimeout(() => hideBackupStatus(), 5000);
                     } else {
                         showBackupStatus(
                             `✗ Бэкап ${timestamp} поврежден: ${result.error}`,
                             'error'
                         );
+                        addLog(`Бэкап ${timestamp} поврежден: ${result.error}`, 'error');
                     }
                 } else {
                     const error = await response.json();
                     showBackupStatus(`✗ Ошибка проверки: ${error.detail}`, 'error');
+                    addLog(`Ошибка проверки бэкапа: ${error.detail}`, 'error');
                 }
-            } catch (error) {
+                } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-            } finally {
+                addLog(`Сетевая ошибка при проверке бэкапа: ${error.message}`, 'error');
+                } finally {
                 button.disabled = false;
                 button.textContent = originalText;
             }
@@ -1354,6 +1479,52 @@
             }
         }
         
+        // ============================================
+        // LOGGING FUNCTIONS
+        // ============================================
+        
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            if (!logContainer) return;
+            
+            // Remove empty message if exists
+            const emptyMessage = logContainer.querySelector('.log-empty');
+            if (emptyMessage) {
+                emptyMessage.remove();
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString('ru-RU');
+            logEntry.innerHTML = `
+                <span class="log-time">${timestamp}</span>
+                <span class="log-message">${message}</span>
+                <span class="log-type">${type}</span>
+            `;
+            
+            logContainer.appendChild(logEntry);
+            
+            // Keep only last 50 log entries
+            const entries = logContainer.querySelectorAll('.log-entry');
+            if (entries.length > 50) {
+                entries[0].remove();
+            }
+            
+            // Scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Clear logs functionality
+        function clearLogs() {
+            const logContainer = document.getElementById('logContainer');
+            if (!logContainer) return;
+            
+            logContainer.innerHTML = '<p class="log-empty">Логи появятся во время работы системы</p>';
+            addLog('Логи очищены', 'info');
+        }
+
         // Show/Hide Backup Status
         function showBackupStatus(message, type) {
             const status = document.getElementById('backupStatus');
@@ -1378,16 +1549,25 @@
 
 
          document.addEventListener('DOMContentLoaded', function() {
-             loadBackupStats();
-             loadBackupList();
-             loadBackupSchedule();
+              loadBackupStats();
+              loadBackupList();
+              loadBackupSchedule();
 
-             // Auto-refresh every 30 seconds
-             setInterval(() => {
-                 loadBackupStats();
-                 loadBackupSchedule();
-             }, 30000);
-         });
+              // Add log entry for page load
+              addLog('Страница бэкапов загружена', 'info');
+
+              // Add clear logs button listener
+              const clearLogsBtn = document.getElementById('clearLogsBtn');
+              if (clearLogsBtn) {
+                  clearLogsBtn.addEventListener('click', clearLogs);
+              }
+
+              // Auto-refresh every 30 seconds
+              setInterval(() => {
+                  loadBackupStats();
+                  loadBackupSchedule();
+              }, 30000);
+          });
     </script>
 </body>
 </html>
