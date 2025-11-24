@@ -898,6 +898,83 @@
             </div>
         </section>
 
+        <!-- Remote Storage Section -->
+        <section class="backup-management" style="margin-top: 2rem;">
+            <h2>☁️ Удаленные хранилища</h2>
+            
+            <!-- Remote Storage Status -->
+            <div class="backup-status" id="remoteStorageStatus"></div>
+            
+            <!-- Remote Storage Configuration -->
+            <div style="background-color: var(--bg-color); padding: 1.5rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); margin-bottom: 1rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-color); font-size: 1.1rem;">⚙️ Настройка хранилищ</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+                    <!-- Yandex Disk -->
+                    <div style="background-color: var(--light-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <h4 style="color: var(--text-color); font-size: 1rem; margin: 0;">Яндекс Диск</h4>
+                            <span id="yandexDiskStatus" style="font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 4px; background-color: var(--secondary-color); color: white;">Не настроен</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.5rem;">OAuth токен из Яндекс OAuth</p>
+                        <div id="yandexDiskInfo" style="font-size: 0.85rem; color: var(--text-color); margin-bottom: 0.5rem;"></div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="backup-btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="testRemoteConnection('yandex_disk')">
+                                🔌 Тест
+                            </button>
+                            <button class="backup-btn storage" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="showRemoteFiles('yandex_disk')">
+                                📂 Файлы
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Google Drive -->
+                    <div style="background-color: var(--light-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <h4 style="color: var(--text-color); font-size: 1rem; margin: 0;">Google Drive</h4>
+                            <span id="googleDriveStatus" style="font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 4px; background-color: var(--secondary-color); color: white;">Не настроен</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.5rem;">Access token из Google Cloud Console</p>
+                        <div id="googleDriveInfo" style="font-size: 0.85rem; color: var(--text-color); margin-bottom: 0.5rem;"></div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="backup-btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="testRemoteConnection('google_drive')">
+                                🔌 Тест
+                            </button>
+                            <button class="backup-btn storage" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="showRemoteFiles('google_drive')">
+                                📂 Файлы
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <p style="font-size: 0.85rem; color: var(--info-color); margin-top: 1rem;">
+                    ℹ️ Конфигурация: <code style="background-color: var(--bg-color); padding: 0.2rem 0.4rem; border-radius: 4px;">config/remote_storage.json</code>
+                    | <a href="https://github.com/yourusername/vertex-ar/blob/main/REMOTE_STORAGE_SETUP.md" target="_blank" style="color: var(--info-color);">Инструкция по настройке</a>
+                </p>
+            </div>
+            
+            <!-- Remote Sync Actions -->
+            <div class="backup-actions" style="margin-bottom: 1rem;">
+                <button class="backup-btn full" onclick="syncAllToRemote('yandex_disk')">
+                    ☁️ Синхронизировать все → Яндекс Диск
+                </button>
+                <button class="backup-btn full" onclick="syncAllToRemote('google_drive')">
+                    ☁️ Синхронизировать все → Google Drive
+                </button>
+            </div>
+            
+            <!-- Remote Files List -->
+            <div id="remoteFilesSection" style="display: none; margin-top: 1rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-color);">
+                    <span id="remoteFilesTitle">Файлы в облаке</span>
+                    <button class="link-button ghost" style="float: right; font-size: 0.9rem;" onclick="hideRemoteFiles()">✕ Закрыть</button>
+                </h3>
+                <div id="remoteFilesList" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Remote files will be loaded here -->
+                </div>
+            </div>
+        </section>
+
         <!-- Logs Section -->
         <section class="logs-section">
             <div class="logs-header">
@@ -1590,12 +1667,301 @@
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
+        // ============================================
+        // REMOTE STORAGE FUNCTIONS
+        // ============================================
+        
+        // Load remote storage status
+        async function loadRemoteStorageStatus() {
+            try {
+                const response = await fetch('/remote-storage/config', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update Yandex Disk status
+                    const yandexStatus = document.getElementById('yandexDiskStatus');
+                    if (data.has_yandex_disk) {
+                        yandexStatus.textContent = 'Настроен';
+                        yandexStatus.style.backgroundColor = 'var(--success-color)';
+                        loadStorageInfo('yandex_disk');
+                    } else {
+                        yandexStatus.textContent = 'Не настроен';
+                        yandexStatus.style.backgroundColor = 'var(--secondary-color)';
+                    }
+                    
+                    // Update Google Drive status
+                    const googleStatus = document.getElementById('googleDriveStatus');
+                    if (data.has_google_drive) {
+                        googleStatus.textContent = 'Настроен';
+                        googleStatus.style.backgroundColor = 'var(--success-color)';
+                        loadStorageInfo('google_drive');
+                    } else {
+                        googleStatus.textContent = 'Не настроен';
+                        googleStatus.style.backgroundColor = 'var(--secondary-color)';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load remote storage status:', error);
+            }
+        }
+        
+        // Load storage info (quota)
+        async function loadStorageInfo(provider) {
+            try {
+                const response = await fetch(`/remote-storage/storage-info/${provider}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const infoElement = document.getElementById(`${provider === 'yandex_disk' ? 'yandexDisk' : 'googleDrive'}Info`);
+                    
+                    const usedPercent = ((data.used_gb / data.total_gb) * 100).toFixed(1);
+                    infoElement.innerHTML = `
+                        <div style="margin-top: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                                <span>Использовано:</span>
+                                <span>${data.used_gb} / ${data.total_gb} GB (${usedPercent}%)</span>
+                            </div>
+                            <div style="background-color: var(--bg-color); border-radius: 4px; height: 6px; overflow: hidden;">
+                                <div style="background-color: var(--primary-color); height: 100%; width: ${usedPercent}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error(`Failed to load storage info for ${provider}:`, error);
+            }
+        }
+        
+        // Test remote connection
+        async function testRemoteConnection(provider) {
+            const statusElement = document.getElementById('remoteStorageStatus');
+            statusElement.textContent = `Проверка подключения к ${provider}...`;
+            statusElement.className = 'backup-status info';
+            
+            try {
+                const response = await fetch(`/remote-storage/test-connection/${provider}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.connected) {
+                        statusElement.textContent = `✓ Подключение к ${provider} успешно`;
+                        statusElement.className = 'backup-status success';
+                        addLog(`Подключение к ${provider} успешно`, 'success');
+                    } else {
+                        statusElement.textContent = `✗ Подключение к ${provider} не удалось`;
+                        statusElement.className = 'backup-status error';
+                        addLog(`Подключение к ${provider} не удалось`, 'error');
+                    }
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `✗ Ошибка: ${error.detail}`;
+                    statusElement.className = 'backup-status error';
+                }
+                
+                setTimeout(() => {
+                    statusElement.className = 'backup-status';
+                }, 5000);
+            } catch (error) {
+                statusElement.textContent = `✗ Сетевая ошибка: ${error.message}`;
+                statusElement.className = 'backup-status error';
+            }
+        }
+        
+        // Show remote files
+        async function showRemoteFiles(provider) {
+            const section = document.getElementById('remoteFilesSection');
+            const titleElement = document.getElementById('remoteFilesTitle');
+            const listElement = document.getElementById('remoteFilesList');
+            
+            titleElement.textContent = `Файлы в ${provider}`;
+            section.style.display = 'block';
+            listElement.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-color);">Загрузка...</p>';
+            
+            try {
+                const response = await fetch(`/remote-storage/list/${provider}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.files.length === 0) {
+                        listElement.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-color);">Нет файлов</p>';
+                        return;
+                    }
+                    
+                    let html = '<div style="display: grid; gap: 0.5rem;">';
+                    data.files.forEach(file => {
+                        const fileSize = formatBytes(file.size);
+                        const fileDate = file.modified ? new Date(file.modified).toLocaleString('ru-RU') : 'N/A';
+                        
+                        html += `
+                            <div style="background-color: var(--light-color); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(file.name)}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-color); opacity: 0.7;">${fileSize} • ${fileDate}</div>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="backup-btn database" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="downloadFromRemote('${provider}', '${escapeHtml(file.name)}')">
+                                            ⬇️ Скачать
+                                        </button>
+                                        <button class="backup-btn" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" onclick="syncBackupToRemote('${provider}', '${escapeHtml(file.name)}')">
+                                            ☁️ Синхронизировать
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    listElement.innerHTML = html;
+                } else {
+                    const error = await response.json();
+                    listElement.innerHTML = `<p style="text-align: center; padding: 2rem; color: var(--danger-color);">Ошибка: ${error.detail}</p>`;
+                }
+            } catch (error) {
+                listElement.innerHTML = `<p style="text-align: center; padding: 2rem; color: var(--danger-color);">Сетевая ошибка: ${error.message}</p>`;
+            }
+        }
+        
+        // Hide remote files
+        function hideRemoteFiles() {
+            const section = document.getElementById('remoteFilesSection');
+            section.style.display = 'none';
+        }
+        
+        // Download from remote
+        async function downloadFromRemote(provider, filename) {
+            const statusElement = document.getElementById('remoteStorageStatus');
+            statusElement.textContent = `Скачивание ${filename} из ${provider}...`;
+            statusElement.className = 'backup-status info';
+            
+            try {
+                const response = await fetch('/remote-storage/download', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        remote_filename: filename,
+                        provider: provider,
+                        remote_dir: 'vertex-ar-backups'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = `✓ ${filename} скачан из ${provider}`;
+                    statusElement.className = 'backup-status success';
+                    addLog(`Бэкап ${filename} скачан из ${provider}`, 'success');
+                    
+                    setTimeout(() => {
+                        loadBackupList();
+                        statusElement.className = 'backup-status';
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `✗ Ошибка скачивания: ${error.detail}`;
+                    statusElement.className = 'backup-status error';
+                }
+            } catch (error) {
+                statusElement.textContent = `✗ Сетевая ошибка: ${error.message}`;
+                statusElement.className = 'backup-status error';
+            }
+        }
+        
+        // Sync backup to remote
+        async function syncBackupToRemote(provider, backupPath) {
+            const statusElement = document.getElementById('remoteStorageStatus');
+            statusElement.textContent = `Синхронизация бэкапа в ${provider}...`;
+            statusElement.className = 'backup-status info';
+            
+            try {
+                const response = await fetch('/remote-storage/sync', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        backup_path: backupPath,
+                        provider: provider,
+                        remote_dir: 'vertex-ar-backups'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = `✓ Бэкап синхронизирован в ${provider}`;
+                    statusElement.className = 'backup-status success';
+                    addLog(`Бэкап синхронизирован в ${provider}`, 'success');
+                    
+                    setTimeout(() => {
+                        statusElement.className = 'backup-status';
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `✗ Ошибка синхронизации: ${error.detail}`;
+                    statusElement.className = 'backup-status error';
+                }
+            } catch (error) {
+                statusElement.textContent = `✗ Сетевая ошибка: ${error.message}`;
+                statusElement.className = 'backup-status error';
+            }
+        }
+        
+        // Sync all backups to remote
+        async function syncAllToRemote(provider) {
+            if (!confirm(`Синхронизировать все бэкапы в ${provider}?`)) {
+                return;
+            }
+            
+            const statusElement = document.getElementById('remoteStorageStatus');
+            statusElement.textContent = `Синхронизация всех бэкапов в ${provider}...`;
+            statusElement.className = 'backup-status info';
+            
+            try {
+                const response = await fetch(`/remote-storage/sync-all/${provider}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = `✓ ${data.message} (успешно: ${data.synced_count}, ошибок: ${data.failed_count})`;
+                    statusElement.className = 'backup-status success';
+                    addLog(`Синхронизировано ${data.synced_count} бэкапов в ${provider}`, 'success');
+                    
+                    setTimeout(() => {
+                        statusElement.className = 'backup-status';
+                    }, 5000);
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `✗ Ошибка: ${error.detail}`;
+                    statusElement.className = 'backup-status error';
+                }
+            } catch (error) {
+                statusElement.textContent = `✗ Сетевая ошибка: ${error.message}`;
+                statusElement.className = 'backup-status error';
+            }
+        }
 
 
          document.addEventListener('DOMContentLoaded', function() {
               loadBackupStats();
               loadBackupList();
               loadBackupSchedule();
+              loadRemoteStorageStatus();
 
               // Add log entry for page load
               addLog('Страница бэкапов загружена', 'info');
@@ -1616,6 +1982,7 @@
               setInterval(() => {
                   loadBackupStats();
                   loadBackupSchedule();
+                  loadRemoteStorageStatus();
               }, 30000);
           });
     </script>

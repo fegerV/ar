@@ -1,6 +1,7 @@
 """
 Backup management system for Vertex AR.
 Handles database and file backups with rotation and restoration.
+Supports remote storage sync (Yandex Disk, Google Drive).
 """
 import json
 import shutil
@@ -559,6 +560,108 @@ class BackupManager:
             "latest_backup": latest_backup,
             "backup_dir": str(self.backup_dir)
         }
+    
+    def sync_to_remote(self, backup_path: Path, remote_storage, remote_dir: str = "vertex-ar-backups") -> Dict[str, Any]:
+        """
+        Sync a backup to remote storage.
+        
+        Args:
+            backup_path: Path to local backup file
+            remote_storage: RemoteStorage instance
+            remote_dir: Remote directory path
+            
+        Returns:
+            Dictionary with sync result
+        """
+        if not backup_path.exists():
+            return {"success": False, "error": "Backup file not found"}
+        
+        try:
+            # Construct remote path
+            remote_path = f"{remote_dir}/{backup_path.name}"
+            
+            # Upload backup file
+            result = remote_storage.upload_file(backup_path, remote_path)
+            
+            if result.get("success"):
+                # Also upload metadata file if exists
+                metadata_path = backup_path.with_suffix(".json")
+                if metadata_path.exists():
+                    metadata_remote_path = f"{remote_dir}/{metadata_path.name}"
+                    remote_storage.upload_file(metadata_path, metadata_remote_path)
+                
+                logger.info(
+                    "Backup synced to remote storage",
+                    backup_file=backup_path.name,
+                    remote_path=remote_path
+                )
+            
+            return result
+            
+        except Exception as e:
+            logger.error("Failed to sync backup to remote", error=str(e))
+            return {"success": False, "error": str(e)}
+    
+    def restore_from_remote(
+        self, 
+        remote_storage, 
+        remote_filename: str, 
+        remote_dir: str = "vertex-ar-backups"
+    ) -> Dict[str, Any]:
+        """
+        Restore a backup from remote storage.
+        
+        Args:
+            remote_storage: RemoteStorage instance
+            remote_filename: Name of backup file in remote storage
+            remote_dir: Remote directory path
+            
+        Returns:
+            Dictionary with restore result
+        """
+        try:
+            # Determine backup type from filename
+            if "db_backup" in remote_filename:
+                local_dir = self.db_backup_dir
+                backup_type = "database"
+            elif "storage_backup" in remote_filename:
+                local_dir = self.storage_backup_dir
+                backup_type = "storage"
+            else:
+                return {"success": False, "error": "Cannot determine backup type"}
+            
+            # Download backup file
+            local_path = local_dir / remote_filename
+            remote_path = f"{remote_dir}/{remote_filename}"
+            
+            result = remote_storage.download_file(remote_path, local_path)
+            
+            if not result.get("success"):
+                return result
+            
+            # Download metadata file
+            metadata_filename = Path(remote_filename).with_suffix(".json").name
+            metadata_local_path = local_path.with_suffix(".json")
+            metadata_remote_path = f"{remote_dir}/{metadata_filename}"
+            
+            remote_storage.download_file(metadata_remote_path, metadata_local_path)
+            
+            logger.info(
+                "Backup downloaded from remote storage",
+                backup_file=remote_filename,
+                local_path=str(local_path)
+            )
+            
+            return {
+                "success": True,
+                "backup_type": backup_type,
+                "local_path": str(local_path),
+                "message": f"Backup downloaded. Use restore endpoint to apply it."
+            }
+            
+        except Exception as e:
+            logger.error("Failed to restore from remote", error=str(e))
+            return {"success": False, "error": str(e)}
 
 
 def create_backup_manager(

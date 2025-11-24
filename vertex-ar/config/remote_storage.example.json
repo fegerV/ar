@@ -1,0 +1,13 @@
+{
+  "yandex_disk": {
+    "enabled": false,
+    "oauth_token": "YOUR_YANDEX_DISK_OAUTH_TOKEN"
+  },
+  "google_drive": {
+    "enabled": false,
+    "credentials": {
+      "access_token": "YOUR_GOOGLE_DRIVE_ACCESS_TOKEN",
+      "folder_id": "OPTIONAL_FOLDER_ID_FOR_BACKUPS"
+    }
+  }
+}
