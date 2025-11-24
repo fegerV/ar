@@ -213,6 +213,11 @@ pytest --cov=vertex-ar --cov-report=term-missing
 - 🎯 [docs/features/nft-markers.md](docs/features/nft-markers.md) — NFT-маркеры и генератор
 - 💾 [docs/features/storage-scaling.md](docs/features/storage-scaling.md) — масштабирование хранилища
 
+### Мониторинг и инфраструктура
+- 📊 [MONITORING_IMPLEMENTATION.md](MONITORING_IMPLEMENTATION.md) — реализованная система мониторинга
+- ⚙️ [MONITORING_SETUP.md](MONITORING_SETUP.md) — настройка мониторинга и оповещений
+- 🔍 [BESZEL_MONITORING_ANALYSIS.md](BESZEL_MONITORING_ANALYSIS.md) — анализ интеграции внешних систем мониторинга
+
 ### Релизы и планы
 - 📝 [CHANGELOG.md](CHANGELOG.md) — полная история изменений
 - 🗂️ [docs/releases/1.x.md](docs/releases/1.x.md) — детали релизов ветки 1.x
