@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Vertex AR - Управление клиентами и компаниями">
     <title>Управление клиентами - Vertex AR</title>
+    <link rel="stylesheet" href="/static/css/admin-base.css">
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('admin-theme');
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (error) {
+                console.warn('Не удалось применить сохранённую тему', error);
+            }
+        })();
+    </script>
 
     <style>
         :root {
@@ -831,9 +844,27 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1>👥 Управление клиентами</h1>
+            <h1>👥 Управление клиентами — Vertex AR</h1>
             <div class="header-actions">
                 <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                <div class="notifications-wrapper">
+                    <button type="button" id="notificationToggle" class="bell-icon" title="Уведомления">
+                        🔔
+                        <span id="notificationBadge" class="notification-badge hidden">0</span>
+                    </button>
+                    <div class="notifications-dropdown" id="notificationDropdown">
+                        <div class="notifications-header">
+                            <span>Уведомления</span>
+                            <button type="button" id="markNotificationsRead" class="link-button ghost">Очистить</button>
+                        </div>
+                        <div class="notifications-list" id="notificationList">
+                            <p class="notification-empty">Новых уведомлений нет</p>
+                        </div>
+                        <div class="notifications-footer">
+                            <a href="/admin/notifications" class="notifications-link">Открыть центр уведомлений</a>
+                        </div>
+                    </div>
+                </div>
                 <a href="/admin/logout" class="logout-btn">Выйти</a>
             </div>
         </header>
@@ -843,6 +874,7 @@
             <a href="/admin" class="nav-tab">🏠 Dashboard</a>
             <a href="/admin/clients" class="nav-tab active">👥 Клиенты</a>
             <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+            <a href="/admin/notifications" class="nav-tab">🔔 Уведомления</a>
         </div>
 
         <!-- Client Statistics -->
@@ -947,7 +979,8 @@
             <p>
                 <a href="/admin">Dashboard</a> |
                 <a href="/admin/clients">Клиенты</a> |
-                <a href="/admin/backups">Backup</a>
+                <a href="/admin/backups">Backup</a> |
+                <a href="/admin/notifications">Уведомления</a>
             </p>
         </footer>
     </div>
@@ -963,6 +996,7 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <script src="/static/js/admin-header.js"></script>
     <script>
         let currentPage = 1;
         let pageSize = 25;
@@ -993,15 +1027,6 @@
             }, 3000);
         }
 
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('admin-theme', newTheme);
-
-            const themeToggle = document.getElementById('themeToggle');
-            themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
-        }
 
         async function loadCompanies() {
             try {
@@ -1327,15 +1352,6 @@
             currentPage = 1;
             loadClients();
         });
-
-        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-
-        (function () {
-            const savedTheme = localStorage.getItem('admin-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            const themeToggle = document.getElementById('themeToggle');
-            themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
-        })();
 
         function addLog(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');

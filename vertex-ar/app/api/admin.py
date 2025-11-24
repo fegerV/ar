@@ -250,6 +250,18 @@ async def admin_backups_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("admin_backups.html", context)
 
 
+@router.get("/notifications", response_class=HTMLResponse)
+async def admin_notifications_panel(request: Request) -> HTMLResponse:
+    """Serve notification center page."""
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
+
+    templates = get_templates()
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_notifications.html", context)
+
+
 @router.get("/order/{portrait_id}", response_class=HTMLResponse)
 async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse:
     """Serve order detail page."""
