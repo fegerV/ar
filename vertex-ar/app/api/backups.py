@@ -1,6 +1,7 @@
 """
 Backup management API endpoints.
 """
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -321,6 +322,130 @@ async def get_backup_schedule(_admin=Depends(require_admin)) -> Dict[str, Any]:
     except Exception as e:
         logger.error("Failed to get backup schedule", error=str(e), exc_info=e)
         raise HTTPException(status_code=500, detail=f"Failed to get backup schedule: {str(e)}")
+
+
+@router.get("/can-delete")
+async def can_delete_backup(
+    backup_path: str,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Check if a backup can be deleted.
+    
+    Returns False if it's the last backup to prevent accidental data loss.
+    
+    Requires admin authentication.
+    """
+    try:
+        manager = create_backup_manager()
+        
+        # Get all backups
+        all_backups = manager.list_backups("all")
+        
+        # If only one backup exists, prevent deletion
+        if len(all_backups) <= 1:
+            return {
+                "success": True,
+                "can_delete": False,
+                "reason": "Cannot delete the last backup"
+            }
+        
+        return {
+            "success": True,
+            "can_delete": True,
+            "total_backups": len(all_backups)
+        }
+    
+    except Exception as e:
+        logger.error("Failed to check if backup can be deleted", error=str(e), exc_info=e)
+        return {
+            "success": False,
+            "can_delete": True,  # Default to allowing deletion if check fails
+            "error": str(e)
+        }
+
+
+@router.post("/restore-test")
+async def test_restore_backup(
+    request: BackupRestoreRequest,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Test if a backup can be restored without actually restoring.
+    
+    Checks:
+    - File exists and is readable
+    - Metadata is valid
+    - Archive structure is valid (for tar files)
+    - We have enough disk space
+    
+    Requires admin authentication.
+    """
+    try:
+        manager = create_backup_manager()
+        
+        # Normalize the backup path
+        clean_backup_path = request.backup_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
+        backup_path = Path(clean_backup_path)
+        
+        # Handle potential path traversal security issues
+        backup_path = backup_path.resolve()
+        backup_dir = Path(manager.backup_dir).resolve()
+        
+        # Verify that the backup file is within the allowed backup directory
+        try:
+            backup_path.relative_to(backup_dir)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+        
+        if not backup_path.exists():
+            raise HTTPException(status_code=404, detail=f"Backup file not found")
+        
+        logger.info("Testing restore for backup", backup_path=str(backup_path), admin=_admin)
+        
+        # First verify backup integrity
+        verify_result = manager.verify_backup(backup_path)
+        if not verify_result.get("valid"):
+            return {
+                "success": False,
+                "can_restore": False,
+                "error": f"Backup is corrupted: {verify_result.get('error')}",
+                "tests": {
+                    "file_exists": False,
+                    "checksum_valid": False,
+                    "archive_readable": False
+                }
+            }
+        
+        # Check disk space
+        disk_usage = shutil.disk_usage(manager.backup_dir)
+        file_size = backup_path.stat().st_size
+        
+        # We need at least 2x the backup file size to restore safely
+        required_space = file_size * 2
+        available_space = disk_usage.free
+        
+        return {
+            "success": True,
+            "can_restore": available_space >= required_space,
+            "tests": {
+                "file_exists": True,
+                "checksum_valid": True,
+                "archive_readable": True,
+                "disk_space_available": available_space >= required_space
+            },
+            "details": {
+                "backup_size_mb": round(file_size / (1024 * 1024), 2),
+                "required_space_mb": round(required_space / (1024 * 1024), 2),
+                "available_space_mb": round(available_space / (1024 * 1024), 2)
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to test restore", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to test restore: {str(e)}")
 
 
 @router.post("/verify")
