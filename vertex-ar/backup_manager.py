@@ -459,6 +459,76 @@ class BackupManager:
             logger.error("Failed to restore storage", error=str(e), exc_info=e)
             return False
     
+    def verify_backup(self, backup_path: Path) -> Dict[str, Any]:
+        """
+        Verify backup integrity without restoring.
+        
+        Args:
+            backup_path: Path to the backup file
+            
+        Returns:
+            Dictionary with verification results
+        """
+        backup_path = Path(backup_path)
+        
+        if not backup_path.exists():
+            return {"success": False, "error": "Backup file not found", "valid": False}
+        
+        try:
+            # Load metadata
+            metadata_path = backup_path.with_suffix(".json")
+            if not metadata_path.exists():
+                return {
+                    "success": False,
+                    "error": "Metadata file not found",
+                    "valid": False
+                }
+            
+            with open(metadata_path) as f:
+                metadata = json.load(f)
+            
+            # Verify checksum
+            current_checksum = self._calculate_checksum(backup_path)
+            checksum_valid = current_checksum == metadata.get("checksum")
+            
+            if not checksum_valid:
+                logger.error("Backup checksum mismatch", backup_path=str(backup_path))
+                return {
+                    "success": False,
+                    "error": "Checksum mismatch - backup may be corrupted",
+                    "valid": False,
+                    "expected_checksum": metadata.get("checksum"),
+                    "actual_checksum": current_checksum
+                }
+            
+            # For tar files, verify structure
+            if backup_path.suffix in [".tar", ".tgz"] or ".tar." in backup_path.name:
+                try:
+                    with tarfile.open(backup_path, "r:*") as tar:
+                        members = tar.getmembers()
+                        file_count = len(members)
+                except Exception as e:
+                    logger.error("Archive verification failed", error=str(e))
+                    return {
+                        "success": False,
+                        "error": f"Archive corrupted: {str(e)}",
+                        "valid": False
+                    }
+            
+            logger.info("Backup verification successful", backup_path=str(backup_path))
+            return {
+                "success": True,
+                "valid": True,
+                "message": "Backup is valid and intact",
+                "file_size": backup_path.stat().st_size,
+                "checksum": current_checksum,
+                "metadata": metadata
+            }
+            
+        except Exception as e:
+            logger.error("Failed to verify backup", error=str(e), exc_info=e)
+            return {"success": False, "error": str(e), "valid": False}
+    
     def get_backup_stats(self) -> Dict[str, Any]:
         """
         Get statistics about backups.

@@ -323,6 +323,66 @@ async def get_backup_schedule(_admin=Depends(require_admin)) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to get backup schedule: {str(e)}")
 
 
+@router.post("/verify")
+async def verify_backup(
+    request: BackupRestoreRequest,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Verify backup integrity without restoring.
+
+    Checks:
+    - File exists
+    - Metadata exists
+    - Checksum is valid
+    - For tar files: archive structure is valid
+
+    Requires admin authentication.
+    """
+    try:
+        manager = create_backup_manager()
+
+        # Normalize the backup path
+        clean_backup_path = request.backup_path.strip().replace('\u000b', '').replace('\u0008', '').replace('\n', '').replace('\r', '').replace('\t', '')
+        backup_path = Path(clean_backup_path)
+
+        # Handle potential path traversal security issues
+        backup_path = backup_path.resolve()
+        backup_dir = Path(manager.backup_dir).resolve()
+
+        # Verify that the backup file is within the allowed backup directory
+        try:
+            backup_path.relative_to(backup_dir)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied: backup must be within backup directory")
+
+        logger.info("Verifying backup", backup_path=str(backup_path), admin=_admin)
+
+        result = manager.verify_backup(backup_path)
+
+        if result.get("success"):
+            return {
+                "success": True,
+                "valid": result.get("valid"),
+                "message": result.get("message"),
+                "file_size": result.get("file_size"),
+                "checksum": result.get("checksum")
+            }
+        else:
+            return {
+                "success": False,
+                "valid": False,
+                "error": result.get("error"),
+                "details": result
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to verify backup", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to verify backup: {str(e)}")
+
+
 @router.delete("/delete")
 async def delete_backup(
     backup_path: str,
