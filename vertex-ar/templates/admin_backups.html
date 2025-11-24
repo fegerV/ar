@@ -631,48 +631,6 @@
             font-size: 0.95rem;
         }
 
-        /* Logs Section */
-        .logs-section {
-            position: fixed;
-            right: 1rem;
-            top: 100px;
-            width: 300px;
-            max-height: 400px;
-            background-color: var(--light-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            overflow-y: auto;
-        }
-
-        .logs-section h3 {
-            padding: 1rem;
-            margin: 0;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-color);
-        }
-
-        .log-item {
-            padding: 0.5rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.85rem;
-            font-family: monospace;
-        }
-
-        .log-item.error {
-            color: var(--danger-color);
-        }
-
-        .log-item.warning {
-            color: var(--warning-color);
-        }
-
-        .log-item.info {
-            color: var(--info-color);
-        }
-
-        .log-item.success {
-            color: var(--success-color);
-        }
 
             background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(40, 167, 69, 0.05) 100%);
             border: 2px solid var(--border-color);
@@ -933,7 +891,7 @@
         <section class="logs-section">
             <div class="logs-header">
                 <h2>Системные логи</h2>
-                <button type="button" id="clearLogsBtn" class="backup-btn" style="background: var(--secondary-color); padding: 0.5rem 1rem; font-size: 0.9rem;">Очистить</button>
+                <button type="button" id="clearLogsBtn" class="link-button ghost">Очистить</button>
             </div>
             <div class="log-container" id="logContainer">
                 <p class="log-empty">Логи появятся во время работы системы</p>
@@ -1569,11 +1527,17 @@
               // Add log entry for page load
               addLog('Страница бэкапов загружена', 'info');
 
+              if (window.performance && window.performance.now) {
+                  const loadTime = Math.round(window.performance.now());
+                  addLog(`Страница загружена за ${loadTime}ms`, 'info');
+              }
+
               // Add clear logs button listener
               const clearLogsBtn = document.getElementById('clearLogsBtn');
               if (clearLogsBtn) {
                   clearLogsBtn.addEventListener('click', clearLogs);
               }
+
 
               // Auto-refresh every 30 seconds
               setInterval(() => {
