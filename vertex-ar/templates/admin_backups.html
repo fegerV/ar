@@ -253,12 +253,12 @@
             background-color: #e0a800;
         }
 
-        .backup-btn.list {
-            background-color: var(--secondary-color);
+        .backup-btn.verify {
+            background-color: #6f42c1;
         }
 
-        .backup-btn.list:hover {
-            background-color: #545b62;
+        .backup-btn.verify:hover {
+            background-color: #5a32a3;
         }
 
         .backup-btn:disabled {
@@ -283,21 +283,7 @@
             font-size: 0.9rem;
         }
 
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background-color: var(--border-color);
-            border-radius: 4px;
-            overflow: hidden;
-        }
 
-        .progress-fill {
-            height: 100%;
-            background-color: var(--success-color);
-            transition: width 0.3s ease;
-            border-radius: 4px;
-            width: 0%;
-        }
 
         .backup-list {
             margin-top: 1.5rem;
@@ -330,6 +316,27 @@
         .backup-item-actions {
             display: flex;
             gap: 0.5rem;
+        }
+
+        .backup-verify-btn {
+            background-color: #6f42c1;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all var(--transition-speed);
+        }
+
+        .backup-verify-btn:hover {
+            background-color: #5a32a3;
+            transform: scale(1.1);
+        }
+
+        .backup-verify-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .backup-delete-btn {
@@ -562,39 +569,13 @@
             color: var(--success-color);
         }
 
-        /* Monitoring Section Styles */
-        .monitoring-section {
             background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(40, 167, 69, 0.05) 100%);
             border: 2px solid var(--border-color);
         }
 
-        .monitoring-controls {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
 
-        .monitoring-controls .link-button {
-            padding: 0.6rem 1.2rem;
-            border: 1px solid var(--primary-color);
-            background-color: transparent;
-            color: var(--primary-color);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-weight: 600;
-            transition: all var(--transition-speed);
-            text-decoration: none;
-        }
 
-        .monitoring-controls .link-button:hover {
-            background-color: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        }
 
-        /* System Information Styles */
-        .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -614,441 +595,74 @@
             font-size: 0.9rem;
         }
 
-        .system-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .system-item {
-            background-color: var(--bg-color);
-            padding: 1.5rem;
-            border-radius: var(--border-radius);
-            border: 2px solid var(--border-color);
-            transition: all var(--transition-speed);
-        }
-
-        .system-item:hover {
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .system-item .label {
-            font-size: 0.85rem;
-            color: var(--secondary-color);
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .system-item .value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .system-note {
-            font-size: 0.8rem;
-            color: var(--secondary-color);
-            margin: 0;
-            font-style: italic;
-        }
-
-        .metric-with-bar {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .progress-bar-small {
-            width: 100%;
-            height: 6px;
-            background-color: var(--border-color);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .progress-fill-small {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .monitoring-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .metric-card {
-            background-color: var(--bg-color);
-            padding: 1.5rem;
-            border-radius: var(--border-radius);
-            border: 2px solid var(--border-color);
-            text-align: center;
-            transition: all var(--transition-speed);
-        }
-
-        .metric-card:hover {
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-        }
-
-        .metric-label {
-            font-size: 0.85rem;
-            color: var(--secondary-color);
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .metric-value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 0.75rem;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background-color: var(--border-color);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-            border-radius: 4px;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .progress-fill.warning {
-            background: linear-gradient(90deg, var(--warning-color), var(--danger-color));
-        }
-
-        .progress-fill.danger {
-            background: var(--danger-color);
-        }
-
-        .realtime-metrics {
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 2px solid var(--border-color);
-        }
-
-        .realtime-metrics h3 {
-            color: var(--text-color);
-            margin-bottom: 1.5rem;
-            font-size: 1.2rem;
-        }
-
-        .thresholds-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin: 0.5rem 0;
-        }
-
-        .threshold-item {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            padding: 0.5rem;
-            background-color: var(--bg-color);
-            border-radius: 4px;
-        }
-
-        .recent-alerts {
-            max-height: 120px;
-            overflow-y: auto;
-            margin-top: 0.5rem;
-        }
-
-        .recent-alerts .no-alerts {
-            font-size: 0.8rem;
-            opacity: 0.6;
-            font-style: italic;
-            text-align: center;
-            padding: 1rem;
-        }
-
-        .alert-item {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.8rem;
-        }
-
-        .alert-item:last-child {
-            border-bottom: none;
-        }
-
-        .alert-item.error {
-            color: var(--danger-color);
-        }
-
-        .alert-item.warning {
-            color: var(--warning-color);
-        }
-
-        .channel-status {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-
-        .channel-status.active {
-            opacity: 1;
-            color: var(--success-color);
-        }
-
-        .channel-status.inactive {
-            opacity: 0.6;
-            color: var(--secondary-color);
-        }
-
-        .link-button.small {
-            font-size: 0.8rem;
-            padding: 0.25rem 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .system-info {
-            background-color: var(--light-color);
-            padding: 1.5rem;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            margin-bottom: 2rem;
-        }
-
-        [data-theme="light"] .system-info {
-            background-color: #ffffff;
-        }
-
-        .system-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .system-item {
-            padding: 1rem;
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-        }
-
-        .system-item .label {
-            font-size: 0.85rem;
-            color: var(--secondary-color);
-            margin-bottom: 0.25rem;
-        }
-
-        .system-item .value {
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .system-note {
-            font-size: 0.8rem;
-            color: var(--secondary-color);
-            margin: 0.5rem 0 0 0;
-        }
-
-        .progress-bar-small {
-            width: 100%;
-            height: 8px;
-            background-color: var(--border-color);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .progress-fill-small {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .metric-with-bar {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .link-button {
-            background: none;
-            border: none;
-            color: var(--primary-color);
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9rem;
-            padding: 0.25rem 0.5rem;
-            transition: color var(--transition-speed);
-        }
-
-        .link-button:hover {
-            color: var(--primary-hover);
-            text-decoration: underline;
-        }
-
-        .link-button.small {
-            font-size: 0.8rem;
-            padding: 0.25rem 0.5rem;
-        }
-
-        .monitoring-channels {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            margin-top: 0.5rem;
-        }
-
-        .channel-status {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-
-        .channel-status.active {
-            opacity: 1;
-            color: var(--success-color);
-        }
-
-        .channel-status.inactive {
-            opacity: 0.6;
-            color: var(--secondary-color);
-        }
-
-        .recent-alerts {
-            max-height: 100px;
-            overflow-y: auto;
-            margin-top: 0.5rem;
-        }
-
-        .recent-alerts .no-alerts {
-            font-size: 0.8rem;
-            opacity: 0.6;
-            font-style: italic;
-        }
-
-        .alert-item {
-            padding: 0.25rem 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.8rem;
-        }
-
-        .alert-item:last-child {
-            border-bottom: none;
-        }
-
-        .alert-item.error {
-            color: var(--danger-color);
-        }
-
-        .alert-item.warning {
-            color: var(--warning-color);
-        }
-
-        .thresholds-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            margin: 0.5rem 0;
-        }
-
-        .threshold-item {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-        }
-
-        .monitoring-controls {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .monitoring-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .realtime-metrics {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .realtime-metrics h3 {
-            margin-bottom: 1rem;
-            color: var(--text-color);
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .metric-card {
-            background: var(--light-color);
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            text-align: center;
-        }
-
-        .metric-label {
-            font-size: 0.8rem;
-            color: var(--text-color);
-            opacity: 0.7;
-            margin-bottom: 0.5rem;
-        }
-
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--text-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .latest-backup {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding: 1rem;
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-        }
-
-        .latest-backup .label {
-            font-size: 0.9rem;
-            color: var(--secondary-color);
-        }
-
-        .latest-backup .value {
-            font-size: 1rem;
-            color: var(--text-color);
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         /* Responsive Design */
         @media (max-width: 768px) {
@@ -1078,21 +692,9 @@
                 flex-wrap: wrap;
             }
 
-            .system-grid {
-                grid-template-columns: 1fr;
-            }
 
-            .monitoring-grid {
-                grid-template-columns: 1fr;
-            }
 
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
 
-            .monitoring-controls {
-                justify-content: center;
-            }
         }
 
         @media (max-width: 480px) {
@@ -1126,139 +728,7 @@
             <a href="/admin/backups" class="nav-tab active">🔒 Backup</a>
         </div>
 
-        <!-- System Information -->
-        <section class="system-info">
-            <div class="section-header">
-                <h2>Системная информация</h2>
-                <p class="section-subtitle">Следите за состоянием сервера, чтобы панель оставалась стабильной</p>
-            </div>
-            <div class="system-grid">
-                <div class="system-item">
-                    <div class="label">Версия системы</div>
-                    <div class="value" id="systemVersion">-</div>
-                    <p class="system-note">Сборка и конфигурация backend</p>
-                </div>
-                <div class="system-item">
-                    <div class="label">Время работы</div>
-                    <div class="value" id="systemUptime">-</div>
-                    <p class="system-note">Позволяет выявить незапланированные перезапуски</p>
-                </div>
-                <div class="system-item metric-with-bar">
-                    <div class="label">Использование памяти</div>
-                    <div class="value" id="systemMemory">-</div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" id="memoryUsageBar"></div>
-                    </div>
-                </div>
-                <div class="system-item metric-with-bar">
-                    <div class="label">Использование диска</div>
-                    <div class="value" id="systemDisk">-</div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" id="diskUsageBar"></div>
-                    </div>
-                </div>
-                <div class="system-item metric-with-bar">
-                    <div class="label">Загрузка CPU</div>
-                    <div class="value" id="systemCPU">-</div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" id="cpuUsageBar"></div>
-                    </div>
-                </div>
-                <div class="system-item">
-                    <div class="label">Хост</div>
-                    <div class="value" id="systemHost">-</div>
-                    <p class="system-note" id="systemPlatform">-</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Monitoring and Alerting Section -->
-        <section class="system-info monitoring-section">
-            <div class="section-header">
-                <h2>Мониторинг и оповещения</h2>
-                <div class="monitoring-controls">
-                    <button onclick="testAlertSystem()" class="link-button">🧪 Тестировать оповещения</button>
-                    <button onclick="sendWeeklyReport()" class="link-button">📊 Отправить отчет</button>
-                    <button onclick="refreshMonitoringData()" class="link-button">🔄 Обновить</button>
-                </div>
-            </div>
-            
-            <div class="monitoring-grid">
-                <!-- Alert Status -->
-                <div class="system-item">
-                    <div class="label">Статус мониторинга</div>
-                    <div class="value" id="monitoringStatus">-</div>
-                    <div class="monitoring-channels" id="monitoringChannels">
-                        <span class="channel-status" id="telegramStatus">📱 Telegram: -</span>
-                        <span class="channel-status" id="emailStatus">📧 Email: -</span>
-                    </div>
-                </div>
-                
-                <!-- Recent Alerts -->
-                <div class="system-item">
-                    <div class="label">Последние оповещения</div>
-                    <div class="value" id="recentAlertsCount">0</div>
-                    <div class="recent-alerts" id="recentAlerts">
-                        <p class="no-alerts">Нет недавних оповещений</p>
-                    </div>
-                </div>
-                
-                <!-- Alert Thresholds -->
-                <div class="system-item">
-                    <div class="label">Пороги оповещений</div>
-                    <div class="thresholds-info">
-                        <div class="threshold-item">
-                            <span>CPU:</span>
-                            <span id="cpuThreshold">80%</span>
-                        </div>
-                        <div class="threshold-item">
-                            <span>Память:</span>
-                            <span id="memoryThreshold">85%</span>
-                        </div>
-                        <div class="threshold-item">
-                            <span>Диск:</span>
-                            <span id="diskThreshold">90%</span>
-                        </div>
-                    </div>
-                    <button onclick="showThresholdEditor()" class="link-button small">Изменить</button>
-                </div>
-                
-                <!-- Weekly Report Schedule -->
-                <div class="system-item">
-                    <div class="label">Расписание отчетов</div>
-                    <div class="value" id="reportSchedule">-</div>
-                    <p class="system-note">Автоматическая отправка еженедельных отчетов</p>
-                </div>
-            </div>
-            
-            <!-- Real-time System Metrics -->
-            <div class="realtime-metrics">
-                <h3>Метрики в реальном времени</h3>
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">CPU</div>
-                        <div class="metric-value" id="realtimeCPU">0%</div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="realtimeCPUBar"></div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Память</div>
-                        <div class="metric-value" id="realtimeMemory">0%</div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="realtimeMemoryBar"></div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">Диск</div>
-                        <div class="metric-value" id="realtimeDisk">0%</div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="realtimeDiskBar"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+        
 
         <!-- Backup Management Section -->
         <section class="backup-management">
@@ -1336,14 +806,6 @@
         </section>
     </div>
 
-    <!-- Logs Section -->
-    <div class="logs-section" id="logsSection">
-        <h3>📋 Логи системы</h3>
-        <div id="logsContainer">
-            <!-- Log items will be added here -->
-        </div>
-    </div>
-
     <!-- Footer -->
     <footer class="footer" style="margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-color); opacity: 0.7; font-size: 0.9rem;">
         <p>&copy; 2025 Vertex AR Admin Dashboard. All rights reserved. Version: {{ request.app.state.config.VERSION }}</p>
@@ -1376,28 +838,6 @@
             themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
         }
 
-        // ============================================
-        // LOGS FUNCTIONS
-        // ============================================
-        
-        // Add Log Item
-        function addLog(message, type = 'info') {
-            const logsContainer = document.getElementById('logsContainer');
-            const logItem = document.createElement('div');
-            logItem.className = `log-item ${type}`;
-            
-            const timestamp = new Date().toLocaleTimeString('ru-RU');
-            logItem.textContent = `[${timestamp}] ${message}`;
-            
-            logsContainer.appendChild(logItem);
-            logsContainer.scrollTop = logsContainer.scrollHeight;
-            
-            // Keep only last 50 log items
-            while (logsContainer.children.length > 50) {
-                logsContainer.removeChild(logsContainer.firstChild);
-            }
-        }
-        
         // ============================================
         // BACKUP MANAGEMENT FUNCTIONS
         // ============================================
@@ -1543,7 +983,6 @@
                             `✓ Бэкап успешно создан! Размер: ${formatBytes(backup.file_size || 0)}`,
                             'success'
                         );
-                        addLog(`Создан ${type} бэкап: ${backup.timestamp}`, 'success');
                         
                         // Reload stats and list
                         setTimeout(() => {
@@ -1556,13 +995,11 @@
                     const error = await response.json();
                     progressDiv.style.display = 'none';
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
-                    addLog(`Ошибка создания бэкапа: ${error.detail}`, 'error');
                 }
             } catch (error) {
                 clearInterval(progressInterval);
                 progressDiv.style.display = 'none';
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                addLog(`Сетевая ошибка при создании бэкапа: ${error.message}`, 'error');
             } finally {
                 buttons.forEach(btn => btn.disabled = false);
             }
@@ -1601,6 +1038,14 @@
                             (backup.db_success && !backup.storage_success) || 
                             (!backup.db_success && backup.storage_success)
                         );
+                        
+                        // Prepare verify button
+                        const canVerify = backup.backup_path && backup.backup_path.trim() !== '';
+                        const verifyBtn = canVerify
+                            ? `<button class="backup-verify-btn" onclick="verifyBackup('${backup.backup_path}', '${backup.timestamp}')" title="Проверить целостность бэкапа">
+                                ✓
+                            </button>`
+                            : '';
                         
                         // Prepare restore button (disabled for full backups as they need special handling)
                         const canRestore = backup.backup_path && backup.type !== 'full' && !hasErrors;
@@ -1646,6 +1091,7 @@
                                 </div>
                             </div>
                             <div class="backup-item-actions">
+                                ${verifyBtn}
                                 ${restoreBtn}
                                 ${deleteBtn}
                             </div>
@@ -1668,6 +1114,26 @@
                 return;
             }
             
+            // Check if this is the last backup
+            try {
+                const checkResponse = await fetch(`/backups/can-delete?backup_path=${encodeURIComponent(backupPath)}`, {
+                    credentials: 'include'
+                });
+                
+                if (checkResponse.ok) {
+                    const checkResult = await checkResponse.json();
+                    if (!checkResult.can_delete) {
+                        showBackupStatus(
+                            `✗ ${checkResult.reason || 'Невозможно удалить этот бэкап'}`,
+                            'error'
+                        );
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking if backup can be deleted:', error);
+            }
+            
             if (!confirm(`Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`)) {
                 return;
             }
@@ -1685,9 +1151,6 @@
                     // Handle partial deletions (some files missing)
                     if (result.missing_files && result.missing_files.length > 0) {
                         message += ` (${result.missing_files.length} файлов уже отсутствовали)`;
-                        addLog(`Удален бэкап: ${timestamp} (некоторые файлы уже отсутствовали)`, 'warning');
-                    } else {
-                        addLog(`Удален бэкап: ${timestamp}`, 'success');
                     }
                     
                     showBackupStatus(message, 'success');
@@ -1699,11 +1162,9 @@
                 } else {
                     const error = await response.json();
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
-                    addLog(`Ошибка удаления бэкапа: ${error.detail}`, 'error');
                 }
             } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                addLog(`Сетевая ошибка при удалении бэкапа: ${error.message}`, 'error');
             }
         }
         
@@ -1726,8 +1187,53 @@
             const buttons = document.querySelectorAll('.backup-btn, .backup-restore-btn');
             buttons.forEach(btn => btn.disabled = true);
             
+            showBackupStatus('🔍 Проверка возможности восстановления...', 'info');
+            
+            // Test restore first
+            try {
+                const testResponse = await fetch('/backups/restore-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        backup_path: backupPath
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (!testResponse.ok) {
+                    const testError = await testResponse.json();
+                    showBackupStatus(`✗ Ошибка при проверке: ${testError.detail}`, 'error');
+                    buttons.forEach(btn => btn.disabled = false);
+                    return;
+                }
+                
+                const testResult = await testResponse.json();
+                
+                if (!testResult.can_restore) {
+                    let errorMsg = 'Восстановление невозможно: ';
+                    const tests = testResult.tests || {};
+                    
+                    if (!tests.file_exists) errorMsg += 'файл не найден';
+                    if (!tests.checksum_valid) errorMsg += 'бэкап поврежден';
+                    if (!tests.archive_readable) errorMsg += 'архив не читается';
+                    if (!tests.disk_space_available) {
+                        const details = testResult.details || {};
+                        errorMsg += `недостаточно места на диске (требуется ${details.required_space_mb} МБ, доступно ${details.available_space_mb} МБ)`;
+                    }
+                    
+                    showBackupStatus(`✗ ${errorMsg}`, 'error');
+                    buttons.forEach(btn => btn.disabled = false);
+                    return;
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Ошибка проверки: ${error.message}`, 'error');
+                buttons.forEach(btn => btn.disabled = false);
+                return;
+            }
+            
             showBackupStatus('🔄 Восстановление из бэкапа... Пожалуйста, подождите.', 'info');
-            addLog(`Начато восстановление из бэкапа: ${timestamp}`, 'info');
             
             try {
                 const response = await fetch('/backups/restore', {
@@ -1745,7 +1251,6 @@
                 if (response.ok) {
                     const result = await response.json();
                     showBackupStatus(`✓ Успешно восстановлено из бэкапа: ${result.backup_type}`, 'success');
-                    addLog(`Восстановлено из бэкапа: ${timestamp}`, 'success');
                     
                     // Show reload message
                     setTimeout(() => {
@@ -1756,13 +1261,57 @@
                 } else {
                     const error = await response.json();
                     showBackupStatus(`✗ Ошибка восстановления: ${error.detail}`, 'error');
-                    addLog(`Ошибка восстановления: ${error.detail}`, 'error');
                 }
             } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                addLog(`Сетевая ошибка при восстановлении: ${error.message}`, 'error');
             } finally {
                 buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
+        // Verify Backup
+        async function verifyBackup(backupPath, timestamp) {
+            const button = event.target;
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = '⏳';
+            
+            try {
+                const response = await fetch('/backups/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        backup_path: backupPath
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.valid) {
+                        showBackupStatus(
+                            `✓ Бэкап ${timestamp} прошел проверку целостности. ` +
+                            `Размер: ${formatBytes(result.file_size)}, Контрольная сумма: ${result.checksum.substring(0, 16)}...`,
+                            'success'
+                        );
+                        setTimeout(() => hideBackupStatus(), 5000);
+                    } else {
+                        showBackupStatus(
+                            `✗ Бэкап ${timestamp} поврежден: ${result.error}`,
+                            'error'
+                        );
+                    }
+                } else {
+                    const error = await response.json();
+                    showBackupStatus(`✗ Ошибка проверки: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
             }
         }
         
@@ -1788,7 +1337,6 @@
                     const total = result.total_removed || 0;
                     
                     showBackupStatus(`✓ Удалено ${total} старых бэкапов`, 'success');
-                    addLog(`Удалено ${total} старых бэкапов`, 'success');
                     
                     setTimeout(() => {
                         loadBackupStats();
@@ -1798,11 +1346,9 @@
                 } else {
                     const error = await response.json();
                     showBackupStatus(`✗ Ошибка: ${error.detail}`, 'error');
-                    addLog(`Ошибка очистки старых бэкапов: ${error.detail}`, 'error');
                 }
             } catch (error) {
                 showBackupStatus(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                addLog(`Сетевая ошибка при очистке бэкапов: ${error.message}`, 'error');
             } finally {
                 buttons.forEach(btn => btn.disabled = false);
             }
@@ -1829,318 +1375,17 @@
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
-        // ============================================
-         // SYSTEM INFO AND MONITORING FUNCTIONS
-         // ============================================
 
-         // Load System Info
-         async function loadSystemInfo() {
-             try {
-                 const response = await fetch('/admin/system-info', {
-                     credentials: 'include'
-                 });
 
-                 if (response.ok) {
-                     const data = await response.json();
-                     updateSystemInfo(data);
-                 }
-             } catch (error) {
-                 console.error('Error loading system info:', error);
-             }
-         }
-
-         function updateSystemInfo(data) {
-             const elements = {
-                 'systemVersion': data.version || 'N/A',
-                 'systemUptime': data.uptime || 'N/A',
-                 'systemMemory': data.memory_usage || 'N/A',
-                 'systemDisk': data.disk_usage || 'N/A',
-                 'systemCPU': data.cpu_usage || 'N/A',
-                 'systemHost': data.hostname || 'N/A'
-             };
-
-             Object.entries(elements).forEach(([id, value]) => {
-                 const element = document.getElementById(id);
-                 if (element) {
-                     element.textContent = value;
-                 }
-             });
-
-             const platformElement = document.getElementById('systemPlatform');
-             if (platformElement && data.platform) {
-                 platformElement.textContent = data.platform;
-             }
-
-             // Update progress bars
-             if (data.memory_percent !== undefined && data.memory_percent !== null) {
-                 const memoryBar = document.getElementById('memoryUsageBar');
-                 if (memoryBar) {
-                     memoryBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
-                     memoryBar.style.backgroundColor = data.memory_percent > 80 ? '#dc3545' :
-                                                    data.memory_percent > 60 ? '#ffc107' : '#28a745';
-                 }
-             }
-
-             if (data.disk_percent !== undefined && data.disk_percent !== null) {
-                 const diskBar = document.getElementById('diskUsageBar');
-                 if (diskBar) {
-                     diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
-                     diskBar.style.backgroundColor = data.disk_percent > 80 ? '#dc3545' :
-                                                   data.disk_percent > 60 ? '#ffc107' : '#28a745';
-                 }
-             }
-
-             if (data.cpu_percent !== undefined && data.cpu_percent !== null) {
-                 const cpuBar = document.getElementById('cpuUsageBar');
-                 if (cpuBar) {
-                     cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
-                     cpuBar.style.backgroundColor = data.cpu_percent > 80 ? '#dc3545' :
-                                                  data.cpu_percent > 60 ? '#ffc107' : '#28a745';
-                 }
-             }
-         }
-
-         // Load Monitoring Data
-         async function loadMonitoringData() {
-             try {
-                 const [statusResponse, alertsResponse, reportResponse] = await Promise.all([
-                     fetch('/admin/monitoring/status', { credentials: 'include' }),
-                     fetch('/admin/monitoring/alerts?hours=24', { credentials: 'include' }),
-                     fetch('/admin/monitoring/report-preview', { credentials: 'include' })
-                 ]);
-
-                 const statusData = statusResponse.ok ? await statusResponse.json() : null;
-                 const alertsData = alertsResponse.ok ? await alertsResponse.json() : null;
-                 const reportData = reportResponse.ok ? await reportResponse.json() : null;
-
-                 const aggregatedData = {
-                     status: statusData?.status,
-                     enabled: statusData?.enabled,
-                     channels: statusData?.channels || statusData?.alert_channels || {},
-                     thresholds: statusData?.thresholds,
-                     recent_alerts: alertsData?.data || statusData?.recent_alerts || [],
-                     check_interval: statusData?.check_interval,
-                     report_schedule: reportData?.data?.schedule
-                 };
-
-                 updateMonitoringStatus(aggregatedData);
-             } catch (error) {
-                 console.error('Error loading monitoring data:', error);
-                 addLog(`Ошибка загрузки мониторинга: ${error.message}`, 'error');
-             }
-         }
-
-         function updateMonitoringStatus(data) {
-             const monitoringStatus = document.getElementById('monitoringStatus');
-             if (monitoringStatus) {
-                 const statusText = data.status || (data.enabled ? 'Активен' : 'Отключен') || 'Unknown';
-                 monitoringStatus.textContent = statusText;
-             }
-
-             const telegramStatus = document.getElementById('telegramStatus');
-             if (telegramStatus) {
-                 const status = data.channels?.telegram ? '✓ Включен' : '✗ Отключен';
-                 telegramStatus.textContent = `📱 Telegram: ${status}`;
-                 if (data.channels?.telegram) {
-                     telegramStatus.classList.add('active');
-                     telegramStatus.classList.remove('inactive');
-                 } else {
-                     telegramStatus.classList.add('inactive');
-                     telegramStatus.classList.remove('active');
-                 }
-             }
-
-             const emailStatus = document.getElementById('emailStatus');
-             if (emailStatus) {
-                 const status = data.channels?.email ? '✓ Включен' : '✗ Отключен';
-                 emailStatus.textContent = `📧 Email: ${status}`;
-                 if (data.channels?.email) {
-                     emailStatus.classList.add('active');
-                     emailStatus.classList.remove('inactive');
-                 } else {
-                     emailStatus.classList.add('inactive');
-                     emailStatus.classList.remove('active');
-                 }
-             }
-
-             const recentAlertsCount = document.getElementById('recentAlertsCount');
-             if (recentAlertsCount) {
-                 recentAlertsCount.textContent = data.recent_alerts?.length || 0;
-             }
-
-             const recentAlerts = document.getElementById('recentAlerts');
-             if (recentAlerts) {
-                 if (data.recent_alerts && data.recent_alerts.length > 0) {
-                     recentAlerts.innerHTML = data.recent_alerts.slice(0, 5).map(alert =>
-                         `<div class="alert-item ${alert.type}">${alert.title || alert.message}</div>`
-                     ).join('');
-                 } else {
-                     recentAlerts.innerHTML = '<p class="no-alerts">Нет недавних оповещений</p>';
-                 }
-             }
-
-             // Update thresholds
-             if (data.thresholds) {
-                 const cpuThreshold = document.getElementById('cpuThreshold');
-                 if (cpuThreshold) {
-                     cpuThreshold.textContent = `${data.thresholds.cpu}%`;
-                 }
-                 const memoryThreshold = document.getElementById('memoryThreshold');
-                 if (memoryThreshold) {
-                     memoryThreshold.textContent = `${data.thresholds.memory}%`;
-                 }
-                 const diskThreshold = document.getElementById('diskThreshold');
-                 if (diskThreshold) {
-                     diskThreshold.textContent = `${data.thresholds.disk}%`;
-                 }
-             }
-
-             // Update report schedule
-             const reportSchedule = document.getElementById('reportSchedule');
-             if (reportSchedule) {
-                 reportSchedule.textContent = data.report_schedule || '—';
-             }
-         }
-
-         // Update Real-time Metrics
-         async function updateRealtimeMetrics() {
-             try {
-                 const response = await fetch('/admin/system-info', {
-                     credentials: 'include'
-                 });
-
-                 if (response.ok) {
-                     const data = await response.json();
-
-                     const realtimeCPU = document.getElementById('realtimeCPU');
-                     if (realtimeCPU) {
-                         const cpuValue = data.cpu_percent || 0;
-                         realtimeCPU.textContent = `${Math.round(cpuValue)}%`;
-                         const cpuBar = document.getElementById('realtimeCPUBar');
-                         if (cpuBar) {
-                             cpuBar.style.width = `${Math.min(cpuValue, 100)}%`;
-                             cpuBar.style.backgroundColor = cpuValue > 80 ? '#dc3545' :
-                                                          cpuValue > 60 ? '#ffc107' : '#28a745';
-                         }
-                     }
-
-                     const realtimeMemory = document.getElementById('realtimeMemory');
-                     if (realtimeMemory) {
-                         const memValue = data.memory_percent || 0;
-                         realtimeMemory.textContent = `${Math.round(memValue)}%`;
-                         const memBar = document.getElementById('realtimeMemoryBar');
-                         if (memBar) {
-                             memBar.style.width = `${Math.min(memValue, 100)}%`;
-                             memBar.style.backgroundColor = memValue > 80 ? '#dc3545' :
-                                                          memValue > 60 ? '#ffc107' : '#28a745';
-                         }
-                     }
-
-                     const realtimeDisk = document.getElementById('realtimeDisk');
-                     if (realtimeDisk) {
-                         const diskValue = data.disk_percent || 0;
-                         realtimeDisk.textContent = `${Math.round(diskValue)}%`;
-                         const diskBar = document.getElementById('realtimeDiskBar');
-                         if (diskBar) {
-                             diskBar.style.width = `${Math.min(diskValue, 100)}%`;
-                             diskBar.style.backgroundColor = diskValue > 80 ? '#dc3545' :
-                                                           diskValue > 60 ? '#ffc107' : '#28a745';
-                         }
-                     }
-                 }
-             } catch (error) {
-                 console.error('Error updating realtime metrics:', error);
-             }
-         }
-
-         // Test Alert System
-         async function testAlertSystem() {
-             try {
-                 addLog('Отправка тестового оповещения...', 'info');
-                 const response = await fetch('/admin/monitoring/test-alert', {
-                     method: 'POST',
-                     headers: {
-                         'Content-Type': 'application/json'
-                     },
-                     credentials: 'include',
-                     body: JSON.stringify({
-                         message: 'Тестовое оповещение от Vertex AR',
-                         severity: 'info'
-                     })
-                 });
-
-                 if (response.ok) {
-                     const data = await response.json();
-                     addLog(`✓ Тестовое оповещение отправлено успешно`, 'success');
-                     alert('✓ Тестовое оповещение отправлено!\n\nПроверьте ваши каналы оповещений (Telegram/Email).');
-                 } else {
-                     const error = await response.json();
-                     addLog(`✗ Ошибка отправки оповещения: ${error.detail}`, 'error');
-                     alert(`✗ Ошибка отправки оповещения: ${error.detail}`);
-                 }
-             } catch (error) {
-                 console.error('Error testing alert system:', error);
-                 addLog(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                 alert(`✗ Сетевая ошибка: ${error.message}`);
-             }
-         }
-
-         // Send Weekly Report
-         async function sendWeeklyReport() {
-             if (!confirm('Отправить еженедельный отчет сейчас?')) {
-                 return;
-             }
-
-             try {
-                 addLog('Генерация и отправка отчета...', 'info');
-                 const response = await fetch('/admin/monitoring/send-report', {
-                     method: 'POST',
-                     credentials: 'include'
-                 });
-
-                 if (response.ok) {
-                     const data = await response.json();
-                     addLog(`✓ ${data.message}`, 'success');
-                     alert('✓ Отчет генерируется и будет отправлен в фоновом режиме.\n\nПроверьте ваши каналы оповещений через несколько минут.');
-                 } else {
-                     const error = await response.json();
-                     addLog(`✗ Ошибка отправки отчета: ${error.detail}`, 'error');
-                     alert(`✗ Ошибка отправки отчета: ${error.detail}`);
-                 }
-             } catch (error) {
-                 console.error('Error sending weekly report:', error);
-                 addLog(`✗ Сетевая ошибка: ${error.message}`, 'error');
-                 alert(`✗ Сетевая ошибка: ${error.message}`);
-             }
-         }
-
-         // Refresh Monitoring Data
-         function refreshMonitoringData() {
-             addLog('Обновление данных мониторинга...', 'info');
-             loadMonitoringData();
-             updateRealtimeMetrics();
-         }
-
-         function showThresholdEditor() {
-             alert('Редактор порогов будет реализован');
-         }
-
-         // Initialize page
          document.addEventListener('DOMContentLoaded', function() {
              loadBackupStats();
              loadBackupList();
              loadBackupSchedule();
-             loadSystemInfo();
-             loadMonitoringData();
-             updateRealtimeMetrics();
-             addLog('Страница управления бэкапами загружена', 'info');
 
              // Auto-refresh every 30 seconds
              setInterval(() => {
                  loadBackupStats();
                  loadBackupSchedule();
-                 loadSystemInfo();
-                 updateRealtimeMetrics();
              }, 30000);
          });
     </script>
