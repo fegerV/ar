@@ -152,6 +152,19 @@ def create_app() -> FastAPI:
     app.include_router(monitoring.router, prefix="/admin")
     app.include_router(mobile.router, prefix="/api/mobile", tags=["mobile"])
     
+    # Enhanced Prometheus metrics endpoint
+    @app.get("/metrics")
+    async def prometheus_metrics():
+        """Serve comprehensive Prometheus metrics."""
+        from app.prometheus_metrics import prometheus_exporter
+        from fastapi.responses import Response
+        
+        metrics_data = prometheus_exporter.get_metrics()
+        return Response(
+            content=metrics_data,
+            media_type="text/plain; version=0.0.4; charset=utf-8"
+        )
+    
     # Favicon endpoint
     @app.get("/favicon.ico")
     async def favicon():

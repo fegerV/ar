@@ -1,0 +1,210 @@
+# Alert rules for Vertex AR monitoring
+groups:
+  - name: vertex_ar_alerts
+    rules:
+      # CPU alerts
+      - alert: HighCPUUsage
+        expr: vertex_ar_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% for more than 5 minutes"
+
+      - alert: CriticalCPUUsage
+        expr: vertex_ar_cpu_usage_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: vertex-ar
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is {{ $value }}% for more than 2 minutes"
+
+      - alert: HighLoadAverage
+        expr: vertex_ar_cpu_load_average{period="1min"} > vertex_ar_cpu_load_average{period="15min"} * 2
+        for: 10m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High system load detected"
+          description: "1-minute load average ({{ $value }}) is more than 2x the 15-minute average"
+
+      # Memory alerts
+      - alert: HighMemoryUsage
+        expr: vertex_ar_memory_usage_percent{type="virtual"} > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% for more than 5 minutes"
+
+      - alert: CriticalMemoryUsage
+        expr: vertex_ar_memory_usage_percent{type="virtual"} > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: vertex-ar
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is {{ $value }}% for more than 2 minutes"
+
+      - alert: HighSwapUsage
+        expr: vertex_ar_memory_usage_percent{type="swap"} > 50
+        for: 10m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High swap usage detected"
+          description: "Swap usage is {{ $value }}% for more than 10 minutes"
+
+      # Disk alerts
+      - alert: HighDiskUsage
+        expr: vertex_ar_disk_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage on {{ $labels.mountpoint }} is {{ $value }}% for more than 5 minutes"
+
+      - alert: CriticalDiskUsage
+        expr: vertex_ar_disk_usage_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: vertex-ar
+        annotations:
+          summary: "Critical disk usage detected"
+          description: "Disk usage on {{ $labels.mountpoint }} is {{ $value }}% for more than 2 minutes"
+
+      - alert: HighDiskTemperature
+        expr: vertex_ar_disk_temperature_celsius > 60
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High disk temperature detected"
+          description: "Disk {{ $labels.device }} temperature is {{ $value }}°C"
+
+      - alert: CriticalDiskTemperature
+        expr: vertex_ar_disk_temperature_celsius > 70
+        for: 2m
+        labels:
+          severity: critical
+          service: vertex-ar
+        annotations:
+          summary: "Critical disk temperature detected"
+          description: "Disk {{ $labels.device }} temperature is {{ $value }}°C"
+
+      # Service health alerts
+      - alert: ServiceDown
+        expr: vertex_ar_service_health == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: vertex-ar
+        annotations:
+          summary: "Service {{ $labels.service }} is down"
+          description: "Service {{ $labels.service }} has been unhealthy for more than 1 minute"
+
+      - alert: ServiceSlowResponse
+        expr: vertex_ar_service_response_time_ms > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "Service {{ $labels.service }} response time is high"
+          description: "Service {{ $labels.service }} response time is {{ $value }}ms for more than 5 minutes"
+
+      - alert: DatabaseSlowResponse
+        expr: vertex_ar_service_response_time_ms{service="database"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "Database response time is high"
+          description: "Database response time is {{ $value }}ms for more than 5 minutes"
+
+      # Network alerts
+      - alert: HighNetworkErrors
+        expr: rate(vertex_ar_network_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High network error rate detected"
+          description: "Network error rate is {{ $value }} errors/sec on {{ $labels.interface }}-{{ $labels.direction }}"
+
+      - alert: HighNetworkDrops
+        expr: rate(vertex_ar_network_drops_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High network packet drop rate detected"
+          description: "Network drop rate is {{ $value }} packets/sec on {{ $labels.interface }}-{{ $labels.direction }}"
+
+      # Application-specific alerts
+      - alert: ProcessHighMemoryUsage
+        expr: vertex_ar_process_memory_bytes{type="rss"} > 2 * 1024^3  # 2GB
+        for: 10m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "Vertex AR process using excessive memory"
+          description: "Process RSS memory is {{ $value | humanize1024 }}B"
+
+      - alert: TooManyConnections
+        expr: sum(vertex_ar_network_connections{status="ESTABLISHED"}) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "High number of network connections"
+          description: "Number of established connections is {{ $value }}"
+
+      # Trend alerts
+      - alert: CPUIncreasingTrend
+        expr: vertex_ar_metric_trend{metric="cpu"} > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "CPU usage showing increasing trend"
+          description: "CPU usage trend slope is {{ $value }} indicating sustained growth"
+
+      - alert: MemoryIncreasingTrend
+        expr: vertex_ar_metric_trend{metric="memory"} > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "Memory usage showing increasing trend"
+          description: "Memory usage trend slope is {{ $value }} indicating sustained growth"
+
+      - alert: DiskIncreasingTrend
+        expr: vertex_ar_metric_trend{metric="disk"} > 0.1
+        for: 60m
+        labels:
+          severity: warning
+          service: vertex-ar
+        annotations:
+          summary: "Disk usage showing increasing trend"
+          description: "Disk usage trend slope is {{ $value }} indicating sustained growth"
