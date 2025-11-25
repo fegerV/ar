@@ -176,6 +176,23 @@ def delete_notification(db: Session, notification_id: int) -> Optional[Notificat
         raise
 
 
+def delete_all_notifications(db: Session, user_id: Optional[str] = None) -> int:
+    """Удаляет все уведомления или уведомления конкретного пользователя"""
+    try:
+        query = db.query(Notification)
+
+        if user_id:
+            query = query.filter(Notification.user_id == user_id)
+
+        deleted = query.delete(synchronize_session=False)
+        db.commit()
+        return deleted
+    except Exception as e:
+        logger.error(f"Error deleting notifications: {e}")
+        db.rollback()
+        raise
+
+
 def mark_all_as_read(db: Session, user_id: Optional[str] = None) -> None:
     """Помечает все уведомления как прочитанные"""
     try:
