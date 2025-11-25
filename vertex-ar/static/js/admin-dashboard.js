@@ -80,6 +80,7 @@ function initializeDashboard() {
     loadSystemInfo();
     loadRecords();
     loadCompanies();
+    loadStorageOptions();
     loadBackupStats();
     loadNotifications();
     
@@ -646,22 +647,70 @@ function updateCompanySelect(companies) {
     });
 }
 
+// Load storage options for company creation
+async function loadStorageOptions() {
+    const select = document.getElementById('companyStorageSelect');
+    if (!select) return;
+    
+    try {
+        const response = await fetch('/storage-options', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const options = await response.json();
+            
+            select.innerHTML = '';
+            options.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.id;
+                optionElement.textContent = option.name;
+                
+                // Add connection ID as data attribute for remote storage
+                if (option.connection_id) {
+                    optionElement.setAttribute('data-connection-id', option.connection_id);
+                }
+                
+                select.appendChild(optionElement);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading storage options:', error);
+        addLog('Ошибка загрузки вариантов хранилищ: ' + error.message, 'error');
+    }
+}
+
 async function createCompany() {
     const nameInput = document.getElementById('companyNameInput');
+    const storageSelect = document.getElementById('companyStorageSelect');
     const name = nameInput?.value?.trim();
+    const storageType = storageSelect?.value || 'local';
+    let storageConnectionId = null;
     
     if (!name) {
         showToast('Введите название компании', 'warning');
         return;
     }
     
+    // Get storage connection ID if not local
+    if (storageType !== 'local') {
+        const selectedOption = storageSelect.options[storageSelect.selectedIndex];
+        storageConnectionId = selectedOption?.getAttribute('data-connection-id');
+    }
+    
     try {
+        const companyData = { 
+            name,
+            storage_type: storageType,
+            storage_connection_id: storageConnectionId
+        };
+        
         const response = await fetch('/companies', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify(companyData),
             credentials: 'include'
         });
         

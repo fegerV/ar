@@ -89,14 +89,24 @@ async def create_portrait(
     storage_root = app.state.config["STORAGE_ROOT"]
     base_url = app.state.config["BASE_URL"]
     
+    # Get company ID for client-specific storage
+    company_id = client.get('company_id')
+    
     # Generate paths for storage
     portrait_image_path = f"portraits/{client_id}/{portrait_id}.jpg"
     portrait_preview_path = f"portraits/{client_id}/{portrait_id}_preview.webp"
     
-    # Save image using storage manager
+    # Save image using company-specific storage manager
     image.file.seek(0)
     image_content = await image.read()
-    await storage_manager.save_file(image_content, portrait_image_path, "portraits")
+    
+    # Use company-specific storage adapter if available
+    if company_id:
+        storage_adapter = storage_manager.get_adapter_for_content(company_id, "portraits")
+    else:
+        storage_adapter = storage_manager.get_adapter("portraits")
+    
+    await storage_adapter.save_file(image_content, portrait_image_path)
     
     # Generate image preview with improved quality and WebP support
     from preview_generator import PreviewGenerator
@@ -105,7 +115,7 @@ async def create_portrait(
     try:
         image_preview = PreviewGenerator.generate_image_preview(image_content, size=(300, 300), format='webp')
         if image_preview:
-            await storage_manager.save_file(image_preview, portrait_preview_path, "portraits")
+            await storage_adapter.save_file(image_preview, portrait_preview_path)
             image_preview_path_saved = portrait_preview_path
             from logging_setup import get_logger
             logger = get_logger(__name__)
@@ -165,11 +175,11 @@ async def create_portrait(
     # Ensure QR code is included in response payload
     db_portrait["qr_code"] = qr_base64
     
-    # Get public URLs using storage manager
+    # Get public URLs using company-specific storage manager
     if db_portrait.get("image_path"):
-        db_portrait["image_url"] = storage_manager.get_public_url(db_portrait["image_path"], "portraits")
+        db_portrait["image_url"] = storage_adapter.get_public_url(db_portrait["image_path"])
     if db_portrait.get("image_preview_path"):
-        db_portrait["preview_url"] = storage_manager.get_public_url(db_portrait["image_preview_path"], "previews")
+        db_portrait["preview_url"] = storage_adapter.get_public_url(db_portrait["image_preview_path"])
     
     return _portrait_to_response(db_portrait)
 

@@ -580,6 +580,7 @@
         <div class="nav-tabs">
             <a href="/admin" class="nav-tab active">🏠 Dashboard</a>
             <a href="/admin/clients" class="nav-tab">👥 Клиенты</a>
+            <a href="/admin/storage" class="nav-tab">💾 Хранилища</a>
             <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
             <a href="/admin/notifications" class="nav-tab">🔔 Уведомления</a>
             <a href="/admin/settings" class="nav-tab">⚙️ Настройки</a>
@@ -635,6 +636,9 @@
                 </select>
                 <button onclick="switchCompany()" class="company-btn">Переключить</button>
                 <input type="text" id="companyNameInput" class="company-input" placeholder="Название новой компании">
+                <select id="companyStorageSelect" class="company-select">
+                    <option value="local">Локальный диск</option>
+                </select>
                 <button onclick="createCompany()" class="company-btn">Создать</button>
                 <button onclick="showDeleteCompanyModal()" class="company-btn danger">Удалить</button>
             </div>
