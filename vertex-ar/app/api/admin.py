@@ -1013,3 +1013,33 @@ async def get_content_stats(
         })
     stats.sort(key=lambda item: item["views"], reverse=True)
     return stats
+
+
+@router.get("/admin/storage", response_class=HTMLResponse)
+async def admin_storage_page(request: Request):
+    """Admin storage management page."""
+    from app.main import get_current_app
+    app = get_current_app()
+    templates = app.state.templates
+    
+    # Verify admin user
+    auth_token = request.cookies.get("authToken")
+    if not auth_token:
+        return RedirectResponse(url="/admin/login", status_code=302)
+    
+    try:
+        tokens = app.state.tokens
+        username = tokens.verify_token(auth_token)
+        if not username:
+            return RedirectResponse(url="/admin/login", status_code=302)
+        
+        database = app.state.database
+        user = database.get_user(username)
+        if not user or not user.get("is_admin", False):
+            return RedirectResponse(url="/admin/login", status_code=302)
+        
+        return templates.TemplateResponse("admin_storage.html", {"request": request})
+    
+    except Exception as exc:
+        logger.error(f"Error rendering admin storage page: {exc}")
+        return RedirectResponse(url="/admin/login", status_code=302)

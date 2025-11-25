@@ -28,6 +28,7 @@ class StorageManager:
         self.storage_root = storage_root or Path("storage")
         self.config = get_storage_config()
         self.adapters: Dict[str, StorageAdapter] = {}
+        self._company_adapters: Dict[str, Dict[str, StorageAdapter]] = {}
         self._initialize_adapters()
     
     def _initialize_adapters(self):
@@ -184,6 +185,105 @@ class StorageManager:
                     logger.error("Failed to get Yandex Disk info", error=str(e))
         
         return info
+    
+    def get_company_adapter(self, company_id: str, content_type: str) -> StorageAdapter:
+        """Get storage adapter for specific company and content type."""
+        # Check if we have cached adapter for this company
+        if company_id in self._company_adapters and content_type in self._company_adapters[company_id]:
+            return self._company_adapters[company_id][content_type]
+        
+        # Get company storage configuration from database
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+        
+        company = database.get_company(company_id)
+        if not company:
+            logger.error(f"Company not found: {company_id}, using default storage")
+            return self.get_adapter(content_type)
+        
+        storage_type = company.get('storage_type', 'local')
+        storage_connection_id = company.get('storage_connection_id')
+        
+        # Create adapter based on company configuration
+        adapter = self._create_adapter_for_company(storage_type, storage_connection_id, content_type)
+        
+        # Cache the adapter
+        if company_id not in self._company_adapters:
+            self._company_adapters[company_id] = {}
+        self._company_adapters[company_id][content_type] = adapter
+        
+        logger.info(
+            "Created company storage adapter",
+            company_id=company_id,
+            content_type=content_type,
+            storage_type=storage_type,
+            storage_connection_id=storage_connection_id
+        )
+        
+        return adapter
+    
+    def _create_adapter_for_company(self, storage_type: str, storage_connection_id: Optional[str], content_type: str) -> StorageAdapter:
+        """Create storage adapter for company-specific configuration."""
+        if storage_type == "local":
+            return LocalStorageAdapter(self.storage_root)
+        
+        elif storage_type in ("minio", "yandex_disk") and storage_connection_id:
+            # Get storage connection from database
+            from app.main import get_current_app
+            app = get_current_app()
+            database = app.state.database
+            
+            connection = database.get_storage_connection(storage_connection_id)
+            if not connection or not connection.get('is_active', False):
+                logger.error(f"Storage connection not found or inactive: {storage_connection_id}, falling back to local")
+                return LocalStorageAdapter(self.storage_root)
+            
+            config = connection.get('config', {})
+            
+            if storage_type == "minio":
+                return MinioStorageAdapter(
+                    endpoint=config.get("endpoint", "localhost:9000"),
+                    access_key=config.get("access_key", "minioadmin"),
+                    secret_key=config.get("secret_key", "minioadmin"),
+                    bucket=config.get("bucket", "vertex-ar"),
+                    secure=config.get("secure", False)
+                )
+            
+            elif storage_type == "yandex_disk":
+                token = config.get("oauth_token", "")
+                if not token:
+                    logger.error(f"Yandex Disk token not configured for connection {storage_connection_id}, falling back to local")
+                    return LocalStorageAdapter(self.storage_root)
+                
+                base_path = config.get("base_path", f"vertex-ar/{content_type}")
+                return YandexDiskStorageAdapter(
+                    oauth_token=token,
+                    base_path=base_path
+                )
+        
+        else:
+            logger.warning(
+                "Unknown or unsupported storage type for company, falling back to local",
+                storage_type=storage_type,
+                storage_connection_id=storage_connection_id
+            )
+            return LocalStorageAdapter(self.storage_root)
+    
+    def clear_company_cache(self, company_id: Optional[str] = None):
+        """Clear cached company adapters."""
+        if company_id:
+            self._company_adapters.pop(company_id, None)
+            logger.info(f"Cleared storage adapter cache for company: {company_id}")
+        else:
+            self._company_adapters.clear()
+            logger.info("Cleared all company storage adapter caches")
+    
+    def get_adapter_for_content(self, company_id: Optional[str], content_type: str) -> StorageAdapter:
+        """Get storage adapter for content, using company-specific if available."""
+        if company_id:
+            return self.get_company_adapter(company_id, content_type)
+        return self.get_adapter(content_type)
 
 
 # Global storage manager instance

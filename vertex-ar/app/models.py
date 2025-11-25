@@ -77,21 +77,126 @@ class ARContentResponse(BaseModel):
 # Company models
 class CompanyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
+    storage_type: str = Field(default="local", description="Storage type")
+    storage_connection_id: Optional[str] = Field(default=None, description="Storage connection ID for remote storage")
     
     @field_validator('name')
     @classmethod
     def validate_company_name(cls, v: str) -> str:
         return validate_name(v)
+    
+    @field_validator('storage_type')
+    @classmethod
+    def validate_storage_type(cls, v: str) -> str:
+        if v not in ['local', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        return v
 
 
 class CompanyResponse(BaseModel):
     id: str
     name: str
+    storage_type: str
+    storage_connection_id: Optional[str] = None
     created_at: str
 
 
 class CompanyListItem(CompanyResponse):
     client_count: int = 0
+
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    storage_type: Optional[str] = Field(None, description="Storage type")
+    storage_connection_id: Optional[str] = Field(None, description="Storage connection ID for remote storage")
+    
+    @field_validator('name')
+    @classmethod
+    def validate_company_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
+    
+    @field_validator('storage_type')
+    @classmethod
+    def validate_storage_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['local', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        return v
+
+
+# Storage connection models
+class StorageConnectionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    type: str = Field(..., description="Storage type: minio, yandex_disk")
+    config: Dict[str, Any] = Field(..., description="Storage configuration")
+    
+    @field_validator('name')
+    @classmethod
+    def validate_connection_name(cls, v: str) -> str:
+        return validate_name(v)
+    
+    @field_validator('type')
+    @classmethod
+    def validate_storage_type(cls, v: str) -> str:
+        if v not in ['minio', 'yandex_disk']:
+            raise ValueError('type must be one of: minio, yandex_disk')
+        return v
+
+
+class StorageConnectionUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    config: Optional[Dict[str, Any]] = None
+    is_active: Optional[bool] = None
+    
+    @field_validator('name')
+    @classmethod
+    def validate_connection_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
+
+
+class StorageConnectionResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    config: Dict[str, Any]
+    is_active: bool
+    is_tested: bool
+    test_result: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class StorageTestRequest(BaseModel):
+    connection_id: str
+
+
+class StorageTestResponse(BaseModel):
+    success: bool
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+
+class StorageOptionResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    connection_id: Optional[str] = None
+    is_available: bool
+
+
+class CompanyStorageUpdate(BaseModel):
+    storage_type: str
+    storage_connection_id: Optional[str] = None
+    
+    @field_validator('storage_type')
+    @classmethod
+    def validate_storage_type(cls, v: str) -> str:
+        if v not in ['local', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        return v
 
 
 class PaginatedCompaniesResponse(BaseModel):

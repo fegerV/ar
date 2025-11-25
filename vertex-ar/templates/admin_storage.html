@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Управление хранилищами Vertex AR">
+    <title>Управление хранилищами - Vertex AR</title>
+    
+    <!-- Critical CSS for above-the-fold content -->
+    <style>
+        /* Critical styles for initial render */
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #2a2a2a;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color var(--transition-speed);
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: #000;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .card {
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: transform var(--transition-speed);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .table th {
+            background-color: var(--dark-color);
+            font-weight: 600;
+        }
+
+        .table tbody tr:hover {
+            background-color: var(--bg-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 0.25rem;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .badge-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .badge-warning {
+            background-color: var(--warning-color);
+            color: #000;
+        }
+
+        .badge-info {
+            background-color: var(--info-color);
+            color: white;
+        }
+
+        .badge-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-footer {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: rgba(40, 167, 69, 0.1);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border: 1px solid var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-muted {
+            color: var(--secondary-color);
+        }
+
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 1rem; }
+        .mt-3 { margin-top: 1.5rem; }
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 1.5rem; }
+        .ml-1 { margin-left: 0.5rem; }
+        .mr-1 { margin-right: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Управление хранилищами</h1>
+            <div class="header-actions">
+                <a href="/admin" class="btn btn-outline">← Назад</a>
+                <button class="btn" onclick="showCreateModal()">
+                    <span>+</span> Добавить хранилище
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Storage List -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Настроенные хранилища</span>
+                    <button class="btn btn-outline" onclick="loadStorageList()">
+                        <span>↻</span> Обновить
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="storageList">
+                        <div class="text-center">
+                            <div class="loading"></div>
+                            <p class="mt-2">Загрузка списка хранилищ...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Storage Options -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Доступные варианты для компаний</span>
+                </div>
+                <div class="card-body">
+                    <div id="storageOptions">
+                        <div class="text-center">
+                            <div class="loading"></div>
+                            <p class="mt-2">Загрузка вариантов...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Storage Modal -->
+    <div id="storageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Добавить хранилище</h3>
+                <button class="close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="storageForm">
+                    <div class="form-group">
+                        <label for="storageName">Название хранилища *</label>
+                        <input type="text" id="storageName" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="storageType">Тип хранилища *</label>
+                        <select id="storageType" class="form-control" onchange="updateConfigFields()" required>
+                            <option value="">Выберите тип</option>
+                            <option value="minio">MinIO</option>
+                            <option value="yandex_disk">Яндекс Диск</option>
+                        </select>
+                    </div>
+
+                    <!-- MinIO Configuration -->
+                    <div id="minioConfig" style="display: none;">
+                        <div class="form-group">
+                            <label for="minioEndpoint">Endpoint *</label>
+                            <input type="text" id="minioEndpoint" class="form-control" placeholder="localhost:9000">
+                        </div>
+                        <div class="form-group">
+                            <label for="minioAccessKey">Access Key *</label>
+                            <input type="text" id="minioAccessKey" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="minioSecretKey">Secret Key *</label>
+                            <input type="password" id="minioSecretKey" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="minioBucket">Bucket *</label>
+                            <input type="text" id="minioBucket" class="form-control" value="vertex-ar">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="minioSecure">
+                                Использовать HTTPS
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Yandex Disk Configuration -->
+                    <div id="yandexConfig" style="display: none;">
+                        <div class="form-group">
+                            <label for="yandexToken">OAuth Token *</label>
+                            <textarea id="yandexToken" class="form-control" rows="3" placeholder="OAuth токен от Яндекс Диска"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="yandexBasePath">Базовый путь</label>
+                            <input type="text" id="yandexBasePath" class="form-control" value="vertex-ar">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal()">Отмена</button>
+                <button type="button" class="btn btn-secondary" onclick="testCurrentStorage()" id="testBtn">
+                    <span class="loading" style="display: none;"></span> Тест
+                </button>
+                <button type="button" class="btn btn-success" onclick="saveStorage()" id="saveBtn">
+                    <span class="loading" style="display: none;"></span> Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStorageId = null;
+        let storageConnections = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStorageList();
+            loadStorageOptions();
+        });
+
+        // Load storage connections list
+        async function loadStorageList() {
+            const container = document.getElementById('storageList');
+            
+            try {
+                const response = await fetch('/storages');
+                if (!response.ok) throw new Error('Failed to load storage list');
+                
+                storageConnections = await response.json();
+                
+                if (storageConnections.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-muted">Нет настроенных хранилищ</p>
+                            <button class="btn" onclick="showCreateModal()">Добавить первое хранилище</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Тип</th>
+                                <th>Статус</th>
+                                <th>Тест</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                storageConnections.forEach(storage => {
+                    html += `
+                        <tr>
+                            <td>
+                                <strong>${storage.name}</strong>
+                                ${storage.is_tested ? '<span class="badge badge-success ml-1">✓</span>' : ''}
+                            </td>
+                            <td>
+                                <span class="badge badge-${storage.type === 'minio' ? 'info' : 'warning'}">
+                                    ${storage.type === 'minio' ? 'MinIO' : 'Яндекс Диск'}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-${storage.is_active ? 'success' : 'secondary'}">
+                                    ${storage.is_active ? 'Активно' : 'Неактивно'}
+                                </span>
+                            </td>
+                            <td>
+                                ${storage.is_tested ? 
+                                    `<span class="badge badge-success">Пройден</span>` : 
+                                    `<span class="badge badge-warning">Не тестировалось</span>`
+                                }
+                                ${storage.test_result ? `<br><small class="text-muted">${storage.test_result}</small>` : ''}
+                            </td>
+                            <td>
+                                <button class="btn btn-outline btn-sm" onclick="testStorage('${storage.id}')">Тест</button>
+                                <button class="btn btn-outline btn-sm" onclick="editStorage('${storage.id}')">Изменить</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteStorage('${storage.id}')">Удалить</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading storage list:', error);
+                showAlert('Ошибка загрузки списка хранилищ', 'danger');
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+            }
+        }
+
+        // Load available storage options for companies
+        async function loadStorageOptions() {
+            const container = document.getElementById('storageOptions');
+            
+            try {
+                const response = await fetch('/storage-options');
+                if (!response.ok) throw new Error('Failed to load storage options');
+                
+                const options = await response.json();
+                
+                let html = '<div class="row">';
+                
+                options.forEach(option => {
+                    html += `
+                        <div class="col-md-4 mb-3">
+                            <div class="card-body">
+                                <h5>${option.name}</h5>
+                                <p>
+                                    <span class="badge badge-${option.type === 'local' ? 'secondary' : option.type === 'minio' ? 'info' : 'warning'}">
+                                        ${option.type === 'local' ? 'Локальное' : option.type === 'minio' ? 'MinIO' : 'Яндекс Диск'}
+                                    </span>
+                                </p>
+                                <p>
+                                    ${option.is_available ? 
+                                        '<span class="badge badge-success">Доступно</span>' : 
+                                        '<span class="badge badge-danger">Недоступно</span>'
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error loading storage options:', error);
+                showAlert('Ошибка загрузки вариантов хранилищ', 'danger');
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+            }
+        }
+
+        // Show create modal
+        function showCreateModal() {
+            currentStorageId = null;
+            document.getElementById('modalTitle').textContent = 'Добавить хранилище';
+            document.getElementById('storageForm').reset();
+            updateConfigFields();
+            showModal();
+        }
+
+        // Show edit modal
+        function editStorage(storageId) {
+            currentStorageId = storageId;
+            const storage = storageConnections.find(s => s.id === storageId);
+            
+            if (!storage) return;
+            
+            document.getElementById('modalTitle').textContent = 'Изменить хранилище';
+            
+            document.getElementById('storageName').value = storage.name;
+            document.getElementById('storageType').value = storage.type;
+            
+            updateConfigFields();
+            
+            // Fill config fields
+            if (storage.type === 'minio') {
+                document.getElementById('minioEndpoint').value = storage.config.endpoint || '';
+                document.getElementById('minioAccessKey').value = storage.config.access_key || '';
+                document.getElementById('minioSecretKey').value = storage.config.secret_key || '';
+                document.getElementById('minioBucket').value = storage.config.bucket || '';
+                document.getElementById('minioSecure').checked = storage.config.secure || false;
+            } else if (storage.type === 'yandex_disk') {
+                document.getElementById('yandexToken').value = storage.config.oauth_token || '';
+                document.getElementById('yandexBasePath').value = storage.config.base_path || '';
+            }
+            
+            showModal();
+        }
+
+        // Update config fields based on storage type
+        function updateConfigFields() {
+            const type = document.getElementById('storageType').value;
+            
+            document.getElementById('minioConfig').style.display = type === 'minio' ? 'block' : 'none';
+            document.getElementById('yandexConfig').style.display = type === 'yandex_disk' ? 'block' : 'none';
+        }
+
+        // Test current storage configuration
+        async function testCurrentStorage() {
+            const testBtn = document.getElementById('testBtn');
+            const originalText = testBtn.innerHTML;
+            
+            testBtn.innerHTML = '<span class="loading"></span> Тест...';
+            testBtn.disabled = true;
+            
+            try {
+                const config = getStorageConfig();
+                
+                // Create temporary storage for testing
+                const tempStorage = {
+                    type: document.getElementById('storageType').value,
+                    config: config
+                };
+                
+                // First save temporary storage, then test it
+                const response = await fetch('/storages/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        connection_id: currentStorageId,
+                        temp_storage: tempStorage
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Тест соединения пройден успешно!', 'success');
+                } else {
+                    showAlert(`Ошибка теста: ${result.message}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error testing storage:', error);
+                showAlert('Ошибка при тестировании соединения', 'danger');
+            } finally {
+                testBtn.innerHTML = originalText;
+                testBtn.disabled = false;
+            }
+        }
+
+        // Test existing storage
+        async function testStorage(storageId) {
+            try {
+                const response = await fetch('/storages/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        connection_id: storageId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Тест соединения пройден успешно!', 'success');
+                    loadStorageList(); // Refresh to show updated test status
+                } else {
+                    showAlert(`Ошибка теста: ${result.message}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error testing storage:', error);
+                showAlert('Ошибка при тестировании соединения', 'danger');
+            }
+        }
+
+        // Save storage
+        async function saveStorage() {
+            const saveBtn = document.getElementById('saveBtn');
+            const originalText = saveBtn.innerHTML;
+            
+            saveBtn.innerHTML = '<span class="loading"></span> Сохранение...';
+            saveBtn.disabled = true;
+            
+            try {
+                const data = {
+                    name: document.getElementById('storageName').value,
+                    type: document.getElementById('storageType').value,
+                    config: getStorageConfig()
+                };
+                
+                const method = currentStorageId ? 'PUT' : 'POST';
+                const url = currentStorageId ? `/storages/${currentStorageId}` : '/storages';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    showAlert('Хранилище сохранено успешно!', 'success');
+                    closeModal();
+                    loadStorageList();
+                    loadStorageOptions();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Ошибка сохранения: ${error.detail || 'Неизвестная ошибка'}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error saving storage:', error);
+                showAlert('Ошибка при сохранении хранилища', 'danger');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+
+        // Delete storage
+        async function deleteStorage(storageId) {
+            if (!confirm('Вы уверены, что хотите удалить это хранилище?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/storages/${storageId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showAlert('Хранилище удалено успешно!', 'success');
+                    loadStorageList();
+                    loadStorageOptions();
+                } else {
+                    const error = await response.json();
+                    showAlert(`Ошибка удаления: ${error.detail || 'Неизвестная ошибка'}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting storage:', error);
+                showAlert('Ошибка при удалении хранилища', 'danger');
+            }
+        }
+
+        // Get storage configuration from form
+        function getStorageConfig() {
+            const type = document.getElementById('storageType').value;
+            
+            if (type === 'minio') {
+                return {
+                    endpoint: document.getElementById('minioEndpoint').value,
+                    access_key: document.getElementById('minioAccessKey').value,
+                    secret_key: document.getElementById('minioSecretKey').value,
+                    bucket: document.getElementById('minioBucket').value,
+                    secure: document.getElementById('minioSecure').checked
+                };
+            } else if (type === 'yandex_disk') {
+                return {
+                    oauth_token: document.getElementById('yandexToken').value,
+                    base_path: document.getElementById('yandexBasePath').value
+                };
+            }
+            
+            return {};
+        }
+
+        // Modal functions
+        function showModal() {
+            document.getElementById('storageModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('storageModal').classList.remove('show');
+        }
+
+        // Alert function
+        function showAlert(message, type = 'info') {
+            // Simple alert implementation
+            alert(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Close modal on background click
+        document.getElementById('storageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

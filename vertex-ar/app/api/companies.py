@@ -88,15 +88,42 @@ async def create_company(
             detail=f"Company '{company.name}' already exists"
         )
     
+    # Validate storage configuration
+    if company.storage_type != 'local' and company.storage_connection_id:
+        connection = database.get_storage_connection(company.storage_connection_id)
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Storage connection not found"
+            )
+        
+        if not connection['is_active'] or not connection['is_tested']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Storage connection must be active and tested"
+            )
+    elif company.storage_type != 'local' and not company.storage_connection_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Storage connection ID is required for remote storage"
+        )
+    
     company_id = f"company-{uuid4().hex[:8]}"
     
     try:
-        database.create_company(company_id, company.name)
+        database.create_company(
+            company_id, 
+            company.name,
+            company.storage_type,
+            company.storage_connection_id
+        )
         created_company = database.get_company(company_id)
         
         return CompanyResponse(
             id=created_company["id"],
             name=created_company["name"],
+            storage_type=created_company["storage_type"],
+            storage_connection_id=created_company.get("storage_connection_id"),
             created_at=created_company["created_at"],
         )
     except Exception as exc:
@@ -122,6 +149,8 @@ async def list_companies(
             CompanyListItem(
                 id=c["id"],
                 name=c["name"],
+                storage_type=c.get("storage_type", "local"),
+                storage_connection_id=c.get("storage_connection_id"),
                 created_at=c["created_at"],
                 client_count=c.get("client_count", 0),
             )
@@ -159,6 +188,8 @@ async def get_company(
     return CompanyResponse(
         id=company["id"],
         name=company["name"],
+        storage_type=company.get("storage_type", "local"),
+        storage_connection_id=company.get("storage_connection_id"),
         created_at=company["created_at"],
     )
 
@@ -224,5 +255,7 @@ async def select_company(
     return CompanyResponse(
         id=company["id"],
         name=company["name"],
+        storage_type=company.get("storage_type", "local"),
+        storage_connection_id=company.get("storage_connection_id"),
         created_at=company["created_at"],
     )

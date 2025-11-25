@@ -210,6 +210,65 @@ class Database:
             except sqlite3.OperationalError:
                 pass
 
+            # Create storage_connections table for managing multiple storage connections
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS storage_connections (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    type TEXT NOT NULL CHECK (type IN ('local', 'minio', 'yandex_disk')),
+                    config TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    is_tested INTEGER NOT NULL DEFAULT 0,
+                    test_result TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            # Add storage columns to companies table
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_connection_id TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_type TEXT NOT NULL DEFAULT 'local'")
+            except sqlite3.OperationalError:
+                pass
+
+            # Add foreign key constraint for storage_connection_id
+            try:
+                self._connection.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS fk_companies_storage_connection
+                    BEFORE INSERT ON companies
+                    BEGIN
+                        SELECT CASE
+                            WHEN NEW.storage_connection_id IS NOT NULL AND 
+                                 (SELECT COUNT(*) FROM storage_connections WHERE id = NEW.storage_connection_id) = 0
+                            THEN RAISE(ABORT, 'Foreign key violation: storage_connection_id')
+                        END;
+                    END
+                    """
+                )
+            except sqlite3.OperationalError:
+                pass
+
+            # Create index for storage connections
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_storage_connections_type ON storage_connections(type)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_storage_connections_active ON storage_connections(is_active)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_companies_storage ON companies(storage_connection_id)")
+            except sqlite3.OperationalError:
+                pass
+
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
             cursor = self._connection.execute(query, parameters)
@@ -799,14 +858,14 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     # Company methods
-    def create_company(self, company_id: str, name: str) -> None:
+    def create_company(self, company_id: str, name: str, storage_type: str = "local", storage_connection_id: Optional[str] = None) -> None:
         """Create a new company."""
         try:
             self._execute(
-                "INSERT INTO companies (id, name) VALUES (?, ?)",
-                (company_id, name),
+                "INSERT INTO companies (id, name, storage_type, storage_connection_id) VALUES (?, ?, ?, ?)",
+                (company_id, name, storage_type, storage_connection_id),
             )
-            logger.info(f"Created company: {name}")
+            logger.info(f"Created company: {name} with storage: {storage_type}")
         except sqlite3.IntegrityError as exc:
             logger.error(f"Failed to create company: {exc}")
             raise ValueError("company_already_exists") from exc
@@ -848,13 +907,186 @@ class Database:
     def get_companies_with_client_count(self) -> List[Dict[str, Any]]:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
-            SELECT c.id, c.name, c.created_at, COUNT(cl.id) as client_count
+            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             GROUP BY c.id
             ORDER BY c.name ASC
         """)
         return [dict(row) for row in cursor.fetchall()]
+
+    def update_company_storage(self, company_id: str, storage_type: str, storage_connection_id: Optional[str] = None) -> bool:
+        """Update company storage configuration."""
+        try:
+            self._execute(
+                "UPDATE companies SET storage_type = ?, storage_connection_id = ? WHERE id = ?",
+                (storage_type, storage_connection_id, company_id),
+            )
+            logger.info(f"Updated company {company_id} storage to {storage_type}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to update company storage: {exc}")
+            return False
+
+    # Storage connection methods
+    def create_storage_connection(self, connection_id: str, name: str, storage_type: str, config: Dict[str, Any]) -> bool:
+        """Create a new storage connection."""
+        try:
+            import json
+            config_json = json.dumps(config)
+            self._execute(
+                "INSERT INTO storage_connections (id, name, type, config) VALUES (?, ?, ?, ?)",
+                (connection_id, name, storage_type, config_json),
+            )
+            logger.info(f"Created storage connection: {name} ({storage_type})")
+            return True
+        except sqlite3.IntegrityError as exc:
+            logger.error(f"Failed to create storage connection: {exc}")
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to create storage connection: {exc}")
+            return False
+
+    def get_storage_connection(self, connection_id: str) -> Optional[Dict[str, Any]]:
+        """Get storage connection by ID."""
+        cursor = self._execute("SELECT * FROM storage_connections WHERE id = ?", (connection_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        
+        result = dict(row)
+        # Parse config JSON
+        import json
+        try:
+            result['config'] = json.loads(result['config'])
+        except (json.JSONDecodeError, TypeError):
+            result['config'] = {}
+        
+        return result
+
+    def get_storage_connections(self, active_only: bool = True, tested_only: bool = False) -> List[Dict[str, Any]]:
+        """Get all storage connections."""
+        query = "SELECT * FROM storage_connections"
+        conditions = []
+        params = []
+        
+        if active_only:
+            conditions.append("is_active = 1")
+        if tested_only:
+            conditions.append("is_tested = 1")
+        
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " ORDER BY name ASC"
+        
+        cursor = self._execute(query, tuple(params))
+        rows = cursor.fetchall()
+        
+        # Parse config JSON for each row
+        import json
+        results = []
+        for row in rows:
+            result = dict(row)
+            try:
+                result['config'] = json.loads(result['config'])
+            except (json.JSONDecodeError, TypeError):
+                result['config'] = {}
+            results.append(result)
+        
+        return results
+
+    def update_storage_connection(self, connection_id: str, name: Optional[str] = None, 
+                                config: Optional[Dict[str, Any]] = None, is_active: Optional[bool] = None) -> bool:
+        """Update storage connection."""
+        updates = []
+        params = []
+        
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        
+        if config is not None:
+            import json
+            updates.append("config = ?")
+            params.append(json.dumps(config))
+        
+        if is_active is not None:
+            updates.append("is_active = ?")
+            params.append(is_active)
+        
+        if not updates:
+            return False
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(connection_id)
+        
+        try:
+            query = f"UPDATE storage_connections SET {', '.join(updates)} WHERE id = ?"
+            self._execute(query, tuple(params))
+            logger.info(f"Updated storage connection: {connection_id}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to update storage connection: {exc}")
+            return False
+
+    def update_storage_connection_test_result(self, connection_id: str, is_tested: bool, test_result: Optional[str] = None) -> bool:
+        """Update storage connection test result."""
+        try:
+            self._execute(
+                "UPDATE storage_connections SET is_tested = ?, test_result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (is_tested, test_result, connection_id),
+            )
+            logger.info(f"Updated test result for storage connection: {connection_id}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to update storage connection test result: {exc}")
+            return False
+
+    def delete_storage_connection(self, connection_id: str) -> bool:
+        """Delete storage connection."""
+        try:
+            # Check if any company is using this connection
+            cursor = self._execute("SELECT COUNT(*) as count FROM companies WHERE storage_connection_id = ?", (connection_id,))
+            row = cursor.fetchone()
+            if row and row['count'] > 0:
+                logger.warning(f"Cannot delete storage connection {connection_id}: used by companies")
+                return False
+            
+            cursor = self._execute("DELETE FROM storage_connections WHERE id = ?", (connection_id,))
+            if cursor.rowcount > 0:
+                logger.info(f"Deleted storage connection: {connection_id}")
+                return True
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to delete storage connection: {exc}")
+            return False
+
+    def get_available_storage_options(self) -> List[Dict[str, Any]]:
+        """Get available storage options for company selection."""
+        options = []
+        
+        # Always include local storage
+        options.append({
+            "id": "local",
+            "name": "Локальный диск",
+            "type": "local",
+            "connection_id": None,
+            "is_available": True
+        })
+        
+        # Add tested remote storage connections
+        connections = self.get_storage_connections(active_only=True, tested_only=True)
+        for conn in connections:
+            options.append({
+                "id": conn['id'],
+                "name": conn['name'],
+                "type": conn['type'],
+                "connection_id": conn['id'],
+                "is_available": True
+            })
+        
+        return options
 
 
 def ensure_default_admin_user(database: "Database") -> None:
