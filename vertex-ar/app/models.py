@@ -190,6 +190,8 @@ class PortraitResponse(BaseModel):
     permanent_link: str
     qr_code_base64: Optional[str]
     image_path: str
+    image_url: Optional[str] = None  # Public URL for image
+    preview_url: Optional[str] = None  # Public URL for preview
     view_count: int
     created_at: str
 
@@ -199,6 +201,8 @@ class VideoResponse(BaseModel):
     id: str
     portrait_id: str
     video_path: str
+    video_url: Optional[str] = None  # Public URL for video
+    preview_url: Optional[str] = None  # Public URL for preview
     is_active: bool
     created_at: str
     file_size_mb: Optional[int] = None
