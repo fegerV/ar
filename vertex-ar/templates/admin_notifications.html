@@ -109,6 +109,11 @@
             background-color: var(--secondary-color);
         }
 
+        .control-btn.danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
         .control-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -343,6 +348,7 @@
             <div class="control-buttons">
                 <button class="control-btn" id="refreshNotificationsBtn">🔄 Обновить</button>
                 <button class="control-btn ghost" id="markAllNotificationsBtn">✅ Пометить все как прочитанные</button>
+                <button class="control-btn danger" id="clearAllNotificationsBtn">🗑️ Очистить все уведомления</button>
             </div>
         </section>
 
@@ -573,6 +579,29 @@
             }
         }
 
+        async function clearAllNotifications() {
+            if (!confirm('Удалить все уведомления без возможности восстановления?')) {
+                return;
+            }
+            showLoading('Удаление уведомлений...');
+            try {
+                const response = await fetch('/notifications', {
+                    method: 'DELETE',
+                    credentials: 'include',
+                });
+                if (!response.ok) {
+                    throw new Error('Не удалось удалить уведомления');
+                }
+                showToast('Все уведомления удалены', 'success');
+                await loadNotificationCenter();
+            } catch (error) {
+                console.error('Error clearing notifications', error);
+                showToast('Ошибка удаления уведомлений', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
         async function toggleNotificationRead(notificationId, shouldBeRead) {
             try {
                 const response = await fetch(`/notifications/${notificationId}`, {
@@ -634,12 +663,15 @@
 
         document.getElementById('refreshNotificationsBtn').addEventListener('click', loadNotificationCenter);
         document.getElementById('markAllNotificationsBtn').addEventListener('click', markAllNotificationsRead);
+        document.getElementById('clearAllNotificationsBtn').addEventListener('click', clearAllNotifications);
 
         document.getElementById('notificationFeed').addEventListener('click', (event) => {
             const actionButton = event.target.closest('button[data-action]');
+
             if (!actionButton) {
                 return;
             }
+
             const notificationId = actionButton.dataset.notificationId;
             if (!notificationId) {
                 return;

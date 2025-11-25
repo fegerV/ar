@@ -12,6 +12,7 @@ from notifications import (
     NotificationResponse,
     NotificationUpdate,
     create_notification,
+    delete_all_notifications,
     delete_notification,
     get_db,
     get_notification,
@@ -95,6 +96,16 @@ async def delete_notification_endpoint(
     notification = delete_notification(db, notification_id)
     if notification is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notifications_endpoint(
+    user_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> None:
+    """Delete notifications in bulk for all users or a specific user."""
+    delete_all_notifications(db, user_id=user_id)
 
 
 @router.put("/mark-all-read", status_code=status.HTTP_204_NO_CONTENT)

@@ -160,7 +160,21 @@ def test_api_routes():
         print_result("DELETE /notifications/{id}", False, f"Error: {str(e)}")
         all_passed = False
     
-    # Test 6: Mark all as read endpoint
+    # Test 6: Clear all notifications endpoint
+    try:
+        response = client.delete("/notifications")
+        passed = response.status_code in [401, 403, 307]
+        print_result(
+            "DELETE /notifications (requires auth)",
+            passed,
+            f"Status: {response.status_code} (auth required as expected)"
+        )
+        all_passed = all_passed and passed
+    except Exception as e:
+        print_result("DELETE /notifications", False, f"Error: {str(e)}")
+        all_passed = False
+    
+    # Test 7: Mark all as read endpoint
     try:
         response = client.put("/notifications/mark-all-read")
         passed = response.status_code in [401, 403, 307]
