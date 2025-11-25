@@ -83,6 +83,29 @@ class Settings:
         self.WEEKLY_REPORT_DAY = os.getenv("WEEKLY_REPORT_DAY", "monday")  # monday, tuesday, etc.
         self.WEEKLY_REPORT_TIME = os.getenv("WEEKLY_REPORT_TIME", "09:00")  # HH:MM format
         
+        # Notification center settings
+        self.NOTIFICATION_SYNC_INTERVAL = int(os.getenv("NOTIFICATION_SYNC_INTERVAL", "300"))  # 5 minutes
+        self.NOTIFICATION_CLEANUP_INTERVAL = int(os.getenv("NOTIFICATION_CLEANUP_INTERVAL", "3600"))  # 1 hour
+        self.NOTIFICATION_RETENTION_DAYS = int(os.getenv("NOTIFICATION_RETENTION_DAYS", "30"))
+        self.NOTIFICATION_AUTO_ARCHIVE_HOURS = int(os.getenv("NOTIFICATION_AUTO_ARCHIVE_HOURS", "24"))
+        self.NOTIFICATION_DEDUP_WINDOW = int(os.getenv("NOTIFICATION_DEDUP_WINDOW", "300"))  # 5 minutes
+        
+        # Webhook integration settings
+        self.WEBHOOK_URLS = [url.strip() for url in os.getenv("WEBHOOK_URLS", "").split(",") if url.strip()]
+        self.WEBHOOK_TIMEOUT = int(os.getenv("WEBHOOK_TIMEOUT", "30"))
+        self.WEBHOOK_MAX_RETRIES = int(os.getenv("WEBHOOK_MAX_RETRIES", "3"))
+        
+        # Notification routing settings
+        self.NOTIFICATION_TELEGRAM_ENABLED = os.getenv("NOTIFICATION_TELEGRAM_ENABLED", "true").lower() == "true"
+        self.NOTIFICATION_EMAIL_ENABLED = os.getenv("NOTIFICATION_EMAIL_ENABLED", "true").lower() == "true"
+        self.NOTIFICATION_WEBHOOK_ENABLED = os.getenv("NOTIFICATION_WEBHOOK_ENABLED", "false").lower() == "true"
+        
+        # Priority routing thresholds
+        self.CRITICAL_NOTIFICATION_ROUTES = os.getenv("CRITICAL_NOTIFICATION_ROUTES", "telegram,email,webhook").split(",")
+        self.HIGH_NOTIFICATION_ROUTES = os.getenv("HIGH_NOTIFICATION_ROUTES", "telegram,email").split(",")
+        self.MEDIUM_NOTIFICATION_ROUTES = os.getenv("MEDIUM_NOTIFICATION_ROUTES", "email").split(",")
+        self.LOW_NOTIFICATION_ROUTES = os.getenv("LOW_NOTIFICATION_ROUTES", "").split(",")
+        
         # File upload settings
         self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "50")) * 1024 * 1024  # 50MB default
         self.ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]

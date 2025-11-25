@@ -129,18 +129,103 @@ Server: {settings.BASE_URL}
             email_success = await self.send_email_alert(subject, formatted_message)
             success = success and email_success
         
-        # Store in database notifications
+        # Store in database notifications with enhanced features
         try:
-            from notifications import send_notification
-            send_notification(
-                title=f"Alert: {subject}",
-                message=message,
-                notification_type="error" if severity == "high" else "warning"
-            )
+            from notifications import send_notification, NotificationPriority
+            from notification_integrations import notification_integrator
+            from notification_sync import notification_aggregator
+            
+            # Determine priority based on severity
+            priority_map = {
+                "high": NotificationPriority.HIGH,
+                "medium": NotificationPriority.MEDIUM,
+                "low": NotificationPriority.LOW
+            }
+            notification_priority = priority_map.get(severity, NotificationPriority.MEDIUM)
+            
+            # Create enhanced notification data
+            notification_data = {
+                "title": f"Alert: {subject}",
+                "message": message,
+                "notification_type": "error" if severity == "high" else "warning",
+                "priority": notification_priority,
+                "source": "alerting_system",
+                "service_name": "vertex_ar",
+                "event_data": {
+                    "alert_type": alert_type,
+                    "severity": severity,
+                    "subject": subject,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }
+            
+            # Check if should aggregate
+            existing_notifications = []
+            try:
+                from notifications import get_db, get_notifications
+                db = next(get_db())
+                existing_notifications = get_notifications(db, limit=100)
+                db.close()
+            except Exception as e:
+                logger.warning(f"Could not fetch existing notifications for aggregation: {e}")
+            
+            # Check aggregation
+            rule_name = notification_aggregator.should_aggregate(notification_data, existing_notifications)
+            if rule_name:
+                notification_data = notification_aggregator.generate_aggregated_notification(
+                    notification_data, existing_notifications, rule_name
+                )
+            
+            # Send to database
+            send_notification(**notification_data)
+            
+            # Route through integrations based on priority
+            if self.enabled:
+                routes = self._get_routes_for_priority(notification_priority.value)
+                if routes:
+                    await notification_integrator.route_notification(
+                        notification_data, routes, notification_priority.value
+                    )
+            
         except Exception as e:
-            logger.error(f"Failed to store alert in database: {e}")
+            logger.error(f"Failed to store/route alert in enhanced notification system: {e}")
+            
+            # Fallback to original method
+            try:
+                from notifications import send_notification
+                send_notification(
+                    title=f"Alert: {subject}",
+                    message=message,
+                    notification_type="error" if severity == "high" else "warning"
+                )
+            except Exception as fallback_error:
+                logger.error(f"Failed to store alert in database: {fallback_error}")
+    
+    def _get_routes_for_priority(self, priority: str) -> List[str]:
+        """Get integration routes based on priority."""
+        from app.config import settings
         
-        return success
+        route_map = {
+            "critical": settings.CRITICAL_NOTIFICATION_ROUTES,
+            "high": settings.HIGH_NOTIFICATION_ROUTES,
+            "medium": settings.MEDIUM_NOTIFICATION_ROUTES,
+            "low": settings.LOW_NOTIFICATION_ROUTES
+        }
+        
+        routes = route_map.get(priority, [])
+        
+        # Filter based on enabled integrations
+        filtered_routes = []
+        for route in routes:
+            route = route.strip()
+            if route == "telegram" and settings.NOTIFICATION_TELEGRAM_ENABLED:
+                filtered_routes.append(route)
+            elif route == "email" and settings.NOTIFICATION_EMAIL_ENABLED:
+                filtered_routes.append(route)
+            elif route == "webhook" and settings.NOTIFICATION_WEBHOOK_ENABLED:
+                filtered_routes.append(route)
+        
+        return filtered_routes
     
     async def test_alert_system(self) -> Dict[str, bool]:
         """Test all alert channels."""

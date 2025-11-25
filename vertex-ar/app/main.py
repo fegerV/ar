@@ -129,7 +129,7 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, yandex_disk
+    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, notifications_management, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, yandex_disk
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -148,6 +148,7 @@ def create_app() -> FastAPI:
     app.include_router(yandex_disk.router, tags=["yandex_disk"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
+    app.include_router(notifications_management.router)
     app.include_router(monitoring.router, prefix="/admin")
     app.include_router(mobile.router, prefix="/api/mobile", tags=["mobile"])
     
@@ -225,6 +226,40 @@ def create_app() -> FastAPI:
             # Start weekly report scheduler
             asyncio.create_task(weekly_report_generator.start_weekly_report_scheduler())
             logger.info("Weekly report scheduler started")
+    
+    # Start notification center services
+    @app.on_event("startup")
+    async def start_notification_services():
+        """Start notification center background services."""
+        try:
+            import asyncio
+            from notification_integrations import notification_scheduler
+            from notification_sync import notification_sync_manager
+            
+            # Start notification scheduler
+            asyncio.create_task(notification_scheduler.start())
+            logger.info("Notification scheduler started")
+            
+            # Start notification sync manager
+            asyncio.create_task(notification_sync_manager.start())
+            logger.info("Notification sync manager started")
+            
+        except Exception as e:
+            logger.error("Failed to start notification services", error=str(e), exc_info=e)
+    
+    @app.on_event("shutdown")
+    async def stop_notification_services():
+        """Stop notification center background services."""
+        try:
+            from notification_integrations import notification_scheduler
+            from notification_sync import notification_sync_manager
+            
+            notification_scheduler.stop()
+            notification_sync_manager.stop()
+            logger.info("Notification services stopped")
+            
+        except Exception as e:
+            logger.error("Failed to stop notification services", error=str(e), exc_info=e)
     
     # Start automated backup scheduler
     @app.on_event("startup")
