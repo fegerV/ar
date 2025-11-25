@@ -1,0 +1,49 @@
+{
+  "content_types": {
+    "portraits": {
+      "storage_type": "local",
+      "yandex_disk": {
+        "enabled": false,
+        "base_path": "vertex-ar/portraits"
+      }
+    },
+    "videos": {
+      "storage_type": "local",
+      "yandex_disk": {
+        "enabled": false,
+        "base_path": "vertex-ar/videos"
+      }
+    },
+    "previews": {
+      "storage_type": "local",
+      "yandex_disk": {
+        "enabled": false,
+        "base_path": "vertex-ar/previews"
+      }
+    },
+    "nft_markers": {
+      "storage_type": "local",
+      "yandex_disk": {
+        "enabled": false,
+        "base_path": "vertex-ar/nft_markers"
+      }
+    }
+  },
+  "backup_settings": {
+    "auto_split_backups": true,
+    "max_backup_size_mb": 500,
+    "chunk_size_mb": 100,
+    "compression": "gz"
+  },
+  "yandex_disk": {
+    "oauth_token": "",
+    "enabled": false
+  },
+  "minio": {
+    "enabled": false,
+    "endpoint": "",
+    "access_key": "",
+    "secret_key": "",
+    "bucket": ""
+  }
+}
