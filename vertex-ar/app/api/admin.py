@@ -262,6 +262,87 @@ async def admin_notifications_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("admin_notifications.html", context)
 
 
+@router.get("/settings", response_class=HTMLResponse)
+async def admin_settings_panel(request: Request) -> HTMLResponse:
+    """Serve admin settings page."""
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
+
+    templates = get_templates()
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_settings.html", context)
+
+
+@router.post("/settings/backup")
+async def admin_backup_settings(
+    request: Request,
+    settings_data: Dict[str, Any],
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Save backup settings."""
+    try:
+        # Save settings to a configuration file or database
+        # For now, we'll store them in a JSON config file
+        from pathlib import Path
+        import json
+        
+        config_dir = Path("app_data")
+        config_dir.mkdir(exist_ok=True)
+        config_file = config_dir / "backup_settings.json"
+        
+        # Load existing settings
+        existing_settings = {}
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                existing_settings = json.load(f)
+        
+        # Update with new settings
+        existing_settings.update(settings_data)
+        
+        # Save updated settings
+        with open(config_file, 'w') as f:
+            json.dump(existing_settings, f, indent=2)
+        
+        logger.info(f"Backup settings updated by admin: {_}")
+        
+        return {"success": True, "message": "Backup settings saved successfully"}
+        
+    except Exception as e:
+        logger.error(f"Failed to save backup settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {str(e)}")
+
+
+@router.get("/settings/backup")
+async def admin_get_backup_settings(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Get current backup settings."""
+    try:
+        from pathlib import Path
+        import json
+        
+        config_file = Path("app_data/backup_settings.json")
+        
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                settings = json.load(f)
+        else:
+            # Default settings
+            settings = {
+                "compression": "gz",
+                "max_backups": 7,
+                "auto_split_backups": True
+            }
+        
+        return {"success": True, "settings": settings}
+        
+    except Exception as e:
+        logger.error(f"Failed to get backup settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
+
+
 @router.get("/order/{portrait_id}", response_class=HTMLResponse)
 async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse:
     """Serve order detail page."""

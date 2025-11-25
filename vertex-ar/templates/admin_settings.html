@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Vertex AR Admin Settings - Настройки системы">
+    <title>Settings - Vertex AR</title>
+    
+    <!-- Critical CSS for above-the-fold content -->
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #2a2a2a;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-btn {
+            background: var(--danger-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            transition: all var(--transition-speed);
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .nav-tab {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--light-color);
+        }
+
+        .nav-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Settings Sections */
+        .settings-container {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .settings-section {
+            background: var(--light-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .settings-section h2 {
+            color: var(--text-color);
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            transition: all var(--transition-speed);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-disconnected {
+            background: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .status-testing {
+            background: rgba(255, 193, 7, 0.2);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        /* Storage Info Card */
+        .storage-info-card {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .storage-info-card h4 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .storage-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .storage-stat:last-child {
+            border-bottom: none;
+        }
+
+        .storage-stat .label {
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .storage-stat .value {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-fill.warning {
+            background: var(--warning-color);
+        }
+
+        .progress-fill.danger {
+            background: var(--danger-color);
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            border: 1px solid;
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        .alert-error {
+            background: rgba(220, 53, 69, 0.1);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border-color: var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .alert-info {
+            background: rgba(23, 162, 184, 0.1);
+            border-color: var(--info-color);
+            color: var(--info-color);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+
+            .header-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>⚙️ Настройки - Vertex AR</h1>
+            <div class="header-actions">
+                <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                <a href="/admin/logout" class="logout-btn">Выйти</a>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <a href="/admin" class="nav-tab">🏠 Dashboard</a>
+            <a href="/admin/clients" class="nav-tab">👥 Клиенты</a>
+            <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+            <a href="/admin/notifications" class="nav-tab">🔔 Уведомления</a>
+            <a href="/admin/settings" class="nav-tab active">⚙️ Настройки</a>
+        </div>
+
+        <!-- Settings Container -->
+        <div class="settings-container">
+            <!-- Yandex Disk Settings -->
+            <section class="settings-section">
+                <h2>📁 Настройка хранилищ</h2>
+                
+                <div id="alertContainer"></div>
+
+                <!-- Yandex Disk Configuration -->
+                <div class="form-group">
+                    <label for="yandexToken">Yandex Disk OAuth Token</label>
+                    <textarea id="yandexToken" placeholder="Введите OAuth токен для Yandex Disk API..." rows="3"></textarea>
+                    <small style="color: var(--text-color); opacity: 0.7;">
+                        Токен можно получить на <a href="https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart" target="_blank" style="color: var(--primary-color);">Yandex Disk API</a>
+                    </small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="yandexRemoteDir">Удаленная директория</label>
+                        <input type="text" id="yandexRemoteDir" value="vertex-ar-backups" placeholder="Имя папки на Yandex Disk">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxBackupSize">Макс. размер бэкапа (МБ)</label>
+                        <input type="number" id="maxBackupSize" value="500" min="50" step="50" placeholder="Разделить бэкапы если больше">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button id="testYandexConnection" class="btn btn-primary">
+                        🔗 Тестировать соединение
+                    </button>
+                    <button id="saveYandexConfig" class="btn btn-success">
+                        💾 Сохранить настройки
+                    </button>
+                    <button id="getYandexInfo" class="btn btn-secondary">
+                        📊 Информация о хранилище
+                    </button>
+                </div>
+
+                <!-- Connection Status -->
+                <div id="connectionStatus" style="margin-top: 1rem; display: none;">
+                    <span class="status-indicator">
+                        <span id="statusIcon">●</span>
+                        <span id="statusText">Проверка соединения...</span>
+                    </span>
+                </div>
+
+                <!-- Storage Information -->
+                <div id="storageInfo" class="storage-info-card" style="display: none;">
+                    <h4>Информация о Yandex Disk</h4>
+                    <div class="storage-stat">
+                        <span class="label">Всего места:</span>
+                        <span class="value" id="totalSpace">-</span>
+                    </div>
+                    <div class="storage-stat">
+                        <span class="label">Использовано:</span>
+                        <span class="value" id="usedSpace">-</span>
+                    </div>
+                    <div class="storage-stat">
+                        <span class="label">Доступно:</span>
+                        <span class="value" id="availableSpace">-</span>
+                    </div>
+                    <div class="storage-stat">
+                        <span class="label">Использование:</span>
+                        <span class="value" id="usagePercent">-</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="usageProgress" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Backup Settings -->
+            <section class="settings-section">
+                <h2>🔒 Настройки бэкапов</h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="backupCompression">Сжатие бэкапов</label>
+                        <select id="backupCompression">
+                            <option value="gz">gzip (рекомендуется)</option>
+                            <option value="bz2">bzip2 (лучше сжатие)</option>
+                            <option value="xz">xz (максимальное сжатие)</option>
+                            <option value="">Без сжатия</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="maxBackups">Максимальное количество бэкапов</label>
+                        <input type="number" id="maxBackups" value="7" min="1" max="30">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="autoSplitBackups">
+                        <input type="checkbox" id="autoSplitBackups" checked>
+                        Автоматически разделять большие бэкапы на части
+                    </label>
+                    <small style="color: var(--text-color); opacity: 0.7;">
+                        Бэкапы больше указанного размера будут автоматически разделены на части по 100МБ для надежной загрузки
+                    </small>
+                </div>
+
+                <div class="btn-group">
+                    <button id="saveBackupSettings" class="btn btn-success">
+                        💾 Сохранить настройки бэкапов
+                    </button>
+                    <button id="testBackupCreation" class="btn btn-secondary">
+                        🧪 Тестировать создание бэкапа
+                    </button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('admin-theme', newTheme);
+            
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+            }
+        }
+
+        // Apply saved theme
+        (function() {
+            const savedTheme = localStorage.getItem('admin-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+            }
+            
+            if (themeToggle) {
+                themeToggle.addEventListener('click', toggleTheme);
+            }
+        })();
+
+        // Alert system
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Connection status
+        function updateConnectionStatus(status, text) {
+            const statusDiv = document.getElementById('connectionStatus');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            
+            statusDiv.style.display = 'block';
+            
+            // Remove all status classes
+            statusDiv.querySelector('.status-indicator').className = 'status-indicator';
+            
+            switch(status) {
+                case 'connected':
+                    statusDiv.querySelector('.status-indicator').classList.add('status-connected');
+                    statusIcon.textContent = '●';
+                    break;
+                case 'disconnected':
+                    statusDiv.querySelector('.status-indicator').classList.add('status-disconnected');
+                    statusIcon.textContent = '●';
+                    break;
+                case 'testing':
+                    statusDiv.querySelector('.status-indicator').classList.add('status-testing');
+                    statusIcon.innerHTML = '<span class="spinner"></span>';
+                    break;
+            }
+            
+            statusText.textContent = text;
+        }
+
+        // Format bytes to human readable format
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Test Yandex Disk connection
+        async function testYandexConnection() {
+            const token = document.getElementById('yandexToken').value.trim();
+            
+            if (!token) {
+                showAlert('Пожалуйста, введите OAuth токен', 'error');
+                return;
+            }
+
+            updateConnectionStatus('testing', 'Проверка соединения...');
+            
+            try {
+                // First save the token temporarily
+                const response = await fetch('/remote-storage/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        yandex_disk: {
+                            enabled: true,
+                            oauth_token: token
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save configuration');
+                }
+
+                // Test connection
+                const testResponse = await fetch('/remote-storage/test-connection/yandex_disk', {
+                    credentials: 'include'
+                });
+
+                const testResult = await testResponse.json();
+                
+                if (testResult.connected) {
+                    updateConnectionStatus('connected', 'Соединение установлено успешно');
+                    showAlert('Соединение с Yandex Disk установлено успешно!', 'success');
+                    
+                    // Load storage info
+                    loadStorageInfo();
+                } else {
+                    updateConnectionStatus('disconnected', 'Ошибка соединения');
+                    showAlert('Не удалось установить соединение с Yandex Disk. Проверьте токен.', 'error');
+                }
+            } catch (error) {
+                updateConnectionStatus('disconnected', 'Ошибка соединения');
+                showAlert('Ошибка при проверке соединения: ' + error.message, 'error');
+            }
+        }
+
+        // Load storage information
+        async function loadStorageInfo() {
+            try {
+                const response = await fetch('/remote-storage/storage-info/yandex_disk', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to get storage info');
+                }
+
+                const info = await response.json();
+                
+                document.getElementById('totalSpace').textContent = formatBytes(info.total_gb * 1024 * 1024 * 1024);
+                document.getElementById('usedSpace').textContent = formatBytes(info.used_gb * 1024 * 1024 * 1024);
+                document.getElementById('availableSpace').textContent = formatBytes(info.available_gb * 1024 * 1024 * 1024);
+                
+                const usagePercent = (info.used_gb / info.total_gb * 100).toFixed(1);
+                document.getElementById('usagePercent').textContent = usagePercent + '%';
+                
+                const progressBar = document.getElementById('usageProgress');
+                progressBar.style.width = usagePercent + '%';
+                
+                // Change color based on usage
+                progressBar.className = 'progress-fill';
+                if (usagePercent > 80) {
+                    progressBar.classList.add('danger');
+                } else if (usagePercent > 60) {
+                    progressBar.classList.add('warning');
+                }
+                
+                document.getElementById('storageInfo').style.display = 'block';
+            } catch (error) {
+                showAlert('Не удалось загрузить информацию о хранилище: ' + error.message, 'error');
+            }
+        }
+
+        // Save Yandex Disk configuration
+        async function saveYandexConfig() {
+            const token = document.getElementById('yandexToken').value.trim();
+            const remoteDir = document.getElementById('yandexRemoteDir').value.trim();
+            const maxBackupSize = document.getElementById('maxBackupSize').value;
+            
+            if (!token) {
+                showAlert('Пожалуйста, введите OAuth токен', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/remote-storage/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        yandex_disk: {
+                            enabled: true,
+                            oauth_token: token,
+                            remote_dir: remoteDir || 'vertex-ar-backups',
+                            max_backup_size_mb: parseInt(maxBackupSize) || 500
+                        }
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Настройки Yandex Disk сохранены успешно!', 'success');
+                } else {
+                    showAlert('Ошибка при сохранении настроек: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при сохранении настроек: ' + error.message, 'error');
+            }
+        }
+
+        // Load current configuration
+        async function loadCurrentConfig() {
+            try {
+                const response = await fetch('/remote-storage/config', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const config = await response.json();
+                
+                // Load Yandex Disk settings if available
+                if (config.has_yandex_disk) {
+                    // For security, we don't load the token back
+                    document.getElementById('yandexRemoteDir').value = 'vertex-ar-backups';
+                    document.getElementById('maxBackupSize').value = '500';
+                }
+            } catch (error) {
+                console.error('Failed to load current config:', error);
+            }
+        }
+
+        // Load backup settings
+        async function loadBackupSettings() {
+            try {
+                const response = await fetch('/admin/settings/backup', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const settings = result.settings;
+                    document.getElementById('backupCompression').value = settings.compression || 'gz';
+                    document.getElementById('maxBackups').value = settings.max_backups || 7;
+                    document.getElementById('autoSplitBackups').checked = settings.auto_split_backups !== false;
+                }
+            } catch (error) {
+                console.error('Failed to load backup settings:', error);
+            }
+        }
+
+        // Save backup settings
+        async function saveBackupSettings() {
+            const compression = document.getElementById('backupCompression').value;
+            const maxBackups = document.getElementById('maxBackups').value;
+            const autoSplit = document.getElementById('autoSplitBackups').checked;
+            
+            try {
+                const response = await fetch('/admin/settings/backup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        compression: compression,
+                        max_backups: parseInt(maxBackups),
+                        auto_split_backups: autoSplit
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Настройки бэкапов сохранены успешно!', 'success');
+                } else {
+                    showAlert('Ошибка при сохранении настроек бэкапов: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при сохранении настроек бэкапов: ' + error.message, 'error');
+            }
+        }
+
+        // Test backup creation
+        async function testBackupCreation() {
+            showAlert('Создание тестового бэкапа...', 'info');
+            
+            try {
+                const response = await fetch('/backups/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        type: 'database',
+                        test: true
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Тестовый бэкап создан успешно!', 'success');
+                } else {
+                    showAlert('Ошибка при создании тестового бэкапа: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при создании тестового бэкапа: ' + error.message, 'error');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('testYandexConnection').addEventListener('click', testYandexConnection);
+        document.getElementById('saveYandexConfig').addEventListener('click', saveYandexConfig);
+        document.getElementById('getYandexInfo').addEventListener('click', loadStorageInfo);
+        document.getElementById('saveBackupSettings').addEventListener('click', saveBackupSettings);
+        document.getElementById('testBackupCreation').addEventListener('click', testBackupCreation);
+
+        // Load current configuration on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentConfig();
+            loadBackupSettings();
+        });
+    </script>
+</body>
+</html>

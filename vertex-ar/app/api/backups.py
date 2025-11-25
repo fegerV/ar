@@ -83,6 +83,7 @@ def resolve_backup_path(path_str: str, manager) -> Optional[Path]:
 class BackupCreateRequest(BaseModel):
     """Request model for creating a backup."""
     type: str = "full"  # full, database, or storage
+    test: bool = False  # Whether this is a test backup
 
 
 class BackupRestoreRequest(BaseModel):
@@ -165,7 +166,8 @@ async def create_backup(
     try:
         manager = create_backup_manager()
 
-        logger.info("Creating backup", backup_type=request.type, admin=_admin)
+        backup_type = f"{request.type}{' (test)' if request.test else ''}"
+        logger.info("Creating backup", backup_type=backup_type, admin=_admin)
 
         if request.type == "database":
             result = manager.backup_database()
@@ -179,12 +181,17 @@ async def create_backup(
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Backup failed"))
 
-        # Rotate old backups in background
-        background_tasks.add_task(manager.rotate_backups)
+        # For test backups, don't rotate old backups
+        if not request.test:
+            # Rotate old backups in background
+            background_tasks.add_task(manager.rotate_backups)
 
+        message = f"{'Test ' if request.test else ''}Backup created successfully"
+        
         return {
             "success": True,
-            "message": "Backup created successfully",
+            "message": message,
+            "test": request.test,
             "backup": format_backup_info(result.get("metadata", result))
         }
 

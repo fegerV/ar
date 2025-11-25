@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import hashlib
+import os
 
 from logging_setup import get_logger
 
@@ -58,6 +59,130 @@ class BackupManager:
     def _get_timestamp(self) -> str:
         """Get current timestamp for backup naming."""
         return datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def _split_large_file(self, file_path: Path, max_size_mb: int = 100) -> List[Path]:
+        """
+        Split a large file into smaller chunks.
+        
+        Args:
+            file_path: Path to the large file
+            max_size_mb: Maximum size of each chunk in MB
+            
+        Returns:
+            List of paths to the split files
+        """
+        if not file_path.exists():
+            return []
+        
+        file_size = file_path.stat().st_size
+        max_size_bytes = max_size_mb * 1024 * 1024
+        
+        if file_size <= max_size_bytes:
+            return [file_path]
+        
+        split_files = []
+        base_name = file_path.stem
+        extension = file_path.suffix
+        parent_dir = file_path.parent
+        
+        chunk_num = 1
+        bytes_read = 0
+        
+        try:
+            with open(file_path, 'rb') as input_file:
+                while bytes_read < file_size:
+                    chunk_path = parent_dir / f"{base_name}.part{chunk_num:03d}{extension}"
+                    split_files.append(chunk_path)
+                    
+                    with open(chunk_path, 'wb') as chunk_file:
+                        chunk_bytes_written = 0
+                        while chunk_bytes_written < max_size_bytes and bytes_read < file_size:
+                            chunk_size = min(8192, max_size_bytes - chunk_bytes_written, file_size - bytes_read)
+                            data = input_file.read(chunk_size)
+                            chunk_file.write(data)
+                            chunk_bytes_written += len(data)
+                            bytes_read += len(data)
+                    
+                    chunk_num += 1
+            
+            logger.info(
+                "File split into chunks",
+                original_file=str(file_path),
+                original_size_mb=round(file_size / (1024 * 1024), 2),
+                chunks_count=len(split_files),
+                chunk_size_mb=max_size_mb
+            )
+            
+            return split_files
+            
+        except Exception as e:
+            logger.error("Failed to split file", error=str(e), file=str(file_path))
+            # Clean up partial chunks
+            for chunk_file in split_files:
+                if chunk_file.exists():
+                    chunk_file.unlink()
+            return []
+    
+    def _merge_split_files(self, split_files: List[Path], output_path: Path) -> bool:
+        """
+        Merge split files back into a single file.
+        
+        Args:
+            split_files: List of split file paths (in order)
+            output_path: Path for the merged output file
+            
+        Returns:
+            True if merge was successful
+        """
+        if not split_files:
+            return False
+        
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'wb') as output_file:
+                for split_file in split_files:
+                    if not split_file.exists():
+                        logger.error("Split file missing", file=str(split_file))
+                        return False
+                    
+                    with open(split_file, 'rb') as input_file:
+                        shutil.copyfileobj(input_file, output_file)
+            
+            logger.info(
+                "Files merged successfully",
+                output_file=str(output_path),
+                chunks_count=len(split_files)
+            )
+            
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to merge files", error=str(e), output=str(output_path))
+            return False
+    
+    def _get_backup_settings(self) -> Dict[str, Any]:
+        """
+        Get backup settings from configuration file.
+        
+        Returns:
+            Dictionary with backup settings
+        """
+        try:
+            config_file = Path("app_data/backup_settings.json")
+            if config_file.exists():
+                with open(config_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.error("Failed to load backup settings", error=str(e))
+        
+        # Default settings
+        return {
+            "compression": "gz",
+            "max_backups": 7,
+            "auto_split_backups": True,
+            "max_backup_size_mb": 500
+        }
     
     def _calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA256 checksum of a file."""
@@ -147,14 +272,20 @@ class BackupManager:
             logger.warning("Storage directory not found", storage_path=str(self.storage_path))
             return {"success": False, "error": "Storage directory not found"}
         
+        # Get backup settings
+        settings = self._get_backup_settings()
+        compression = settings.get("compression", self.compression)
+        auto_split = settings.get("auto_split_backups", True)
+        max_size_mb = settings.get("max_backup_size_mb", 500)
+        
         timestamp = timestamp or self._get_timestamp()
-        archive_ext = f".tar.{self.compression}" if self.compression else ".tar"
+        archive_ext = f".tar.{compression}" if compression else ".tar"
         backup_filename = f"storage_backup_{timestamp}{archive_ext}"
         backup_path = self.storage_backup_dir / backup_filename
         
         try:
             # Create compressed tar archive
-            compression_mode = f"w:{self.compression}" if self.compression else "w"
+            compression_mode = f"w:{compression}" if compression else "w"
             
             with tarfile.open(backup_path, compression_mode) as tar:
                 tar.add(self.storage_path, arcname="storage")
@@ -177,10 +308,26 @@ class BackupManager:
                 "file_size": file_size,
                 "file_count": file_count,
                 "checksum": checksum,
-                "compression": self.compression,
-                "created_at": datetime.now().isoformat()
+                "compression": compression,
+                "created_at": datetime.now().isoformat(),
+                "split_files": []
             }
             
+            # Split large file if needed
+            split_files = []
+            if auto_split and file_size > max_size_mb * 1024 * 1024:
+                split_files = self._split_large_file(backup_path, max_size_mb)
+                if split_files and len(split_files) > 1:
+                    # Remove original large file
+                    backup_path.unlink()
+                    # Update backup path to first split file
+                    backup_path = split_files[0]
+                    # Add split files info to metadata
+                    metadata["split_files"] = [str(f) for f in split_files]
+                    metadata["split"] = True
+                    metadata["chunk_size_mb"] = max_size_mb
+            
+            # Save metadata file (for main backup file or first chunk)
             metadata_path = backup_path.with_suffix(".json")
             with open(metadata_path, "w") as f:
                 json.dump(metadata, f, indent=2)
@@ -189,13 +336,15 @@ class BackupManager:
                 "Storage backup created",
                 backup_path=str(backup_path),
                 size_mb=round(file_size / (1024 * 1024), 2),
-                file_count=file_count
+                file_count=file_count,
+                chunks=len(split_files) if split_files else 1
             )
             
             return {
                 "success": True,
                 "backup_path": str(backup_path),
-                "metadata": metadata
+                "metadata": metadata,
+                "split_files": split_files
             }
             
         except Exception as e:
@@ -577,26 +726,90 @@ class BackupManager:
             return {"success": False, "error": "Backup file not found"}
         
         try:
-            # Construct remote path
-            remote_path = f"{remote_dir}/{backup_path.name}"
+            # Check if this is a split backup
+            metadata_path = backup_path.with_suffix(".json")
+            split_files = []
             
-            # Upload backup file
-            result = remote_storage.upload_file(backup_path, remote_path)
+            if metadata_path.exists():
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    split_files = metadata.get("split_files", [])
             
-            if result.get("success"):
-                # Also upload metadata file if exists
-                metadata_path = backup_path.with_suffix(".json")
-                if metadata_path.exists():
-                    metadata_remote_path = f"{remote_dir}/{metadata_path.name}"
-                    remote_storage.upload_file(metadata_path, metadata_remote_path)
+            # If split files exist, sync all of them
+            if split_files:
+                uploaded_files = []
+                total_size = 0
                 
-                logger.info(
-                    "Backup synced to remote storage",
-                    backup_file=backup_path.name,
-                    remote_path=remote_path
-                )
+                for split_file_path in split_files:
+                    split_path = Path(split_file_path)
+                    if not split_path.exists():
+                        logger.error("Split file not found", file=str(split_path))
+                        continue
+                    
+                    # Construct remote path for split file
+                    remote_path = f"{remote_dir}/{split_path.name}"
+                    
+                    # Upload split file
+                    result = remote_storage.upload_file(split_path, remote_path)
+                    
+                    if result.get("success"):
+                        uploaded_files.append(split_path.name)
+                        total_size += split_path.stat().st_size
+                        logger.info(
+                            "Split file synced to remote storage",
+                            split_file=split_path.name,
+                            remote_path=remote_path
+                        )
+                    else:
+                        logger.error(
+                            "Failed to sync split file",
+                            split_file=split_path.name,
+                            error=result.get("error")
+                        )
+                
+                # Upload metadata file
+                metadata_remote_path = f"{remote_dir}/{metadata_path.name}"
+                remote_storage.upload_file(metadata_path, metadata_remote_path)
+                
+                if uploaded_files:
+                    logger.info(
+                        "Split backup synced to remote storage",
+                        chunks_count=len(uploaded_files),
+                        total_size_mb=round(total_size / (1024 * 1024), 2)
+                    )
+                    
+                    return {
+                        "success": True,
+                        "remote_path": f"{remote_dir}/{Path(split_files[0]).name}",
+                        "split_files": uploaded_files,
+                        "chunks_count": len(uploaded_files),
+                        "size": total_size
+                    }
+                else:
+                    return {"success": False, "error": "No split files were uploaded"}
             
-            return result
+            # Single file backup (original logic)
+            else:
+                # Construct remote path
+                remote_path = f"{remote_dir}/{backup_path.name}"
+                
+                # Upload backup file
+                result = remote_storage.upload_file(backup_path, remote_path)
+                
+                if result.get("success"):
+                    # Also upload metadata file if exists
+                    metadata_path = backup_path.with_suffix(".json")
+                    if metadata_path.exists():
+                        metadata_remote_path = f"{remote_dir}/{metadata_path.name}"
+                        remote_storage.upload_file(metadata_path, metadata_remote_path)
+                    
+                    logger.info(
+                        "Backup synced to remote storage",
+                        backup_file=backup_path.name,
+                        remote_path=remote_path
+                    )
+                
+                return result
             
         except Exception as e:
             logger.error("Failed to sync backup to remote", error=str(e))
