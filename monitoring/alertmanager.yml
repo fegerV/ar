@@ -1,0 +1,97 @@
+# AlertManager configuration for Vertex AR
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@vertex-ar.example.com'
+  smtp_auth_username: 'alerts@vertex-ar.example.com'
+  smtp_auth_password: 'your-smtp-password'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 30m
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      repeat_interval: 2h
+    - match:
+        service: vertex-ar
+      receiver: 'vertex-ar-team'
+
+# Receivers configuration
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://localhost:8000/admin/monitoring/webhook/alert'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@vertex-ar.example.com'
+        subject: '[CRITICAL] Vertex AR Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+    webhook_configs:
+      - url: 'http://localhost:8000/admin/monitoring/webhook/alert'
+        send_resolved: true
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'team@vertex-ar.example.com'
+        subject: '[WARNING] Vertex AR Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+    webhook_configs:
+      - url: 'http://localhost:8000/admin/monitoring/webhook/alert'
+        send_resolved: true
+
+  - name: 'vertex-ar-team'
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#vertex-ar-alerts'
+        title: 'Vertex AR Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+        send_resolved: true
+
+# Inhibition rules
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+# Time intervals
+time_intervals:
+  - name: 'business-hours'
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '17:00'
+        weekdays: ['monday:friday']
+
+  - name: 'weekends'
+    time_intervals:
+      - weekdays: ['saturday', 'sunday']

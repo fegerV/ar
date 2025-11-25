@@ -1,0 +1,257 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Vertex AR Server Monitoring",
+    "tags": ["vertex-ar", "monitoring", "system"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "vertex_ar_cpu_usage_percent{core=\"\"}",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Memory Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "vertex_ar_memory_usage_percent{type=\"virtual\"}",
+            "legendFormat": "Memory %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 95}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Disk Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "vertex_ar_disk_usage_percent{mountpoint=\"storage\"}",
+            "legendFormat": "Disk %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 85},
+                {"color": "red", "value": 95}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg(vertex_ar_service_health)",
+            "legendFormat": "Service Health"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "CPU Load Average",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_cpu_load_average",
+            "legendFormat": "{{period}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Load Average"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Memory Breakdown",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_memory_usage_bytes",
+            "legendFormat": "{{type}}",
+            "format": "bytes"
+          }
+        ],
+        "yAxes": [
+          {"label": "Bytes", "format": "bytes"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "Network Traffic",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(vertex_ar_network_bytes_total[5m])",
+            "legendFormat": "{{interface}}-{{direction}}",
+            "format": "Bps"
+          }
+        ],
+        "yAxes": [
+          {"label": "Bytes/sec", "format": "Bps"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Disk I/O",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(vertex_ar_disk_io_bytes[5m])",
+            "legendFormat": "{{direction}}",
+            "format": "Bps"
+          }
+        ],
+        "yAxes": [
+          {"label": "Bytes/sec", "format": "Bps"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 9,
+        "title": "Service Response Times",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_service_response_time_ms",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Response Time (ms)"}
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "Network Errors & Drops",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(vertex_ar_network_errors_total[5m])",
+            "legendFormat": "Errors-{{interface}}-{{direction}}"
+          },
+          {
+            "expr": "rate(vertex_ar_network_drops_total[5m])",
+            "legendFormat": "Drops-{{interface}}-{{direction}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Rate"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+      },
+      {
+        "id": 11,
+        "title": "Process Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_process_cpu_percent",
+            "legendFormat": "CPU %"
+          },
+          {
+            "expr": "vertex_ar_process_memory_bytes{type=\"rss\"}",
+            "legendFormat": "Memory RSS",
+            "format": "bytes"
+          }
+        ],
+        "yAxes": [
+          {"label": "Value"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}
+      },
+      {
+        "id": 12,
+        "title": "Disk Temperature",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_disk_temperature_celsius",
+            "legendFormat": "{{device}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Temperature (°C)"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40}
+      },
+      {
+        "id": 13,
+        "title": "Network Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "vertex_ar_network_connections",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Connections"}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

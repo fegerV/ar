@@ -2,6 +2,7 @@
 Monitoring and alerting API endpoints for Vertex AR admin panel.
 """
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel
 
@@ -124,6 +125,108 @@ async def get_system_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get metrics: {str(e)}"
+        )
+
+
+@router.get("/trends")
+async def get_system_trends(
+    hours: int = 24,
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """Get historical system trends and analysis."""
+    try:
+        if hours < 1 or hours > 168:  # Limit to 1 week
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hours parameter must be between 1 and 168 (1 week)"
+            )
+        
+        trends = system_monitor.get_historical_trends(hours=hours)
+        
+        return {
+            "success": True,
+            "data": trends,
+            "message": f"Analysis for the last {hours} hours"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting system trends: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get trends: {str(e)}"
+        )
+
+
+@router.get("/detailed-metrics")
+async def get_detailed_system_metrics(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """Get detailed system metrics with comprehensive information."""
+    try:
+        # Get all comprehensive metrics
+        cpu_metrics = system_monitor.get_cpu_usage()
+        memory_metrics = system_monitor.get_memory_usage()
+        disk_metrics = system_monitor.get_disk_usage()
+        network_metrics = system_monitor.get_network_stats()
+        service_health = system_monitor.get_service_health()
+        
+        # Get historical trends for context
+        trends = system_monitor.get_historical_trends(hours=1)  # Last hour trends
+        
+        # Compile comprehensive report
+        detailed_metrics = {
+            "timestamp": system_monitor.last_checks.get("system", datetime.utcnow()).isoformat(),
+            "system_overview": {
+                "cpu": {
+                    "current_usage": cpu_metrics["percent"],
+                    "load_average": cpu_metrics["load_average"],
+                    "per_core_usage": cpu_metrics["per_core"],
+                    "top_processes": cpu_metrics["top_processes"][:5],  # Top 5 processes
+                    "trend": trends["trends"].get("cpu", {}).get("trend", "unknown")
+                },
+                "memory": {
+                    "virtual": memory_metrics["virtual"],
+                    "swap": memory_metrics["swap"],
+                    "top_processes": memory_metrics["top_processes"][:5],  # Top 5 processes
+                    "trend": trends["trends"].get("memory", {}).get("trend", "unknown")
+                },
+                "disk": {
+                    "storage": disk_metrics["storage"],
+                    "partitions": disk_metrics["partitions"],
+                    "io_stats": disk_metrics["io_stats"],
+                    "temperature": disk_metrics["temperature"],
+                    "trend": trends["trends"].get("disk", {}).get("trend", "unknown")
+                },
+                "network": {
+                    "total": network_metrics["total"],
+                    "interfaces": network_metrics["interfaces"],
+                    "connections": network_metrics["connections"],
+                    "trend": trends["trends"].get("network", {})
+                },
+                "services": service_health
+            },
+            "alerts_summary": {
+                "active_alerts": len(service_health.get("recent_errors", {}).get("log_files", [])),
+                "service_health": {
+                    name: data.get("healthy", False) 
+                    for name, data in service_health.items() 
+                    if isinstance(data, dict) and "healthy" in data
+                }
+            }
+        }
+        
+        return {
+            "success": True,
+            "data": detailed_metrics,
+            "message": "Detailed system metrics retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting detailed system metrics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get detailed metrics: {str(e)}"
         )
 
 
