@@ -34,7 +34,10 @@ def get_database() -> Database:
 
 def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
     """Convert raw database record to API response."""
-    return VideoResponse(
+    app = get_current_app()
+    storage_manager = app.state.storage_manager
+    
+    response = VideoResponse(
         id=video["id"],
         portrait_id=video["portrait_id"],
         video_path=video["video_path"],
@@ -42,6 +45,14 @@ def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
         created_at=video["created_at"],
         file_size_mb=video.get("file_size_mb"),
     )
+    
+    # Add public URLs
+    if video.get("video_path"):
+        response.video_url = storage_manager.get_public_url(video["video_path"], "videos")
+    if video.get("video_preview_path"):
+        response.preview_url = storage_manager.get_public_url(video["video_preview_path"], "previews")
+    
+    return response
 
 
 @router.post("/", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
@@ -70,17 +81,18 @@ async def create_video(
     video_id = str(uuid.uuid4())
     
     app = get_current_app()
+    storage_manager = app.state.storage_manager
     storage_root = app.state.config["STORAGE_ROOT"]
     
-    # Create storage directories
+    # Generate paths for storage
+    portrait = database.get_portrait(portrait_id)
     client_id = portrait["client_id"]
-    portrait_storage = storage_root / "portraits" / client_id / portrait_id
-    portrait_storage.mkdir(parents=True, exist_ok=True)
+    video_path = f"portraits/{client_id}/{portrait_id}/{video_id}.mp4"
+    video_preview_path = f"portraits/{client_id}/{portrait_id}/{video_id}_preview.webp"
     
     # Read and save video
     video.file.seek(0)
     video_content = await video.read()
-    video_path = portrait_storage / f"{video_id}.mp4"
     
     # Calculate file size in MB
     file_size_bytes = len(video_content)
@@ -88,19 +100,18 @@ async def create_video(
     
     logger.info(f"Video file size: {file_size_bytes} bytes = {file_size_mb} MB")
     
-    with open(video_path, "wb") as f:
-        f.write(video_content)
+    # Save video using storage manager
+    await storage_manager.save_file(video_content, video_path, "videos")
     
     # Generate video preview with improved quality and WebP support
     from preview_generator import PreviewGenerator
-    video_preview_path = None
+    video_preview_path_saved = None
     
     try:
         video_preview = PreviewGenerator.generate_video_preview(video_content, size=(300, 300), format='webp')
         if video_preview and len(video_preview) > 0:
-            video_preview_path = portrait_storage / f"{video_id}_preview.webp"
-            with open(video_preview_path, "wb") as f:
-                f.write(video_preview)
+            await storage_manager.save_file(video_preview, video_preview_path, "previews")
+            video_preview_path_saved = video_preview_path
             logger.info(f"Video preview created: {video_preview_path}, size: {len(video_preview)} bytes")
         else:
             logger.warning(f"Failed to generate video preview for video {video_id}")
@@ -112,19 +123,27 @@ async def create_video(
     db_video = database.create_video(
         video_id=video_id,
         portrait_id=portrait_id,
-        video_path=str(video_path),
+        video_path=video_path,
         is_active=is_active,
-        video_preview_path=str(video_preview_path) if video_preview_path else None,
+        video_preview_path=video_preview_path_saved,
         description=description,
         file_size_mb=file_size_mb,
     )
     
     logger.info(f"Database returned video: {db_video}")
     
+    # Get public URLs using storage manager
+    if db_video.get("video_path"):
+        db_video["video_url"] = storage_manager.get_public_url(db_video["video_path"], "videos")
+    if db_video.get("video_preview_path"):
+        db_video["preview_url"] = storage_manager.get_public_url(db_video["video_preview_path"], "previews")
+    
     return VideoResponse(
         id=db_video["id"],
         portrait_id=db_video["portrait_id"],
         video_path=db_video["video_path"],
+        video_url=db_video.get("video_url"),
+        preview_url=db_video.get("preview_url"),
         is_active=bool(db_video["is_active"]),
         created_at=db_video["created_at"],
         file_size_mb=db_video.get("file_size_mb"),

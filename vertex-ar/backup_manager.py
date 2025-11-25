@@ -176,13 +176,30 @@ class BackupManager:
         except Exception as e:
             logger.error("Failed to load backup settings", error=str(e))
         
-        # Default settings
-        return {
-            "compression": "gz",
-            "max_backups": 7,
-            "auto_split_backups": True,
-            "max_backup_size_mb": 500
-        }
+        # Load settings from storage config
+        try:
+            from storage_config import get_storage_config
+            config = get_storage_config()
+            backup_settings = config.get_backup_settings()
+            
+            # Default settings
+            return {
+                "compression": backup_settings.get("compression", "gz"),
+                "max_backups": backup_settings.get("max_backups", 7),
+                "auto_split_backups": backup_settings.get("auto_split_backups", True),
+                "max_backup_size_mb": backup_settings.get("max_backup_size_mb", 500),
+                "chunk_size_mb": backup_settings.get("chunk_size_mb", 100)
+            }
+        except Exception as e:
+            logger.error("Failed to load storage config for backup settings", error=str(e))
+            # Fallback defaults
+            return {
+                "compression": "gz",
+                "max_backups": 7,
+                "auto_split_backups": True,
+                "max_backup_size_mb": 500,
+                "chunk_size_mb": 100
+            }
     
     def _calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA256 checksum of a file."""
@@ -316,7 +333,8 @@ class BackupManager:
             # Split large file if needed
             split_files = []
             if auto_split and file_size > max_size_mb * 1024 * 1024:
-                split_files = self._split_large_file(backup_path, max_size_mb)
+                chunk_size_mb = settings.get("chunk_size_mb", 100)
+                split_files = self._split_large_file(backup_path, chunk_size_mb)
                 if split_files and len(split_files) > 1:
                     # Remove original large file
                     backup_path.unlink()
@@ -325,7 +343,7 @@ class BackupManager:
                     # Add split files info to metadata
                     metadata["split_files"] = [str(f) for f in split_files]
                     metadata["split"] = True
-                    metadata["chunk_size_mb"] = max_size_mb
+                    metadata["chunk_size_mb"] = chunk_size_mb
             
             # Save metadata file (for main backup file or first chunk)
             metadata_path = backup_path.with_suffix(".json")

@@ -118,25 +118,18 @@ def create_app() -> FastAPI:
         session_timeout_minutes=settings.SESSION_TIMEOUT_MINUTES
     )
     
-    # Initialize storage adapter
-    from app.storage import StorageAdapter
-    if settings.STORAGE_TYPE == "minio":
-        from app.storage_minio import MinioStorageAdapter
-        app.state.storage = MinioStorageAdapter(
-            endpoint=settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            bucket=settings.MINIO_BUCKET
-        )
-    else:
-        from app.storage_local import LocalStorageAdapter
-        app.state.storage = LocalStorageAdapter(settings.STORAGE_ROOT)
+    # Initialize storage manager
+    from storage_manager import get_storage_manager
+    app.state.storage_manager = get_storage_manager(settings.STORAGE_ROOT)
+    
+    # Keep backward compatibility - set default storage adapter
+    app.state.storage = app.state.storage_manager.get_adapter("portraits")
     
     # Initialize templates
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring, mobile, remote_storage
+    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, orders, backups, monitoring, mobile, remote_storage, storage_config, yandex_disk
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -150,6 +143,8 @@ def create_app() -> FastAPI:
     app.include_router(orders.legacy_router, prefix="/api/orders", tags=["orders"])
     app.include_router(backups.router, tags=["backups"])
     app.include_router(remote_storage.router, tags=["remote_storage"])
+    app.include_router(storage_config.router, tags=["storage_config"])
+    app.include_router(yandex_disk.router, tags=["yandex_disk"])
     app.include_router(health.router, tags=["health"])
     app.include_router(notifications_api.router)
     app.include_router(monitoring.router, prefix="/admin")
@@ -194,10 +189,12 @@ def create_app() -> FastAPI:
                 detail="No active video found for this portrait"
             )
         
-        # Prepare video URL
+        # Prepare video URL using storage manager
         base_url = app.state.config["BASE_URL"]
-        storage_root = app.state.config["STORAGE_ROOT"]
-        video_url = f"{base_url}/storage/{Path(active_video['video_path']).relative_to(storage_root)}"
+        storage_manager = app.state.storage_manager
+        
+        # Get video URL from storage manager
+        video_url = storage_manager.get_public_url(active_video['video_path'], "videos")
         
         # Prepare portrait data for AR viewer
         portrait_data = {

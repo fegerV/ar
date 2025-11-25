@@ -449,74 +449,152 @@
 
         <!-- Settings Container -->
         <div class="settings-container">
-            <!-- Yandex Disk Settings -->
+            <!-- Storage Configuration -->
             <section class="settings-section">
                 <h2>📁 Настройка хранилищ</h2>
                 
                 <div id="alertContainer"></div>
 
-                <!-- Yandex Disk Configuration -->
+                <!-- Content Type Storage Settings -->
                 <div class="form-group">
-                    <label for="yandexToken">Yandex Disk OAuth Token</label>
-                    <textarea id="yandexToken" placeholder="Введите OAuth токен для Yandex Disk API..." rows="3"></textarea>
-                    <small style="color: var(--text-color); opacity: 0.7;">
-                        Токен можно получить на <a href="https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart" target="_blank" style="color: var(--primary-color);">Yandex Disk API</a>
-                    </small>
+                    <h3>Типы контента</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="portraitsStorage">Хранилище фото (портретов)</label>
+                            <select id="portraitsStorage" class="storage-type-select">
+                                <option value="local">Локальное хранилище</option>
+                                <option value="minio">MinIO</option>
+                                <option value="yandex_disk">Яндекс Диск</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="videosStorage">Хранилище видео</label>
+                            <select id="videosStorage" class="storage-type-select">
+                                <option value="local">Локальное хранилище</option>
+                                <option value="minio">MinIO</option>
+                                <option value="yandex_disk">Яндекс Диск</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="previewsStorage">Хранилище превью</label>
+                            <select id="previewsStorage" class="storage-type-select">
+                                <option value="local">Локальное хранилище</option>
+                                <option value="minio">MinIO</option>
+                                <option value="yandex_disk">Яндекс Диск</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="nftStorage">Хранилище NFT маркеров</label>
+                            <select id="nftStorage" class="storage-type-select">
+                                <option value="local">Локальное хранилище</option>
+                                <option value="minio">MinIO</option>
+                                <option value="yandex_disk">Яндекс Диск</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-row">
+                <!-- Yandex Disk Configuration -->
+                <div class="form-group">
+                    <h3>Яндекс Диск</h3>
+                    
                     <div class="form-group">
-                        <label for="yandexRemoteDir">Удаленная директория</label>
-                        <input type="text" id="yandexRemoteDir" value="vertex-ar-backups" placeholder="Имя папки на Yandex Disk">
+                        <label for="yandexToken">OAuth Token</label>
+                        <textarea id="yandexToken" placeholder="Введите OAuth токен для Yandex Disk API..." rows="3"></textarea>
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                            Токен можно получить на <a href="https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart" target="_blank" style="color: var(--primary-color);">Yandex Disk API</a>
+                        </small>
                     </div>
-                    <div class="form-group">
-                        <label for="maxBackupSize">Макс. размер бэкапа (МБ)</label>
-                        <input type="number" id="maxBackupSize" value="500" min="50" step="50" placeholder="Разделить бэкапы если больше">
+
+                    <div class="btn-group">
+                        <button id="testYandexConnection" class="btn btn-primary">
+                            🔗 Тестировать соединение
+                        </button>
+                        <button id="saveYandexConfig" class="btn btn-success">
+                            💾 Сохранить настройки
+                        </button>
+                        <button id="getYandexInfo" class="btn btn-secondary">
+                            📊 Информация о хранилище
+                        </button>
+                    </div>
+
+                    <!-- Connection Status -->
+                    <div id="connectionStatus" style="margin-top: 1rem; display: none;">
+                        <span class="status-indicator">
+                            <span id="statusIcon">●</span>
+                            <span id="statusText">Проверка соединения...</span>
+                        </span>
+                    </div>
+
+                    <!-- Storage Information -->
+                    <div id="storageInfo" class="storage-info-card" style="display: none;">
+                        <h4>Информация о Yandex Disk</h4>
+                        <div class="storage-stat">
+                            <span class="label">Всего места:</span>
+                            <span class="value" id="totalSpace">-</span>
+                        </div>
+                        <div class="storage-stat">
+                            <span class="label">Использовано:</span>
+                            <span class="value" id="usedSpace">-</span>
+                        </div>
+                        <div class="storage-stat">
+                            <span class="label">Доступно:</span>
+                            <span class="value" id="availableSpace">-</span>
+                        </div>
+                        <div class="storage-stat">
+                            <span class="label">Использование:</span>
+                            <span class="value" id="usagePercent">-</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="usageProgress" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MinIO Configuration -->
+                <div class="form-group">
+                    <h3>MinIO</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="minioEndpoint">Endpoint</label>
+                            <input type="text" id="minioEndpoint" placeholder="localhost:9000">
+                        </div>
+                        <div class="form-group">
+                            <label for="minioBucket">Bucket</label>
+                            <input type="text" id="minioBucket" placeholder="vertex-ar">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="minioAccessKey">Access Key</label>
+                            <input type="text" id="minioAccessKey" placeholder="minioadmin">
+                        </div>
+                        <div class="form-group">
+                            <label for="minioSecretKey">Secret Key</label>
+                            <input type="password" id="minioSecretKey" placeholder="minioadmin">
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="testMinioConnection" class="btn btn-primary">
+                            🔗 Тестировать соединение
+                        </button>
+                        <button id="saveMinioConfig" class="btn btn-success">
+                            💾 Сохранить настройки
+                        </button>
                     </div>
                 </div>
 
                 <div class="btn-group">
-                    <button id="testYandexConnection" class="btn btn-primary">
-                        🔗 Тестировать соединение
+                    <button id="saveStorageConfig" class="btn btn-primary">
+                        💾 Сохранить конфигурацию хранилищ
                     </button>
-                    <button id="saveYandexConfig" class="btn btn-success">
-                        💾 Сохранить настройки
-                    </button>
-                    <button id="getYandexInfo" class="btn btn-secondary">
-                        📊 Информация о хранилище
-                    </button>
-                </div>
-
-                <!-- Connection Status -->
-                <div id="connectionStatus" style="margin-top: 1rem; display: none;">
-                    <span class="status-indicator">
-                        <span id="statusIcon">●</span>
-                        <span id="statusText">Проверка соединения...</span>
-                    </span>
-                </div>
-
-                <!-- Storage Information -->
-                <div id="storageInfo" class="storage-info-card" style="display: none;">
-                    <h4>Информация о Yandex Disk</h4>
-                    <div class="storage-stat">
-                        <span class="label">Всего места:</span>
-                        <span class="value" id="totalSpace">-</span>
-                    </div>
-                    <div class="storage-stat">
-                        <span class="label">Использовано:</span>
-                        <span class="value" id="usedSpace">-</span>
-                    </div>
-                    <div class="storage-stat">
-                        <span class="label">Доступно:</span>
-                        <span class="value" id="availableSpace">-</span>
-                    </div>
-                    <div class="storage-stat">
-                        <span class="label">Использование:</span>
-                        <span class="value" id="usagePercent">-</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div id="usageProgress" class="progress-fill" style="width: 0%"></div>
-                    </div>
                 </div>
             </section>
 
@@ -540,13 +618,24 @@
                     </div>
                 </div>
 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxBackupSize">Макс. размер бэкапа (МБ)</label>
+                        <input type="number" id="maxBackupSize" value="500" min="50" step="50" placeholder="Разделить бэкапы если больше">
+                    </div>
+                    <div class="form-group">
+                        <label for="chunkSize">Размер части (МБ)</label>
+                        <input type="number" id="chunkSize" value="100" min="10" step="10" placeholder="Размер каждой части">
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="autoSplitBackups">
                         <input type="checkbox" id="autoSplitBackups" checked>
                         Автоматически разделять большие бэкапы на части
                     </label>
                     <small style="color: var(--text-color); opacity: 0.7;">
-                        Бэкапы больше указанного размера будут автоматически разделены на части по 100МБ для надежной загрузки
+                        Бэкапы больше указанного размера будут автоматически разделены на части для надежной загрузки
                     </small>
                 </div>
 
@@ -654,18 +743,16 @@
             updateConnectionStatus('testing', 'Проверка соединения...');
             
             try {
-                // First save the token temporarily
-                const response = await fetch('/remote-storage/config', {
+                // Save token first
+                const response = await fetch('/storage-config/yandex-disk', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     credentials: 'include',
                     body: JSON.stringify({
-                        yandex_disk: {
-                            enabled: true,
-                            oauth_token: token
-                        }
+                        oauth_token: token,
+                        enabled: true
                     })
                 });
 
@@ -674,7 +761,7 @@
                 }
 
                 // Test connection
-                const testResponse = await fetch('/remote-storage/test-connection/yandex_disk', {
+                const testResponse = await fetch('/storage-config/test-connection/yandex_disk', {
                     credentials: 'include'
                 });
 
@@ -699,7 +786,7 @@
         // Load storage information
         async function loadStorageInfo() {
             try {
-                const response = await fetch('/remote-storage/storage-info/yandex_disk', {
+                const response = await fetch('/storage-config/storage-info/yandex_disk', {
                     credentials: 'include'
                 });
 
@@ -707,13 +794,14 @@
                     throw new Error('Failed to get storage info');
                 }
 
-                const info = await response.json();
+                const result = await response.json();
+                const info = result.info;
                 
-                document.getElementById('totalSpace').textContent = formatBytes(info.total_gb * 1024 * 1024 * 1024);
-                document.getElementById('usedSpace').textContent = formatBytes(info.used_gb * 1024 * 1024 * 1024);
-                document.getElementById('availableSpace').textContent = formatBytes(info.available_gb * 1024 * 1024 * 1024);
+                document.getElementById('totalSpace').textContent = formatBytes(info.total_space);
+                document.getElementById('usedSpace').textContent = formatBytes(info.used_space);
+                document.getElementById('availableSpace').textContent = formatBytes(info.available_space);
                 
-                const usagePercent = (info.used_gb / info.total_gb * 100).toFixed(1);
+                const usagePercent = (info.used_space / info.total_space * 100).toFixed(1);
                 document.getElementById('usagePercent').textContent = usagePercent + '%';
                 
                 const progressBar = document.getElementById('usageProgress');
@@ -736,8 +824,6 @@
         // Save Yandex Disk configuration
         async function saveYandexConfig() {
             const token = document.getElementById('yandexToken').value.trim();
-            const remoteDir = document.getElementById('yandexRemoteDir').value.trim();
-            const maxBackupSize = document.getElementById('maxBackupSize').value;
             
             if (!token) {
                 showAlert('Пожалуйста, введите OAuth токен', 'error');
@@ -745,19 +831,15 @@
             }
 
             try {
-                const response = await fetch('/remote-storage/config', {
+                const response = await fetch('/storage-config/yandex-disk', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     credentials: 'include',
                     body: JSON.stringify({
-                        yandex_disk: {
-                            enabled: true,
-                            oauth_token: token,
-                            remote_dir: remoteDir || 'vertex-ar-backups',
-                            max_backup_size_mb: parseInt(maxBackupSize) || 500
-                        }
+                        oauth_token: token,
+                        enabled: true
                     })
                 });
 
@@ -776,31 +858,7 @@
         // Load current configuration
         async function loadCurrentConfig() {
             try {
-                const response = await fetch('/remote-storage/config', {
-                    credentials: 'include'
-                });
-
-                if (!response.ok) {
-                    return;
-                }
-
-                const config = await response.json();
-                
-                // Load Yandex Disk settings if available
-                if (config.has_yandex_disk) {
-                    // For security, we don't load the token back
-                    document.getElementById('yandexRemoteDir').value = 'vertex-ar-backups';
-                    document.getElementById('maxBackupSize').value = '500';
-                }
-            } catch (error) {
-                console.error('Failed to load current config:', error);
-            }
-        }
-
-        // Load backup settings
-        async function loadBackupSettings() {
-            try {
-                const response = await fetch('/admin/settings/backup', {
+                const response = await fetch('/storage-config/config', {
                     credentials: 'include'
                 });
 
@@ -809,12 +867,164 @@
                 }
 
                 const result = await response.json();
+                const config = result.config;
+                
+                // Load content type storage settings
+                if (config.content_types) {
+                    document.getElementById('portraitsStorage').value = config.content_types.portraits?.storage_type || 'local';
+                    document.getElementById('videosStorage').value = config.content_types.videos?.storage_type || 'local';
+                    document.getElementById('previewsStorage').value = config.content_types.previews?.storage_type || 'local';
+                    document.getElementById('nftStorage').value = config.content_types.nft_markers?.storage_type || 'local';
+                }
+                
+                // Load MinIO settings
+                if (config.minio) {
+                    document.getElementById('minioEndpoint').value = config.minio.endpoint || '';
+                    document.getElementById('minioBucket').value = config.minio.bucket || '';
+                    document.getElementById('minioAccessKey').value = config.minio.access_key || '';
+                    // For security, don't load secret key back
+                }
+                
+                // For security, we don't load Yandex token back
+            } catch (error) {
+                console.error('Failed to load current config:', error);
+            }
+        }
+
+        // Test MinIO connection
+        async function testMinioConnection() {
+            const endpoint = document.getElementById('minioEndpoint').value.trim();
+            const accessKey = document.getElementById('minioAccessKey').value.trim();
+            const secretKey = document.getElementById('minioSecretKey').value.trim();
+            const bucket = document.getElementById('minioBucket').value.trim();
+            
+            if (!endpoint || !accessKey || !secretKey || !bucket) {
+                showAlert('Пожалуйста, заполните все поля MinIO', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/storage-config/test-connection/minio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        enabled: true,
+                        endpoint: endpoint,
+                        access_key: accessKey,
+                        secret_key: secretKey,
+                        bucket: bucket
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.connected) {
+                    showAlert('Соединение с MinIO установлено успешно!', 'success');
+                } else {
+                    showAlert('Не удалось установить соединение с MinIO. Проверьте настройки.', 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при проверке соединения: ' + error.message, 'error');
+            }
+        }
+
+        // Save MinIO configuration
+        async function saveMinioConfig() {
+            const endpoint = document.getElementById('minioEndpoint').value.trim();
+            const accessKey = document.getElementById('minioAccessKey').value.trim();
+            const secretKey = document.getElementById('minioSecretKey').value.trim();
+            const bucket = document.getElementById('minioBucket').value.trim();
+            
+            if (!endpoint || !accessKey || !secretKey || !bucket) {
+                showAlert('Пожалуйста, заполните все поля MinIO', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/storage-config/minio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        enabled: true,
+                        endpoint: endpoint,
+                        access_key: accessKey,
+                        secret_key: secretKey,
+                        bucket: bucket
+                    })
+                });
+
+                const result = await response.json();
                 
                 if (result.success) {
-                    const settings = result.settings;
+                    showAlert('Настройки MinIO сохранены успешно!', 'success');
+                } else {
+                    showAlert('Ошибка при сохранении настроек: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при сохранении настроек: ' + error.message, 'error');
+            }
+        }
+
+        // Save storage configuration
+        async function saveStorageConfig() {
+            try {
+                // Save content type configurations
+                const contentTypes = ['portraits', 'videos', 'previews', 'nft_markers'];
+                
+                for (const contentType of contentTypes) {
+                    const storageType = document.getElementById(contentType + 'Storage').value;
+                    
+                    const response = await fetch(`/storage-config/content-type/${contentType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            storage_type: storageType
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        throw new Error(`Failed to save ${contentType} storage: ${result.detail}`);
+                    }
+                }
+                
+                showAlert('Конфигурация хранилищ сохранена успешно!', 'success');
+            } catch (error) {
+                showAlert('Ошибка при сохранении конфигурации: ' + error.message, 'error');
+            }
+        }
+
+        // Load backup settings
+        async function loadBackupSettings() {
+            try {
+                const response = await fetch('/storage-config/config', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const result = await response.json();
+                const config = result.config;
+                
+                if (config.backup_settings) {
+                    const settings = config.backup_settings;
                     document.getElementById('backupCompression').value = settings.compression || 'gz';
                     document.getElementById('maxBackups').value = settings.max_backups || 7;
                     document.getElementById('autoSplitBackups').checked = settings.auto_split_backups !== false;
+                    document.getElementById('maxBackupSize').value = settings.max_backup_size_mb || 500;
+                    document.getElementById('chunkSize').value = settings.chunk_size_mb || 100;
                 }
             } catch (error) {
                 console.error('Failed to load backup settings:', error);
@@ -826,9 +1036,11 @@
             const compression = document.getElementById('backupCompression').value;
             const maxBackups = document.getElementById('maxBackups').value;
             const autoSplit = document.getElementById('autoSplitBackups').checked;
+            const maxBackupSize = document.getElementById('maxBackupSize').value;
+            const chunkSize = document.getElementById('chunkSize').value;
             
             try {
-                const response = await fetch('/admin/settings/backup', {
+                const response = await fetch('/storage-config/backup-settings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -837,7 +1049,9 @@
                     body: JSON.stringify({
                         compression: compression,
                         max_backups: parseInt(maxBackups),
-                        auto_split_backups: autoSplit
+                        auto_split_backups: autoSplit,
+                        max_backup_size_mb: parseInt(maxBackupSize),
+                        chunk_size_mb: parseInt(chunkSize)
                     })
                 });
 
@@ -886,6 +1100,9 @@
         document.getElementById('testYandexConnection').addEventListener('click', testYandexConnection);
         document.getElementById('saveYandexConfig').addEventListener('click', saveYandexConfig);
         document.getElementById('getYandexInfo').addEventListener('click', loadStorageInfo);
+        document.getElementById('testMinioConnection').addEventListener('click', testMinioConnection);
+        document.getElementById('saveMinioConfig').addEventListener('click', saveMinioConfig);
+        document.getElementById('saveStorageConfig').addEventListener('click', saveStorageConfig);
         document.getElementById('saveBackupSettings').addEventListener('click', saveBackupSettings);
         document.getElementById('testBackupCreation').addEventListener('click', testBackupCreation);
 

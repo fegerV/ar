@@ -85,34 +85,31 @@ async def create_portrait(
     permanent_link = f"portrait_{portrait_id}"
     
     app = get_current_app()
+    storage_manager = app.state.storage_manager
     storage_root = app.state.config["STORAGE_ROOT"]
     base_url = app.state.config["BASE_URL"]
     
-    # Create storage directories
-    client_storage = storage_root / "portraits" / client_id
-    client_storage.mkdir(parents=True, exist_ok=True)
+    # Generate paths for storage
+    portrait_image_path = f"portraits/{client_id}/{portrait_id}.jpg"
+    portrait_preview_path = f"portraits/{client_id}/{portrait_id}_preview.webp"
     
-    # Read and save image
+    # Save image using storage manager
     image.file.seek(0)
     image_content = await image.read()
-    image_path = client_storage / f"{portrait_id}.jpg"
-    
-    with open(image_path, "wb") as f:
-        f.write(image_content)
+    await storage_manager.save_file(image_content, portrait_image_path, "portraits")
     
     # Generate image preview with improved quality and WebP support
     from preview_generator import PreviewGenerator
-    image_preview_path = None
+    image_preview_path_saved = None
     
     try:
         image_preview = PreviewGenerator.generate_image_preview(image_content, size=(300, 300), format='webp')
         if image_preview:
-            image_preview_path = client_storage / f"{portrait_id}_preview.webp"
-            with open(image_preview_path, "wb") as f:
-                f.write(image_preview)
+            await storage_manager.save_file(image_preview, portrait_preview_path, "portraits")
+            image_preview_path_saved = portrait_preview_path
             from logging_setup import get_logger
             logger = get_logger(__name__)
-            logger.info(f"Portrait preview created: {image_preview_path}")
+            logger.info(f"Portrait preview created: {portrait_preview_path}")
     except Exception as e:
         from logging_setup import get_logger
         logger = get_logger(__name__)
@@ -134,23 +131,45 @@ async def create_portrait(
         max_image_size=8192,  # Increased from 4096 to support larger images
         max_image_area=50_000_000  # Increased from 16_777_216 to support larger images
     )
-    marker_result = nft_generator.generate_marker(str(image_path), portrait_id, config)
+    
+    # Get image for NFT generation (save temporarily if needed)
+    temp_image_path = None
+    try:
+        if storage_manager.get_storage_type("portraits") == "local":
+            temp_image_path = storage_root / portrait_image_path
+        else:
+            # Save temporarily for NFT generation
+            temp_image_path = storage_root / f"temp_{portrait_id}.jpg"
+            with open(temp_image_path, "wb") as f:
+                f.write(image_content)
+        
+        marker_result = nft_generator.generate_marker(str(temp_image_path), portrait_id, config)
+    finally:
+        # Clean up temp file
+        if temp_image_path and temp_image_path.name.startswith("temp_") and temp_image_path.exists():
+            temp_image_path.unlink()
     
     # Create portrait in database
     db_portrait = database.create_portrait(
         portrait_id=portrait_id,
         client_id=client_id,
-        image_path=str(image_path),
+        image_path=portrait_image_path,
         marker_fset=marker_result.fset_path,
         marker_fset3=marker_result.fset3_path,
         marker_iset=marker_result.iset_path,
         permanent_link=permanent_link,
         qr_code=qr_base64,
-        image_preview_path=str(image_preview_path) if image_preview_path else None,
+        image_preview_path=image_preview_path_saved,
     )
     
     # Ensure QR code is included in response payload
     db_portrait["qr_code"] = qr_base64
+    
+    # Get public URLs using storage manager
+    if db_portrait.get("image_path"):
+        db_portrait["image_url"] = storage_manager.get_public_url(db_portrait["image_path"], "portraits")
+    if db_portrait.get("image_preview_path"):
+        db_portrait["preview_url"] = storage_manager.get_public_url(db_portrait["image_preview_path"], "previews")
     
     return _portrait_to_response(db_portrait)
 
