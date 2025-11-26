@@ -240,6 +240,19 @@ def create_app() -> FastAPI:
             asyncio.create_task(weekly_report_generator.start_weekly_report_scheduler())
             logger.info("Weekly report scheduler started")
     
+    # Start video animation scheduler
+    if settings.VIDEO_SCHEDULER_ENABLED:
+        from app.video_animation_scheduler import video_animation_scheduler
+        
+        @app.on_event("startup")
+        async def start_video_scheduler():
+            """Start video animation scheduler."""
+            import asyncio
+            
+            # Start video animation scheduler
+            asyncio.create_task(video_animation_scheduler.start_video_animation_scheduler())
+            logger.info("Video animation scheduler started")
+    
     # Start notification center services
     @app.on_event("startup")
     async def start_notification_services():

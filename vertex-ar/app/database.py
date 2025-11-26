@@ -4,6 +4,7 @@ Contains all database operations and models.
 """
 import sqlite3
 import threading
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -170,6 +171,58 @@ class Database:
                 pass
             try:
                 self._connection.execute("ALTER TABLE videos ADD COLUMN file_size_mb INTEGER")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Add video animation scheduling fields
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN start_datetime TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN end_datetime TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN rotation_type TEXT DEFAULT 'none' CHECK (rotation_type IN ('none', 'sequential', 'cyclic'))")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE videos ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived'))")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Create table for video schedule history
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS video_schedule_history (
+                    id TEXT PRIMARY KEY,
+                    video_id TEXT NOT NULL,
+                    old_status TEXT,
+                    new_status TEXT NOT NULL,
+                    change_reason TEXT NOT NULL,
+                    changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    changed_by TEXT,  -- username or 'system'
+                    FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
+                )
+                """
+            )
+            
+            # Create indexes for scheduling
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_start_end ON videos(start_datetime, end_datetime)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_portrait_active ON videos(portrait_id, is_active)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_video_schedule_history_video ON video_schedule_history(video_id)")
             except sqlite3.OperationalError:
                 pass
             # Create index for phone search
@@ -746,6 +799,287 @@ class Database:
             (portrait_id,),
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    # Video scheduling methods
+    def update_video_schedule(
+        self,
+        video_id: str,
+        start_datetime: Optional[str] = None,
+        end_datetime: Optional[str] = None,
+        rotation_type: Optional[str] = None,
+        status: Optional[str] = None,
+        changed_by: Optional[str] = None,
+    ) -> bool:
+        """Update video scheduling settings."""
+        updates = []
+        params = []
+        
+        if start_datetime is not None:
+            updates.append("start_datetime = ?")
+            params.append(start_datetime)
+        if end_datetime is not None:
+            updates.append("end_datetime = ?")
+            params.append(end_datetime)
+        if rotation_type is not None:
+            updates.append("rotation_type = ?")
+            params.append(rotation_type)
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+        
+        if not updates:
+            return False
+        
+        params.append(video_id)
+        
+        with self._lock:
+            # Get current status for history
+            cursor = self._execute("SELECT status FROM videos WHERE id = ?", (video_id,))
+            current = cursor.fetchone()
+            if not current:
+                return False
+            
+            old_status = current["status"]
+            
+            # Update video
+            query = f"UPDATE videos SET {', '.join(updates)} WHERE id = ?"
+            cursor = self._execute(query, tuple(params))
+            
+            # Record status change in history if status changed
+            if status is not None and old_status != status:
+                self._execute(
+                    """
+                    INSERT INTO video_schedule_history (
+                        id, video_id, old_status, new_status, change_reason, changed_by
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(uuid.uuid4()),
+                        video_id,
+                        old_status,
+                        status,
+                        "schedule_update",
+                        changed_by or "system"
+                    )
+                )
+            
+            self._connection.commit()
+            return cursor.rowcount > 0
+
+    def get_videos_due_for_activation(self) -> List[Dict[str, Any]]:
+        """Get videos that should be activated based on schedule."""
+        now = datetime.utcnow().isoformat()
+        cursor = self._execute(
+            """
+            SELECT * FROM videos 
+            WHERE status = 'active' 
+            AND start_datetime IS NOT NULL 
+            AND start_datetime <= ? 
+            AND (end_datetime IS NULL OR end_datetime > ?)
+            AND is_active = 0
+            ORDER BY start_datetime ASC
+            """,
+            (now, now),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_videos_due_for_deactivation(self) -> List[Dict[str, Any]]:
+        """Get videos that should be deactivated based on schedule."""
+        now = datetime.utcnow().isoformat()
+        cursor = self._execute(
+            """
+            SELECT * FROM videos 
+            WHERE status = 'active' 
+            AND end_datetime IS NOT NULL 
+            AND end_datetime <= ? 
+            AND is_active = 1
+            ORDER BY end_datetime ASC
+            """,
+            (now,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_videos_for_rotation(self, portrait_id: str, rotation_type: str) -> List[Dict[str, Any]]:
+        """Get videos for rotation based on type."""
+        now = datetime.utcnow().isoformat()
+        
+        if rotation_type == "sequential":
+            # Get videos that should be activated in sequence
+            cursor = self._execute(
+                """
+                SELECT * FROM videos 
+                WHERE portrait_id = ? 
+                AND status = 'active'
+                AND start_datetime IS NOT NULL 
+                AND start_datetime <= ? 
+                AND (end_datetime IS NULL OR end_datetime > ?)
+                ORDER BY start_datetime ASC
+                """,
+                (portrait_id, now, now),
+            )
+        elif rotation_type == "cyclic":
+            # Get videos for cyclic rotation
+            cursor = self._execute(
+                """
+                SELECT * FROM videos 
+                WHERE portrait_id = ? 
+                AND status = 'active'
+                AND start_datetime IS NOT NULL 
+                AND start_datetime <= ? 
+                AND (end_datetime IS NULL OR end_datetime > ?)
+                ORDER BY created_at ASC
+                """,
+                (portrait_id, now, now),
+            )
+        else:
+            return []
+        
+        return [dict(row) for row in cursor.fetchall()]
+
+    def activate_video_with_history(self, video_id: str, reason: str = "schedule_activation", changed_by: str = "system") -> bool:
+        """Activate video and record in history."""
+        with self._lock:
+            # Get current status
+            cursor = self._execute("SELECT status, portrait_id FROM videos WHERE id = ?", (video_id,))
+            current = cursor.fetchone()
+            if not current:
+                return False
+            
+            # Deactivate all videos for this portrait first
+            self._connection.execute(
+                "UPDATE videos SET is_active = 0 WHERE portrait_id = ?",
+                (current["portrait_id"],),
+            )
+            
+            # Activate selected video
+            cursor = self._connection.execute(
+                "UPDATE videos SET is_active = 1 WHERE id = ?",
+                (video_id,),
+            )
+            
+            # Record in history
+            self._execute(
+                """
+                INSERT INTO video_schedule_history (
+                    id, video_id, old_status, new_status, change_reason, changed_by
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    video_id,
+                    current["status"],
+                    "active",
+                    reason,
+                    changed_by
+                )
+            )
+            
+            self._connection.commit()
+            return cursor.rowcount > 0
+
+    def deactivate_video_with_history(self, video_id: str, reason: str = "schedule_deactivation", changed_by: str = "system") -> bool:
+        """Deactivate video and record in history."""
+        with self._lock:
+            # Get current status
+            cursor = self._execute("SELECT status FROM videos WHERE id = ?", (video_id,))
+            current = cursor.fetchone()
+            if not current:
+                return False
+            
+            # Deactivate video
+            cursor = self._connection.execute(
+                "UPDATE videos SET is_active = 0 WHERE id = ?",
+                (video_id,),
+            )
+            
+            # Record in history
+            self._execute(
+                """
+                INSERT INTO video_schedule_history (
+                    id, video_id, old_status, new_status, change_reason, changed_by
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    video_id,
+                    current["status"],
+                    "inactive",
+                    reason,
+                    changed_by
+                )
+            )
+            
+            self._connection.commit()
+            return cursor.rowcount > 0
+
+    def archive_expired_videos(self) -> int:
+        """Archive videos whose end_datetime has passed."""
+        now = datetime.utcnow().isoformat()
+        with self._lock:
+            cursor = self._execute(
+                """
+                UPDATE videos 
+                SET status = 'archived', is_active = 0 
+                WHERE status = 'active' 
+                AND end_datetime IS NOT NULL 
+                AND end_datetime < ?
+                """,
+                (now,),
+            )
+            self._connection.commit()
+            return cursor.rowcount
+
+    def get_video_schedule_history(self, video_id: str) -> List[Dict[str, Any]]:
+        """Get schedule change history for a video."""
+        cursor = self._execute(
+            """
+            SELECT * FROM video_schedule_history 
+            WHERE video_id = ? 
+            ORDER BY changed_at DESC
+            """,
+            (video_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_scheduled_videos_summary(self) -> Dict[str, Any]:
+        """Get summary of scheduled videos."""
+        now = datetime.utcnow().isoformat()
+        
+        # Count by status
+        cursor = self._execute("SELECT status, COUNT(*) as count FROM videos GROUP BY status")
+        status_counts = {row["status"]: row["count"] for row in cursor.fetchall()}
+        
+        # Count due for activation
+        cursor = self._execute(
+            """
+            SELECT COUNT(*) as count FROM videos 
+            WHERE status = 'active' 
+            AND start_datetime IS NOT NULL 
+            AND start_datetime > ? 
+            AND is_active = 0
+            """,
+            (now,),
+        )
+        pending_activation = cursor.fetchone()["count"]
+        
+        # Count due for deactivation
+        cursor = self._execute(
+            """
+            SELECT COUNT(*) as count FROM videos 
+            WHERE status = 'active' 
+            AND end_datetime IS NOT NULL 
+            AND end_datetime > ? 
+            AND is_active = 1
+            """,
+            (now,),
+        )
+        pending_deactivation = cursor.fetchone()["count"]
+        
+        return {
+            "status_counts": status_counts,
+            "pending_activation": pending_activation,
+            "pending_deactivation": pending_deactivation,
+        }
 
     def delete_video(self, video_id: str) -> bool:
         """Delete video."""

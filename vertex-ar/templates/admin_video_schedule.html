@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Vertex AR Video Schedule - Управление расписанием видеоанимаций">
+    <title>Видео Расписание - Vertex AR</title>
+    
+    <!-- Critical CSS for above-the-fold content -->
+    <style>
+        /* Critical styles for initial render */
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #2a2a2a;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: var(--box-shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .nav-tab {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--light-color);
+        }
+
+        .nav-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Schedule Controls */
+        .schedule-controls {
+            background: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .control-group input,
+        .control-group select {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.95rem;
+            transition: all var(--transition-speed);
+        }
+
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-warning {
+            background: var(--warning-color);
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* Video List */
+        .videos-section {
+            background: var(--light-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .videos-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .videos-header h2 {
+            font-size: 1.5rem;
+            color: var(--text-color);
+        }
+
+        .videos-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .video-card {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            transition: all var(--transition-speed);
+        }
+
+        .video-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--box-shadow);
+            border-color: var(--primary-color);
+        }
+
+        .video-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .video-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .video-meta {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            line-height: 1.4;
+        }
+
+        .video-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .status-inactive {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .status-archived {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .schedule-info {
+            background: var(--light-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin: 1rem 0;
+        }
+
+        .schedule-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .schedule-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .schedule-label {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .schedule-value {
+            color: var(--secondary-color);
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .video-actions .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        /* Loading and Toast */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: var(--light-color);
+            border-left: 4px solid var(--info-color);
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all var(--transition-speed);
+            max-width: 400px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .videos-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .video-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎬 Видео Расписание</h1>
+            <div class="header-actions">
+                <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                <a href="/admin" class="btn btn-secondary">← Назад к Dashboard</a>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <a href="/admin" class="nav-tab">🏠 Dashboard</a>
+            <a href="/admin/clients" class="nav-tab">👥 Клиенты</a>
+            <a href="/admin/videos/schedule" class="nav-tab active">🎬 Видео Расписание</a>
+            <a href="/admin/storage" class="nav-tab">💾 Хранилища</a>
+            <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+            <a href="/admin/notifications" class="nav-tab">🔔 Уведомления</a>
+            <a href="/admin/settings" class="nav-tab">⚙️ Настройки</a>
+        </div>
+
+        <!-- Schedule Controls -->
+        <section class="schedule-controls">
+            <h2>Управление планировщиком</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label for="schedulerStatus">Статус планировщика</label>
+                    <div id="schedulerStatus" class="schedule-value">Загрузка...</div>
+                </div>
+                <div class="control-group">
+                    <label for="lastCheck">Последняя проверка</label>
+                    <div id="lastCheck" class="schedule-value">Загрузка...</div>
+                </div>
+                <div class="control-group">
+                    <label for="activeVideos">Активные видео</label>
+                    <div id="activeVideos" class="schedule-value">Загрузка...</div>
+                </div>
+                <div class="control-group">
+                    <label for="pendingVideos">Ожидающие активации</label>
+                    <div id="pendingVideos" class="schedule-value">Загрузка...</div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button onclick="refreshSchedulerStatus()" class="btn btn-primary">🔄 Обновить статус</button>
+                <button onclick="triggerArchive()" class="btn btn-warning">📦 Архивировать истекшие</button>
+                <button onclick="loadVideos()" class="btn btn-success">📋 Обновить видео</button>
+            </div>
+        </section>
+
+        <!-- Videos Section -->
+        <section class="videos-section">
+            <div class="videos-header">
+                <h2>Видео с расписанием</h2>
+                <div>
+                    <select id="companyFilter" class="control-group" style="margin: 0; width: 200px;">
+                        <option value="">Все компании</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="loadingIndicator" class="loading">
+                <p>Загрузка видео...</p>
+            </div>
+            
+            <div id="videosGrid" class="videos-grid">
+                <!-- Videos will be loaded here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // Global variables
+        let currentVideos = [];
+        let schedulerStatus = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTheme();
+            loadSchedulerStatus();
+            loadVideos();
+            loadCompanies();
+            
+            // Auto-refresh scheduler status every 30 seconds
+            setInterval(loadSchedulerStatus, 30000);
+        });
+
+        // Theme management
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeToggle(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeToggle(newTheme);
+        }
+
+        function updateThemeToggle(theme) {
+            const toggle = document.getElementById('themeToggle');
+            if (toggle) {
+                toggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+                toggle.title = theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на темную тему';
+            }
+        }
+
+        // Scheduler status management
+        async function loadSchedulerStatus() {
+            try {
+                const response = await fetch('/videos/scheduler/status', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to load scheduler status');
+                
+                const data = await response.json();
+                schedulerStatus = data;
+                updateSchedulerDisplay(data);
+            } catch (error) {
+                console.error('Error loading scheduler status:', error);
+                showToast('Ошибка загрузки статуса планировщика', 'error');
+            }
+        }
+
+        function updateSchedulerDisplay(data) {
+            document.getElementById('schedulerStatus').textContent = data.scheduler_enabled ? '✅ Активен' : '❌ Отключен';
+            document.getElementById('lastCheck').textContent = data.last_check ? new Date(data.last_check).toLocaleString('ru-RU') : 'Нет данных';
+            
+            if (data.video_summary) {
+                const summary = data.video_summary;
+                const activeCount = summary.status_counts?.active || 0;
+                const pendingCount = summary.pending_activation || 0;
+                
+                document.getElementById('activeVideos').textContent = `${activeCount} активных`;
+                document.getElementById('pendingVideos').textContent = `${pendingCount} ожидают`;
+            }
+        }
+
+        async function refreshSchedulerStatus() {
+            showLoading(true);
+            await loadSchedulerStatus();
+            showLoading(false);
+            showToast('Статус планировщика обновлен', 'success');
+        }
+
+        async function triggerArchive() {
+            if (!confirm('Вы уверены, что хотите архивировать все истекшие видео?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/videos/scheduler/archive-expired', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to archive videos');
+                
+                const data = await response.json();
+                showToast(`Архивировано видео: ${data.archived_count}`, 'success');
+                
+                // Refresh data
+                loadSchedulerStatus();
+                loadVideos();
+            } catch (error) {
+                console.error('Error archiving videos:', error);
+                showToast('Ошибка при архивировании видео', 'error');
+            }
+        }
+
+        // Videos management
+        async function loadVideos() {
+            showLoading(true);
+            
+            try {
+                // This would need to be implemented - for now we'll show a placeholder
+                const response = await fetch('/videos', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to load videos');
+                
+                const videos = await response.json();
+                currentVideos = videos;
+                displayVideos(videos);
+            } catch (error) {
+                console.error('Error loading videos:', error);
+                showToast('Ошибка загрузки видео', 'error');
+                // Show placeholder for now
+                displayVideos([]);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayVideos(videos) {
+            const grid = document.getElementById('videosGrid');
+            
+            if (videos.length === 0) {
+                grid.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: var(--secondary-color);">
+                        <h3>Нет видео с настроенным расписанием</h3>
+                        <p>Видео с настройками расписания появятся здесь после их создания.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = videos.map(video => createVideoCard(video)).join('');
+        }
+
+        function createVideoCard(video) {
+            const statusClass = video.status === 'active' ? 'status-active' : 
+                             video.status === 'inactive' ? 'status-inactive' : 'status-archived';
+            const statusText = video.status === 'active' ? 'Активно' : 
+                            video.status === 'inactive' ? 'Неактивно' : 'Архивировано';
+
+            return `
+                <div class="video-card">
+                    <div class="video-header">
+                        <div class="video-info">
+                            <h3>Видео ${video.id.substring(0, 8)}...</h3>
+                            <div class="video-meta">
+                                Портрет: ${video.portrait_id.substring(0, 8)}...<br>
+                                Создано: ${new Date(video.created_at).toLocaleDateString('ru-RU')}<br>
+                                Размер: ${video.file_size_mb || 'N/A'} MB
+                            </div>
+                        </div>
+                        <span class="video-status ${statusClass}">${statusText}</span>
+                    </div>
+                    
+                    <div class="schedule-info">
+                        <div class="schedule-row">
+                            <span class="schedule-label">Активно:</span>
+                            <span class="schedule-value">${video.is_active ? '✅ Да' : '❌ Нет'}</span>
+                        </div>
+                        <div class="schedule-row">
+                            <span class="schedule-label">Начало:</span>
+                            <span class="schedule-value">${video.start_datetime ? new Date(video.start_datetime).toLocaleString('ru-RU') : 'Не задано'}</span>
+                        </div>
+                        <div class="schedule-row">
+                            <span class="schedule-label">Окончание:</span>
+                            <span class="schedule-value">${video.end_datetime ? new Date(video.end_datetime).toLocaleString('ru-RU') : 'Не задано'}</span>
+                        </div>
+                        <div class="schedule-row">
+                            <span class="schedule-label">Ротация:</span>
+                            <span class="schedule-value">${getRotationTypeText(video.rotation_type)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="video-actions">
+                        <button onclick="editVideoSchedule('${video.id}')" class="btn btn-primary">✏️ Изменить</button>
+                        <button onclick="viewVideoHistory('${video.id}')" class="btn btn-secondary">📜 История</button>
+                        ${video.is_active ? `<button onclick="deactivateVideo('${video.id}')" class="btn btn-warning">⏸️ Деактивировать</button>` : 
+                          `<button onclick="activateVideo('${video.id}')" class="btn btn-success">▶️ Активировать</button>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        function getRotationTypeText(type) {
+            const types = {
+                'none': 'Без ротации',
+                'sequential': 'Последовательная',
+                'cyclic': 'Циклическая'
+            };
+            return types[type] || type;
+        }
+
+        async function editVideoSchedule(videoId) {
+            // This would open a modal for editing schedule
+            showToast('Редактирование расписания будет добавлено в следующей версии', 'info');
+        }
+
+        async function viewVideoHistory(videoId) {
+            // This would show video history
+            showToast('Просмотр истории будет добавлен в следующей версии', 'info');
+        }
+
+        async function activateVideo(videoId) {
+            try {
+                const response = await fetch(`/videos/${videoId}/activate`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to activate video');
+                
+                showToast('Видео активировано', 'success');
+                loadVideos();
+                loadSchedulerStatus();
+            } catch (error) {
+                console.error('Error activating video:', error);
+                showToast('Ошибка активации видео', 'error');
+            }
+        }
+
+        async function deactivateVideo(videoId) {
+            try {
+                const response = await fetch(`/videos/${videoId}/deactivate`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to deactivate video');
+                
+                showToast('Видео деактивировано', 'success');
+                loadVideos();
+                loadSchedulerStatus();
+            } catch (error) {
+                console.error('Error deactivating video:', error);
+                showToast('Ошибка деактивации видео', 'error');
+            }
+        }
+
+        // Companies management (placeholder)
+        async function loadCompanies() {
+            const select = document.getElementById('companyFilter');
+            // This would load companies - for now just show placeholder
+            select.innerHTML = `
+                <option value="">Все компании</option>
+                <option value="vertex-ar-default">Vertex AR</option>
+            `;
+        }
+
+        // Utility functions
+        function showLoading(show) {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                loading.classList.toggle('show', show);
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            const colors = {
+                success: 'var(--success-color)',
+                error: 'var(--danger-color)',
+                warning: 'var(--warning-color)',
+                info: 'var(--info-color)'
+            };
+            
+            toast.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => container.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        // Theme toggle event listener
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+    </script>
+</body>
+</html>

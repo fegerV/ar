@@ -311,6 +311,60 @@ class VideoResponse(BaseModel):
     is_active: bool
     created_at: str
     file_size_mb: Optional[int] = None
+    # New scheduling fields
+    start_datetime: Optional[str] = None
+    end_datetime: Optional[str] = None
+    rotation_type: Optional[str] = None
+    status: Optional[str] = None
+
+
+class VideoScheduleUpdate(BaseModel):
+    start_datetime: Optional[str] = Field(None, description="Start datetime in ISO format")
+    end_datetime: Optional[str] = Field(None, description="End datetime in ISO format")
+    rotation_type: Optional[str] = Field(None, description="Rotation type: none, sequential, cyclic")
+    status: Optional[str] = Field(None, description="Status: active, inactive, archived")
+    
+    @field_validator('rotation_type')
+    @classmethod
+    def validate_rotation_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['none', 'sequential', 'cyclic']:
+            raise ValueError('rotation_type must be one of: none, sequential, cyclic')
+        return v
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['active', 'inactive', 'archived']:
+            raise ValueError('status must be one of: active, inactive, archived')
+        return v
+
+
+class VideoScheduleHistory(BaseModel):
+    id: str
+    video_id: str
+    old_status: Optional[str]
+    new_status: str
+    change_reason: str
+    changed_at: str
+    changed_by: Optional[str]
+
+
+class VideoScheduleSummary(BaseModel):
+    status_counts: Dict[str, int]
+    pending_activation: int
+    pending_deactivation: int
+
+
+class VideoRotationRequest(BaseModel):
+    portrait_id: str
+    rotation_type: str = Field(..., description="Rotation type: sequential, cyclic")
+    
+    @field_validator('rotation_type')
+    @classmethod
+    def validate_rotation_type(cls, v: str) -> str:
+        if v not in ['sequential', 'cyclic']:
+            raise ValueError('rotation_type must be one of: sequential, cyclic')
+        return v
 
 
 class OrderResponse(BaseModel):
