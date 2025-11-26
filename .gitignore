@@ -300,6 +300,7 @@ secrets.json
 # Remote storage config (contains OAuth tokens)
 vertex-ar/config/remote_storage.json
 config/remote_storage.json
+config/storage_config.json
 
 # ============================================
 # Build and Deploy
