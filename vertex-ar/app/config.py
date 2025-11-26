@@ -117,6 +117,13 @@ class Settings:
         self.DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL", "superar@vertex-ar.local")
         self.DEFAULT_ADMIN_FULL_NAME = os.getenv("DEFAULT_ADMIN_FULL_NAME", "Super Administrator")
         
+        # Video animation scheduler settings
+        self.VIDEO_SCHEDULER_ENABLED = os.getenv("VIDEO_SCHEDULER_ENABLED", "true").lower() == "true"
+        self.VIDEO_SCHEDULER_CHECK_INTERVAL = int(os.getenv("VIDEO_SCHEDULER_CHECK_INTERVAL", "300"))  # 5 minutes
+        self.VIDEO_SCHEDULER_ROTATION_INTERVAL = int(os.getenv("VIDEO_SCHEDULER_ROTATION_INTERVAL", "3600"))  # 1 hour
+        self.VIDEO_SCHEDULER_ARCHIVE_AFTER_HOURS = int(os.getenv("VIDEO_SCHEDULER_ARCHIVE_AFTER_HOURS", "168"))  # 1 week
+        self.VIDEO_SCHEDULER_NOTIFICATIONS_ENABLED = os.getenv("VIDEO_SCHEDULER_NOTIFICATIONS_ENABLED", "true").lower() == "true"
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)
