@@ -268,6 +268,19 @@ def create_app() -> FastAPI:
             asyncio.create_task(video_animation_scheduler.start_video_animation_scheduler())
             logger.info("Video animation scheduler started")
     
+    # Start lifecycle scheduler
+    if settings.LIFECYCLE_SCHEDULER_ENABLED:
+        from app.project_lifecycle import project_lifecycle_scheduler
+        
+        @app.on_event("startup")
+        async def start_lifecycle_scheduler():
+            """Start lifecycle scheduler."""
+            import asyncio
+            
+            # Start lifecycle scheduler
+            asyncio.create_task(project_lifecycle_scheduler.start_lifecycle_scheduler())
+            logger.info("Lifecycle scheduler started")
+    
     # Start notification center services
     @app.on_event("startup")
     async def start_notification_services():

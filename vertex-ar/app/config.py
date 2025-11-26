@@ -124,6 +124,11 @@ class Settings:
         self.VIDEO_SCHEDULER_ARCHIVE_AFTER_HOURS = int(os.getenv("VIDEO_SCHEDULER_ARCHIVE_AFTER_HOURS", "168"))  # 1 week
         self.VIDEO_SCHEDULER_NOTIFICATIONS_ENABLED = os.getenv("VIDEO_SCHEDULER_NOTIFICATIONS_ENABLED", "true").lower() == "true"
         
+        # Lifecycle scheduler settings
+        self.LIFECYCLE_SCHEDULER_ENABLED = os.getenv("LIFECYCLE_SCHEDULER_ENABLED", "true").lower() == "true"
+        self.LIFECYCLE_CHECK_INTERVAL_SECONDS = int(os.getenv("LIFECYCLE_CHECK_INTERVAL_SECONDS", "3600"))  # 1 hour
+        self.LIFECYCLE_NOTIFICATIONS_ENABLED = os.getenv("LIFECYCLE_NOTIFICATIONS_ENABLED", "true").lower() == "true"
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)
