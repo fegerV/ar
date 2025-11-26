@@ -105,6 +105,43 @@ def _build_public_url(path: Optional[str]) -> str:
         return f"{base_url}/{path_str.lstrip('/')}"
 
 
+def _calculate_lifecycle_info(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Calculate lifecycle status and days remaining for a portrait."""
+    subscription_end = record.get("subscription_end")
+    lifecycle_status = record.get("lifecycle_status", "active")
+    
+    days_remaining = None
+    computed_status = lifecycle_status or "active"
+    
+    if subscription_end:
+        try:
+            if isinstance(subscription_end, str):
+                end_date = datetime.fromisoformat(subscription_end.replace('Z', '+00:00'))
+            else:
+                end_date = subscription_end
+            
+            now = datetime.now(end_date.tzinfo) if end_date.tzinfo else datetime.now()
+            delta = end_date - now
+            days_remaining = delta.days
+            
+            # Auto-compute status based on days remaining if not explicitly archived
+            if lifecycle_status != "archived":
+                if days_remaining < 0:
+                    computed_status = "archived"
+                elif days_remaining <= 30:
+                    computed_status = "expiring"
+                else:
+                    computed_status = "active"
+        except (ValueError, AttributeError, TypeError):
+            pass
+    
+    return {
+        "status": computed_status,
+        "days_remaining": days_remaining,
+        "subscription_end": subscription_end
+    }
+
+
 def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[Dict[str, Any]]:
     serialized: List[Dict[str, Any]] = []
     total = max(total_count, len(records)) or 1
@@ -113,6 +150,10 @@ def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[
         order_position = total - idx
         image_source = record.get("image_preview_path") or record.get("image_path")
         video_preview = record.get("video_preview_path")
+        
+        # Calculate lifecycle information
+        lifecycle_info = _calculate_lifecycle_info(record)
+        
         serialized.append({
             "id": record.get("portrait_id"),
             "order_number": f"{max(order_position, 1):06d}",
@@ -130,6 +171,9 @@ def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[
             "permanent_link": record.get("permanent_link"),
             "permanent_url": f"{base_url}/portrait/{record.get('permanent_link')}",
             "qr_code": f"data:image/png;base64,{record.get('qr_code')}" if record.get("qr_code") else None,
+            "status": lifecycle_info["status"],
+            "subscription_end": lifecycle_info["subscription_end"],
+            "days_remaining": lifecycle_info["days_remaining"],
         })
     return serialized
 
@@ -745,6 +789,10 @@ async def get_dashboard_stats(
     storage_percent = 0.0
     if disk_usage["total"]:
         storage_percent = min(100.0, round((storage_usage["total_size"] / disk_usage["total"]) * 100, 2))
+    
+    # Get status counts for lifecycle management
+    status_counts = database.count_portraits_by_status(company_id=company_id)
+    
     return {
         "company_id": company_id,
         "total_clients": database.count_clients(company_id=company_id),
@@ -756,6 +804,7 @@ async def get_dashboard_stats(
         "storage_used": storage_usage["formatted_size"],
         "storage_available": format_bytes(disk_usage["free"]),
         "storage_usage_percent": storage_percent,
+        "status_counts": status_counts,
     }
 
 
@@ -786,6 +835,7 @@ async def search_dashboard_records(
     date_to: Optional[str] = None,
     min_views: Optional[int] = None,
     max_views: Optional[int] = None,
+    status: Optional[str] = None,
     _: str = Depends(require_admin)
 ) -> Dict[str, Any]:
     """Search and filter records by various criteria."""
@@ -793,11 +843,16 @@ async def search_dashboard_records(
     _ensure_company_exists(database, company_id)
     safe_limit = max(10, min(limit, 500))
 
-    if not q.strip() and not any([date_from, date_to, min_views is not None, max_views is not None]):
+    if not q.strip() and not any([date_from, date_to, min_views is not None, max_views is not None, status]):
         records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit)
     else:
         search_query = q.strip() if q.strip() else None
-        records_raw = database.get_admin_records(company_id=company_id, limit=safe_limit, search=search_query)
+        records_raw = database.get_admin_records(
+            company_id=company_id, 
+            limit=safe_limit, 
+            search=search_query,
+            status=status
+        )
 
     filtered_records = []
     for record in records_raw:
