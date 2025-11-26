@@ -276,6 +276,26 @@ class Database:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN lifecycle_status TEXT DEFAULT 'active' CHECK (lifecycle_status IN ('active', 'expiring', 'archived'))")
             except sqlite3.OperationalError:
                 pass
+            
+            # Add notification tracking columns for lifecycle management
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_7days_sent TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_24hours_sent TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_expired_sent TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Add email column to clients table
+            try:
+                self._connection.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+            except sqlite3.OperationalError:
+                pass
 
             # Create indexes for projects and folders
             try:
@@ -1953,6 +1973,63 @@ class Database:
         if deleted > 0:
             logger.info(f"Cleaned up {deleted} old notification history records")
         return deleted
+
+    # Lifecycle management methods
+    def get_portraits_for_lifecycle_check(self) -> List[Dict[str, Any]]:
+        """Get all portraits with subscription_end set for lifecycle checking."""
+        cursor = self._execute(
+            """
+            SELECT * FROM portraits 
+            WHERE subscription_end IS NOT NULL
+            ORDER BY subscription_end ASC
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def update_portrait_lifecycle_status(self, portrait_id: str, status: str) -> bool:
+        """Update the lifecycle status of a portrait."""
+        if status not in ('active', 'expiring', 'archived'):
+            logger.error(f"Invalid lifecycle status: {status}")
+            return False
+        
+        cursor = self._execute(
+            "UPDATE portraits SET lifecycle_status = ? WHERE id = ?",
+            (status, portrait_id)
+        )
+        return cursor.rowcount > 0
+
+    def record_lifecycle_notification(self, portrait_id: str, notification_type: str) -> bool:
+        """Record that a lifecycle notification has been sent."""
+        field_map = {
+            '7days': 'notification_7days_sent',
+            '24hours': 'notification_24hours_sent',
+            'expired': 'notification_expired_sent'
+        }
+        
+        field = field_map.get(notification_type)
+        if not field:
+            logger.error(f"Invalid notification type: {notification_type}")
+            return False
+        
+        cursor = self._execute(
+            f"UPDATE portraits SET {field} = CURRENT_TIMESTAMP WHERE id = ?",
+            (portrait_id,)
+        )
+        return cursor.rowcount > 0
+
+    def reset_lifecycle_notifications(self, portrait_id: str) -> bool:
+        """Reset all lifecycle notification timestamps for a portrait."""
+        cursor = self._execute(
+            """
+            UPDATE portraits 
+            SET notification_7days_sent = NULL,
+                notification_24hours_sent = NULL,
+                notification_expired_sent = NULL
+            WHERE id = ?
+            """,
+            (portrait_id,)
+        )
+        return cursor.rowcount > 0
 
 
 def ensure_default_admin_user(database: "Database") -> None:
