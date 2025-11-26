@@ -266,6 +266,16 @@ class Database:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN folder_id TEXT")
             except sqlite3.OperationalError:
                 pass
+            
+            # Add lifecycle management columns to portraits table
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN subscription_end TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN lifecycle_status TEXT DEFAULT 'active' CHECK (lifecycle_status IN ('active', 'expiring', 'archived'))")
+            except sqlite3.OperationalError:
+                pass
 
             # Create indexes for projects and folders
             try:
@@ -1259,12 +1269,38 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["total"] if row else 0
+    
+    def count_portraits_by_status(self, company_id: Optional[str] = None) -> Dict[str, int]:
+        """Count portraits grouped by lifecycle status."""
+        query = """
+            SELECT 
+                COALESCE(portraits.lifecycle_status, 'active') as status,
+                COUNT(*) as count
+            FROM portraits
+            JOIN clients ON clients.id = portraits.client_id
+        """
+        params: List[Any] = []
+        if company_id:
+            query += " WHERE clients.company_id = ?"
+            params.append(company_id)
+        query += " GROUP BY portraits.lifecycle_status"
+        cursor = self._execute(query, tuple(params))
+        results = {
+            'active': 0,
+            'expiring': 0,
+            'archived': 0
+        }
+        for row in cursor.fetchall():
+            status = row["status"] or 'active'
+            results[status] = row["count"]
+        return results
 
     def get_admin_records(
         self,
         company_id: Optional[str] = None,
         limit: Optional[int] = None,
         search: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Return portrait records with client info and active video details."""
         base_query = [
@@ -1277,6 +1313,8 @@ class Database:
             "    portraits.qr_code AS qr_code,",
             "    portraits.view_count AS view_count,",
             "    portraits.created_at AS created_at,",
+            "    portraits.subscription_end AS subscription_end,",
+            "    portraits.lifecycle_status AS lifecycle_status,",
             "    clients.name AS client_name,",
             "    clients.phone AS client_phone,",
             "    clients.company_id AS company_id,",
@@ -1299,6 +1337,9 @@ class Database:
                 "(LOWER(clients.name) LIKE ? OR clients.phone LIKE ? OR LOWER(portraits.permanent_link) LIKE ? OR LOWER(portraits.id) LIKE ?)"
             )
             params.extend([search_like, f"%{search}%", search_like, search_like])
+        if status:
+            filters.append("portraits.lifecycle_status = ?")
+            params.append(status)
         query = " ".join(base_query)
         if filters:
             query += " WHERE " + " AND ".join(filters)

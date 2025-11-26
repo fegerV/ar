@@ -18,7 +18,8 @@ const AdminDashboard = {
         autoRefresh: true,
         refreshInterval: 30000,
         isLoading: false,
-        lastUpdate: null
+        lastUpdate: null,
+        statusFilter: null  // New: for lifecycle status filtering
     },
     
     // State persistence using localStorage instead of cookies
@@ -338,6 +339,22 @@ function updateStatistics(data) {
         }
     });
     
+    // Update lifecycle status counts if available
+    if (data.status_counts) {
+        const statusElements = {
+            'statusActive': data.status_counts.active || 0,
+            'statusExpiring': data.status_counts.expiring || 0,
+            'statusArchived': data.status_counts.archived || 0
+        };
+        
+        Object.entries(statusElements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+            }
+        });
+    }
+    
     // Update storage progress bars
     updateStorageProgress(data.storage_usage_percent || 0);
 }
@@ -423,9 +440,25 @@ async function loadRecords() {
     try {
         AdminDashboard.setState({ isLoading: true });
         
-        // Include current company ID in the request
+        // Build URL with filters
         const companyId = AdminDashboard.state.currentCompany?.id;
-        const url = companyId ? `/admin/records?company_id=${encodeURIComponent(companyId)}` : '/admin/records';
+        const statusFilter = AdminDashboard.state.statusFilter;
+        
+        let url = '/admin/records';
+        const params = [];
+        if (companyId) {
+            params.push(`company_id=${encodeURIComponent(companyId)}`);
+        }
+        
+        // If status filter is active, use search endpoint instead
+        if (statusFilter) {
+            url = '/admin/search';
+            params.push(`status=${encodeURIComponent(statusFilter)}`);
+        }
+        
+        if (params.length > 0) {
+            url += '?' + params.join('&');
+        }
         
         const response = await fetch(url, {
             credentials: 'include'
@@ -433,7 +466,8 @@ async function loadRecords() {
         
         if (response.ok) {
             const data = await response.json();
-            AdminDashboard.setState({ allRecords: data.records || [] });
+            const records = statusFilter ? (data.results || []) : (data.records || []);
+            AdminDashboard.setState({ allRecords: records });
             displayRecords();
         } else {
             let errorDetail = `HTTP ${response.status}`;
@@ -456,6 +490,16 @@ async function loadRecords() {
     } finally {
         AdminDashboard.setState({ isLoading: false });
     }
+}
+
+// Filter records by lifecycle status
+function filterByStatus(status) {
+    AdminDashboard.setState({ 
+        statusFilter: status === AdminDashboard.state.statusFilter ? null : status,
+        currentPage: 1 
+    });
+    loadRecords();
+    addLog(`Фильтр по статусу: ${status || 'все'}`, 'info');
 }
 
 function displayRecords(records = null) {
@@ -490,12 +534,20 @@ function createRecordRow(record) {
     const placeholderImage = '/static/images/placeholder.svg';
     const noImageText = 'Нет фото';
     
+    // Generate status indicator with tooltip
+    const statusInfo = getStatusIndicator(record.status, record.days_remaining);
+    
     row.innerHTML = `
         <td>
             ${record.id ? 
                 `<a href="/admin/order/${record.id}" class="order-link" title="Открыть детальную информацию">${record.order_number || ''}</a>` : 
                 `${record.order_number || ''}`
             }
+        </td>
+        <td>
+            <span class="status-indicator" title="${statusInfo.tooltip}">
+                ${statusInfo.icon}
+            </span>
         </td>
         <td>
             ${record.portrait_path ? 
@@ -548,6 +600,36 @@ function createRecordRow(record) {
         </td>
     `;
     return row;
+}
+
+// Helper function to get status indicator with tooltip
+function getStatusIndicator(status, daysRemaining) {
+    const statusMap = {
+        'active': { icon: '🟢', text: 'Активен', color: '#28a745' },
+        'expiring': { icon: '🔴', text: 'Истекает', color: '#dc3545' },
+        'archived': { icon: '⚫️', text: 'Архив', color: '#6c757d' }
+    };
+    
+    const statusInfo = statusMap[status] || statusMap['active'];
+    let tooltip = statusInfo.text;
+    
+    if (status === 'expiring' && daysRemaining !== null && daysRemaining !== undefined) {
+        tooltip = `${statusInfo.text}: ${daysRemaining} ${getDaysText(daysRemaining)}`;
+    } else if (status === 'archived' && daysRemaining !== null && daysRemaining < 0) {
+        tooltip = `${statusInfo.text}: истек ${Math.abs(daysRemaining)} ${getDaysText(Math.abs(daysRemaining))} назад`;
+    }
+    
+    return { icon: statusInfo.icon, tooltip, color: statusInfo.color };
+}
+
+function getDaysText(days) {
+    const absDays = Math.abs(days);
+    if (absDays % 10 === 1 && absDays % 100 !== 11) {
+        return 'день';
+    } else if ([2, 3, 4].includes(absDays % 10) && ![12, 13, 14].includes(absDays % 100)) {
+        return 'дня';
+    }
+    return 'дней';
 }
 
 function updatePagination() {
