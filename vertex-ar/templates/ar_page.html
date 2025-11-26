@@ -60,9 +60,61 @@
             border-radius: 4px;
             font-size: 14px;
         }
+        .archived-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .archived-overlay h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .archived-overlay p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        .archived-overlay .icon {
+            font-size: 5em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        @media (max-width: 768px) {
+            .archived-overlay h1 {
+                font-size: 1.8em;
+            }
+            .archived-overlay p {
+                font-size: 1em;
+            }
+            .archived-overlay .icon {
+                font-size: 3.5em;
+            }
+        }
     </style>
 </head>
 <body>
+    {% if record.status == 'archived' %}
+    <!-- Archived state overlay -->
+    <div class="archived-overlay">
+        <div class="icon">📦</div>
+        <h1>Акция завершена</h1>
+        <p>К сожалению, данная акция больше не активна. Пожалуйста, свяжитесь с нами для получения дополнительной информации.</p>
+    </div>
+    {% else %}
     <!-- Кнопка старт, нужна для мобильных браузеров -->
     <button id="start-btn" onclick="startVideo()" disabled>Запустить видео</button>
     <div class="status-indicator" id="status-indicator">Загрузка...</div>
@@ -240,6 +292,7 @@
             }
         };
     </script>
+    {% endif %}
     
     <!-- Footer -->
     <footer style="position: fixed; bottom: 0; left: 0; right: 0; background-color: rgba(0, 0, 0, 0.8); color: white; text-align: center; padding: 10px; font-size: 12px; z-index: 1000;">
