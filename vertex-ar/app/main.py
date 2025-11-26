@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 
 # Global app instance for access in modules
 _app_instance = None
+database = None
 
 
 def get_current_app() -> FastAPI:
@@ -103,8 +104,10 @@ def create_app() -> FastAPI:
     }
     
     # Initialize database
+    global database
     from app.database import Database, ensure_default_admin_user, ensure_default_company
-    app.state.database = Database(settings.DB_PATH)
+    database = Database(settings.DB_PATH)
+    app.state.database = database
     ensure_default_admin_user(app.state.database)
     ensure_default_company(app.state.database)
     
@@ -129,13 +132,15 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, portraits, videos, health, users, notifications as notifications_api, notifications_management, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, yandex_disk
+    from app.api import auth, ar, admin, clients, companies, projects, folders, portraits, videos, health, users, notifications as notifications_api, notifications_management, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, yandex_disk
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(ar.router, prefix="/ar", tags=["ar"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
     app.include_router(companies.router, tags=["companies"])
+    app.include_router(projects.router, tags=["projects"])
+    app.include_router(folders.router, tags=["folders"])
     app.include_router(clients.router, prefix="/clients", tags=["clients"])
     app.include_router(portraits.router, prefix="/portraits", tags=["portraits"])
     app.include_router(videos.router, prefix="/videos", tags=["videos"])

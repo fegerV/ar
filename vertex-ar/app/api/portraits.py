@@ -41,6 +41,7 @@ def _portrait_to_response(portrait: Dict[str, Any]) -> PortraitResponse:
     return PortraitResponse(
         id=portrait["id"],
         client_id=portrait["client_id"],
+        folder_id=portrait.get("folder_id"),
         permanent_link=portrait["permanent_link"],
         qr_code_base64=portrait.get("qr_code"),
         image_path=portrait["image_path"],
@@ -64,6 +65,7 @@ def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
 async def create_portrait(
     client_id: str,
     image: UploadFile = File(...),
+    folder_id: Optional[str] = Form(None),
     username: str = Depends(get_current_user)
 ) -> PortraitResponse:
     """Create a new portrait for a client."""
@@ -76,6 +78,15 @@ async def create_portrait(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found"
         )
+    
+    # Check if folder exists (if provided)
+    if folder_id:
+        folder = database.get_folder(folder_id)
+        if not folder:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Folder not found"
+            )
     
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
@@ -170,6 +181,7 @@ async def create_portrait(
         permanent_link=permanent_link,
         qr_code=qr_base64,
         image_preview_path=image_preview_path_saved,
+        folder_id=folder_id,
     )
     
     # Ensure QR code is included in response payload
@@ -187,12 +199,13 @@ async def create_portrait(
 @router.get("/")
 async def list_portraits(
     client_id: Optional[str] = None,
+    folder_id: Optional[str] = None,
     include_preview: bool = False,
     username: str = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get list of portraits (optionally filtered by client) with optional preview data."""
+    """Get list of portraits (optionally filtered by client or folder) with optional preview data."""
     database = get_database()
-    portraits = database.list_portraits(client_id)
+    portraits = database.list_portraits(client_id=client_id, folder_id=folder_id)
     
     if not include_preview:
         return [_portrait_to_response(portrait).dict() for portrait in portraits]

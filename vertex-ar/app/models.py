@@ -272,6 +272,109 @@ class BulkIdsRequest(BaseModel):
     ids: List[str] = Field(..., min_items=1, description="List of IDs to process")
 
 
+# Project models
+class ProjectCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=1000)
+    company_id: str = Field(..., description="Company ID")
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+    
+    @field_validator('company_id')
+    @classmethod
+    def validate_company_id_field(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Company ID is required')
+        return v.strip()
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=1000)
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
+
+
+class ProjectResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    company_id: str
+    created_at: str
+
+
+class ProjectListItem(ProjectResponse):
+    folder_count: int = 0
+    portrait_count: int = 0
+
+
+class PaginatedProjectsResponse(BaseModel):
+    items: List[ProjectListItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# Folder models
+class FolderCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=1000)
+    project_id: str = Field(..., description="Project ID")
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+    
+    @field_validator('project_id')
+    @classmethod
+    def validate_project_id_field(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Project ID is required')
+        return v.strip()
+
+
+class FolderUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=1000)
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_name(v)
+        return v
+
+
+class FolderResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    project_id: str
+    created_at: str
+
+
+class FolderListItem(FolderResponse):
+    portrait_count: int = 0
+
+
+class PaginatedFoldersResponse(BaseModel):
+    items: List[FolderListItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 # Order models
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
@@ -292,6 +395,7 @@ class OrderCreate(BaseModel):
 class PortraitResponse(BaseModel):
     id: str
     client_id: str
+    folder_id: Optional[str] = None  # New: folder association
     permanent_link: str
     qr_code_base64: Optional[str]
     image_path: str
