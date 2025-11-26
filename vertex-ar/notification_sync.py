@@ -199,13 +199,41 @@ class NotificationSyncManager:
             logger.error(f"Error getting sync statistics: {e}")
             return {"error": str(e)}
     
-    async def _get_cleanup_statistics(self) -> Dict[str, Any]:
+    async def _get_cleanup_statistics(self, db: Session) -> Dict[str, Any]:
         """Get cleanup statistics."""
         try:
+            now = datetime.utcnow()
+            
+            # Count expired notifications
+            expired_count = 0
+            try:
+                from notifications import Notification
+                expired_query = db.query(Notification).filter(
+                    Notification.expires_at.isnot(None),
+                    Notification.expires_at < now
+                )
+                expired_count = expired_query.count()
+            except Exception:
+                expired_count = 0
+            
+            # Count very old notifications
+            cutoff_date = now - timedelta(days=self.retention_days)
+            old_count = 0
+            try:
+                old_query = db.query(Notification).filter(
+                    Notification.created_at < cutoff_date,
+                    Notification.priority != NotificationPriority.CRITICAL
+                )
+                old_count = old_query.count()
+            except Exception:
+                old_count = 0
+            
             return {
-                "last_cleanup": datetime.utcnow().isoformat(),
+                "expired_notifications": expired_count,
+                "old_notifications": old_count,
                 "retention_days": self.retention_days,
-                "auto_archive_hours": self.auto_archive_hours
+                "auto_archive_hours": self.auto_archive_hours,
+                "last_cleanup": now.isoformat()
             }
         except Exception as e:
             logger.error(f"Error getting cleanup statistics: {e}")

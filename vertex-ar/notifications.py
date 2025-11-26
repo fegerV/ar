@@ -132,7 +132,7 @@ class NotificationResponse(BaseModel):
     processed_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class NotificationGroup(BaseModel):
@@ -349,7 +349,17 @@ def mark_all_as_read(db: Session, user_id: Optional[str] = None) -> None:
         raise
 
 
-def send_notification(title: str, message: str, user_id: Optional[str] = None, notification_type: str = "info"):
+def send_notification(
+    title: str, 
+    message: str, 
+    user_id: Optional[str] = None, 
+    notification_type: str = "info",
+    priority: Optional[NotificationPriority] = None,
+    source: Optional[str] = None,
+    service_name: Optional[str] = None,
+    event_data: Optional[Dict[str, Any]] = None,
+    group_id: Optional[str] = None
+):
     """Вспомогательная функция для отправки уведомлений"""
     try:
         db = next(get_db())
@@ -358,7 +368,12 @@ def send_notification(title: str, message: str, user_id: Optional[str] = None, n
                 title=title,
                 message=message,
                 user_id=user_id,
-                notification_type=notification_type
+                notification_type=notification_type,
+                priority=priority or NotificationPriority.MEDIUM,
+                source=source,
+                service_name=service_name,
+                event_data=event_data,
+                group_id=group_id
             )
             return create_notification(db, notification_data)
         finally:
