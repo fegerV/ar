@@ -250,7 +250,7 @@ async def admin_backups_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("admin_backups.html", context)
 
 
-@router.get("/videos/schedule", response_class=HTMLResponse)
+@router.get("/schedule", response_class=HTMLResponse)
 async def admin_video_schedule_panel(request: Request) -> HTMLResponse:
     """Serve admin panel for video schedule management."""
     username = _validate_admin_session(request)
@@ -272,6 +272,18 @@ async def admin_notifications_panel(request: Request) -> HTMLResponse:
     templates = get_templates()
     context = {"request": request, "username": username}
     return templates.TemplateResponse("admin_notifications.html", context)
+
+
+@router.get("/storage", response_class=HTMLResponse)
+async def admin_storage_panel(request: Request) -> HTMLResponse:
+    """Serve admin storage management page."""
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
+
+    templates = get_templates()
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_storage.html", context)
 
 
 @router.get("/settings", response_class=HTMLResponse)

@@ -340,21 +340,104 @@
         .mb-3 { margin-bottom: 1.5rem; }
         .ml-1 { margin-left: 0.5rem; }
         .mr-1 { margin-right: 0.5rem; }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-tab:hover {
+            background-color: var(--light-color);
+        }
+
+        .nav-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .logout-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1>Управление хранилищами</h1>
+            <h1>💾 Управление хранилищами — Vertex AR</h1>
             <div class="header-actions">
-                <a href="/admin" class="btn btn-outline">← Назад</a>
+                <button id="themeToggle" class="theme-toggle" title="Переключить тему">🌙</button>
+                <a href="/admin/logout" class="logout-btn">Выйти</a>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <a href="/admin" class="nav-tab">🏠 Dashboard</a>
+            <a href="/admin/clients" class="nav-tab">👥 Клиенты</a>
+            <a href="/admin/schedule" class="nav-tab">🎬 Расписание</a>
+            <a href="/admin/storage" class="nav-tab active">💾 Хранилища</a>
+            <a href="/admin/backups" class="nav-tab">🔒 Backup</a>
+            <a href="/admin/notifications" class="nav-tab">🔔 Уведомления</a>
+            <a href="/admin/settings" class="nav-tab">⚙️ Настройки</a>
+        </div>
+
+        <main>
+            <div style="margin-bottom: 1rem; display: flex; justify-content: flex-end;">
                 <button class="btn" onclick="showCreateModal()">
                     <span>+</span> Добавить хранилище
                 </button>
             </div>
-        </header>
-
-        <main>
             <!-- Storage List -->
             <div class="card">
                 <div class="card-header">
@@ -834,6 +917,23 @@
             if (e.target === this) {
                 closeModal();
             }
+        });
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('admin-theme') || 'dark';
+        htmlElement.setAttribute('data-theme', savedTheme);
+        themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+
+        themeToggle.addEventListener('click', function() {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('admin-theme', newTheme);
+            themeToggle.textContent = newTheme === 'dark' ? '🌙' : '☀️';
         });
     </script>
 </body>
