@@ -76,6 +76,36 @@ class Database:
                 """
             )
 
+            # Create projects table
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                    UNIQUE(company_id, name)
+                )
+                """
+            )
+
+            # Create folders table
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS folders (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    UNIQUE(project_id, name)
+                )
+                """
+            )
+
             # Create new tables for clients, portraits and videos
             self._connection.execute(
                 """
@@ -228,6 +258,26 @@ class Database:
             # Create index for phone search
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
+            except sqlite3.OperationalError:
+                pass
+
+            # Add folder_id column to portraits table
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN folder_id TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+            # Create indexes for projects and folders
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_folders_project ON folders(project_id)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_portraits_folder ON portraits(folder_id)")
             except sqlite3.OperationalError:
                 pass
 
@@ -645,6 +695,7 @@ class Database:
         permanent_link: str,
         qr_code: Optional[str] = None,
         image_preview_path: Optional[str] = None,
+        folder_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new portrait."""
         self._execute(
@@ -652,11 +703,11 @@ class Database:
             INSERT INTO portraits (
                 id, client_id, image_path, image_preview_path,
                 marker_fset, marker_fset3, marker_iset,
-                permanent_link, qr_code
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                permanent_link, qr_code, folder_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (portrait_id, client_id, image_path, image_preview_path,
-             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code),
+             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code, folder_id),
         )
         return self.get_portrait(portrait_id)
 
@@ -704,15 +755,22 @@ class Database:
             return None
         return dict(row)
 
-    def list_portraits(self, client_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get list of portraits."""
+    def list_portraits(self, client_id: Optional[str] = None, folder_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get list of portraits with optional filters."""
+        query = "SELECT * FROM portraits WHERE 1=1"
+        params: List[Any] = []
+        
         if client_id:
-            cursor = self._execute(
-                "SELECT * FROM portraits WHERE client_id = ? ORDER BY created_at DESC",
-                (client_id,),
-            )
-        else:
-            cursor = self._execute("SELECT * FROM portraits ORDER BY created_at DESC")
+            query += " AND client_id = ?"
+            params.append(client_id)
+        
+        if folder_id:
+            query += " AND folder_id = ?"
+            params.append(folder_id)
+        
+        query += " ORDER BY created_at DESC"
+        
+        cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
     def increment_portrait_views(self, portrait_id: str) -> None:
@@ -1421,6 +1479,220 @@ class Database:
             })
         
         return options
+
+    # Project methods
+    def create_project(self, project_id: str, company_id: str, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new project."""
+        try:
+            self._execute(
+                "INSERT INTO projects (id, company_id, name, description) VALUES (?, ?, ?, ?)",
+                (project_id, company_id, name, description),
+            )
+            logger.info(f"Created project: {name} in company {company_id}")
+            return self.get_project(project_id)
+        except sqlite3.IntegrityError as exc:
+            logger.error(f"Failed to create project: {exc}")
+            raise ValueError("project_already_exists") from exc
+
+    def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
+        """Get project by ID."""
+        cursor = self._execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def get_project_by_name(self, company_id: str, name: str) -> Optional[Dict[str, Any]]:
+        """Get project by name within a company."""
+        cursor = self._execute("SELECT * FROM projects WHERE company_id = ? AND name = ?", (company_id, name))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def list_projects(self, company_id: Optional[str] = None, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get list of projects with optional company filter and pagination."""
+        query = "SELECT * FROM projects WHERE 1=1"
+        params: List[Any] = []
+
+        if company_id:
+            query += " AND company_id = ?"
+            params.append(company_id)
+
+        query += " ORDER BY created_at DESC"
+
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def count_projects(self, company_id: Optional[str] = None) -> int:
+        """Count projects with optional company filter."""
+        query = "SELECT COUNT(*) as count FROM projects WHERE 1=1"
+        params: List[Any] = []
+
+        if company_id:
+            query += " AND company_id = ?"
+            params.append(company_id)
+
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def update_project(self, project_id: str, name: Optional[str] = None, description: Optional[str] = None) -> bool:
+        """Update project data."""
+        updates = []
+        params = []
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+
+        if not updates:
+            return False
+
+        params.append(project_id)
+        query = f"UPDATE projects SET {', '.join(updates)} WHERE id = ?"
+        cursor = self._execute(query, tuple(params))
+        return cursor.rowcount > 0
+
+    def delete_project(self, project_id: str) -> bool:
+        """Delete project and all related folders (cascade)."""
+        try:
+            cursor = self._execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            if cursor.rowcount > 0:
+                logger.info(f"Deleted project: {project_id}")
+                return True
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to delete project: {exc}")
+            return False
+
+    def get_project_folder_count(self, project_id: str) -> int:
+        """Get count of folders in a project."""
+        cursor = self._execute(
+            "SELECT COUNT(*) as count FROM folders WHERE project_id = ?",
+            (project_id,)
+        )
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def get_project_portrait_count(self, project_id: str) -> int:
+        """Get count of portraits in a project (across all folders)."""
+        cursor = self._execute(
+            """
+            SELECT COUNT(*) as count FROM portraits 
+            WHERE folder_id IN (SELECT id FROM folders WHERE project_id = ?)
+            """,
+            (project_id,)
+        )
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    # Folder methods
+    def create_folder(self, folder_id: str, project_id: str, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new folder."""
+        try:
+            self._execute(
+                "INSERT INTO folders (id, project_id, name, description) VALUES (?, ?, ?, ?)",
+                (folder_id, project_id, name, description),
+            )
+            logger.info(f"Created folder: {name} in project {project_id}")
+            return self.get_folder(folder_id)
+        except sqlite3.IntegrityError as exc:
+            logger.error(f"Failed to create folder: {exc}")
+            raise ValueError("folder_already_exists") from exc
+
+    def get_folder(self, folder_id: str) -> Optional[Dict[str, Any]]:
+        """Get folder by ID."""
+        cursor = self._execute("SELECT * FROM folders WHERE id = ?", (folder_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def get_folder_by_name(self, project_id: str, name: str) -> Optional[Dict[str, Any]]:
+        """Get folder by name within a project."""
+        cursor = self._execute("SELECT * FROM folders WHERE project_id = ? AND name = ?", (project_id, name))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def list_folders(self, project_id: Optional[str] = None, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get list of folders with optional project filter and pagination."""
+        query = "SELECT * FROM folders WHERE 1=1"
+        params: List[Any] = []
+
+        if project_id:
+            query += " AND project_id = ?"
+            params.append(project_id)
+
+        query += " ORDER BY created_at DESC"
+
+        if limit is not None:
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def count_folders(self, project_id: Optional[str] = None) -> int:
+        """Count folders with optional project filter."""
+        query = "SELECT COUNT(*) as count FROM folders WHERE 1=1"
+        params: List[Any] = []
+
+        if project_id:
+            query += " AND project_id = ?"
+            params.append(project_id)
+
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def update_folder(self, folder_id: str, name: Optional[str] = None, description: Optional[str] = None) -> bool:
+        """Update folder data."""
+        updates = []
+        params = []
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+
+        if not updates:
+            return False
+
+        params.append(folder_id)
+        query = f"UPDATE folders SET {', '.join(updates)} WHERE id = ?"
+        cursor = self._execute(query, tuple(params))
+        return cursor.rowcount > 0
+
+    def delete_folder(self, folder_id: str) -> bool:
+        """Delete folder."""
+        try:
+            cursor = self._execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+            if cursor.rowcount > 0:
+                logger.info(f"Deleted folder: {folder_id}")
+                return True
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to delete folder: {exc}")
+            return False
+
+    def get_folder_portrait_count(self, folder_id: str) -> int:
+        """Get count of portraits in a folder."""
+        cursor = self._execute(
+            "SELECT COUNT(*) as count FROM portraits WHERE folder_id = ?",
+            (folder_id,)
+        )
+        row = cursor.fetchone()
+        return row['count'] if row else 0
 
 
 def ensure_default_admin_user(database: "Database") -> None:
