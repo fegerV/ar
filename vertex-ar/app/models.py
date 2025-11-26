@@ -489,3 +489,94 @@ class MessageResponse(BaseModel):
 
 class CountResponse(BaseModel):
     count: int
+
+
+# Notification settings models
+class NotificationSettingsUpdate(BaseModel):
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = Field(None, ge=1, le=65535)
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None  # Will be encrypted before storage
+    smtp_from_email: Optional[str] = None
+    smtp_use_tls: Optional[bool] = None
+    smtp_use_ssl: Optional[bool] = None
+    telegram_bot_token: Optional[str] = None  # Will be encrypted before storage
+    telegram_chat_ids: Optional[str] = None  # Comma-separated list
+    event_log_errors: Optional[bool] = None
+    event_db_issues: Optional[bool] = None
+    event_disk_space: Optional[bool] = None
+    event_resource_monitoring: Optional[bool] = None
+    event_backup_success: Optional[bool] = None
+    event_info_notifications: Optional[bool] = None
+    disk_threshold_percent: Optional[int] = Field(None, ge=1, le=100)
+    cpu_threshold_percent: Optional[int] = Field(None, ge=1, le=100)
+    memory_threshold_percent: Optional[int] = Field(None, ge=1, le=100)
+    is_active: Optional[bool] = None
+    
+    @field_validator('smtp_from_email')
+    @classmethod
+    def validate_smtp_from_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return validate_email(v)
+        return v
+
+
+class NotificationSettingsResponse(BaseModel):
+    id: str
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_username: Optional[str] = None
+    smtp_password_masked: Optional[str] = None  # Masked password
+    smtp_from_email: Optional[str] = None
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    telegram_bot_token_masked: Optional[str] = None  # Masked token
+    telegram_chat_ids: Optional[str] = None
+    event_log_errors: bool = True
+    event_db_issues: bool = True
+    event_disk_space: bool = True
+    event_resource_monitoring: bool = True
+    event_backup_success: bool = True
+    event_info_notifications: bool = True
+    disk_threshold_percent: int = 90
+    cpu_threshold_percent: int = 80
+    memory_threshold_percent: int = 85
+    is_active: bool = True
+    created_at: str
+    updated_at: str
+
+
+class NotificationTestRequest(BaseModel):
+    test_type: str = Field(..., description="Type of test: email, telegram, or both")
+    
+    @field_validator('test_type')
+    @classmethod
+    def validate_test_type(cls, v: str) -> str:
+        if v not in ['email', 'telegram', 'both']:
+            raise ValueError('test_type must be one of: email, telegram, both')
+        return v
+
+
+class NotificationTestResponse(BaseModel):
+    success: bool
+    results: Dict[str, Any]
+    message: str
+
+
+class NotificationHistoryItem(BaseModel):
+    id: str
+    notification_type: str
+    recipient: str
+    subject: Optional[str] = None
+    message: str
+    status: str
+    error_message: Optional[str] = None
+    sent_at: str
+
+
+class PaginatedNotificationHistoryResponse(BaseModel):
+    items: List[NotificationHistoryItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

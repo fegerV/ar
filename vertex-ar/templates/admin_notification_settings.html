@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки уведомлений - Vertex AR</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --light-color: #2a2a2a;
+            --dark-color: #343a40;
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #444;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #ddd;
+            --light-color: #ffffff;
+            --dark-color: #343a40;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: var(--text-color);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all var(--transition-speed);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .card {
+            background: var(--light-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.95rem;
+        }
+
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .alert-danger {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .alert-info {
+            background: rgba(23, 162, 184, 0.2);
+            border: 1px solid var(--info-color);
+            color: var(--info-color);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .history-table th {
+            background: var(--bg-color);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .status-sent {
+            background: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+
+        .status-failed {
+            background: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Настройки уведомлений</h1>
+            <div class="header-actions">
+                <a href="/admin" class="btn btn-secondary">← Назад</a>
+                <button onclick="logout()" class="btn btn-danger">Выйти</button>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- SMTP Settings -->
+        <div class="card">
+            <h2>📧 Настройки SMTP (Email)</h2>
+            <form id="smtp-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="smtp_host">SMTP Хост *</label>
+                        <input type="text" id="smtp_host" placeholder="smtp.gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="smtp_port">SMTP Порт *</label>
+                        <input type="number" id="smtp_port" placeholder="587">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="smtp_username">Email адрес *</label>
+                        <input type="email" id="smtp_username" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="form-group password-toggle">
+                        <label for="smtp_password">Пароль *</label>
+                        <input type="password" id="smtp_password" placeholder="Введите пароль">
+                        <button type="button" class="password-toggle-btn" onclick="togglePassword('smtp_password')">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="smtp_from_email">Email отправителя</label>
+                    <input type="email" id="smtp_from_email" placeholder="noreply@vertex-ar.com">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="smtp_use_tls" checked>
+                            <label for="smtp_use_tls">Использовать TLS</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="smtp_use_ssl">
+                            <label for="smtp_use_ssl">Использовать SSL</label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Telegram Settings -->
+        <div class="card">
+            <h2>💬 Настройки Telegram</h2>
+            <form id="telegram-form">
+                <div class="form-group password-toggle">
+                    <label for="telegram_bot_token">Bot Token *</label>
+                    <input type="password" id="telegram_bot_token" placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz">
+                    <button type="button" class="password-toggle-btn" onclick="togglePassword('telegram_bot_token')">👁️</button>
+                </div>
+                <div class="form-group">
+                    <label for="telegram_chat_ids">Chat ID получателей *</label>
+                    <input type="text" id="telegram_chat_ids" placeholder="123456789, 987654321 (через запятую)">
+                    <small style="color: var(--secondary-color)">Укажите один или несколько Chat ID через запятую</small>
+                </div>
+            </form>
+        </div>
+
+        <!-- Event Settings -->
+        <div class="card">
+            <h2>🔔 События для уведомлений</h2>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_log_errors" checked>
+                <label for="event_log_errors">Ошибки в логах / Exceptions</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_db_issues" checked>
+                <label for="event_db_issues">Проблемы с БД</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_disk_space" checked>
+                <label for="event_disk_space">Дисковое пространство</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_resource_monitoring" checked>
+                <label for="event_resource_monitoring">Мониторинг ресурсов (CPU, RAM)</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_backup_success" checked>
+                <label for="event_backup_success">Успешное завершение бэкапов</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="event_info_notifications" checked>
+                <label for="event_info_notifications">Общие информационные уведомления</label>
+            </div>
+        </div>
+
+        <!-- Threshold Settings -->
+        <div class="card">
+            <h2>⚠️ Пороги мониторинга</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cpu_threshold_percent">CPU (%)</label>
+                    <input type="number" id="cpu_threshold_percent" min="1" max="100" value="80">
+                </div>
+                <div class="form-group">
+                    <label for="memory_threshold_percent">Memory (%)</label>
+                    <input type="number" id="memory_threshold_percent" min="1" max="100" value="85">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="disk_threshold_percent">Disk (%)</label>
+                <input type="number" id="disk_threshold_percent" min="1" max="100" value="90">
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button onclick="testNotifications('email')" class="btn btn-secondary">📧 Тест Email</button>
+                <button onclick="testNotifications('telegram')" class="btn btn-secondary">💬 Тест Telegram</button>
+                <button onclick="testNotifications('both')" class="btn btn-secondary">🔔 Тест всех</button>
+                <button onclick="saveSettings()" class="btn btn-success">💾 Сохранить настройки</button>
+            </div>
+        </div>
+
+        <!-- Notification History -->
+        <div class="card">
+            <h2>📜 История отправленных уведомлений</h2>
+            <div class="loading" id="history-loading">
+                <div class="spinner"></div>
+                <p>Загрузка истории...</p>
+            </div>
+            <table class="history-table" id="history-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Тип</th>
+                        <th>Получатель</th>
+                        <th>Сообщение</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/notification-settings';
+        const token = localStorage.getItem('auth_token');
+
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            container.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const btn = field.nextElementSibling;
+            if (field.type === 'password') {
+                field.type = 'text';
+                btn.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                btn.textContent = '👁️';
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const response = await fetch(API_BASE, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load settings');
+
+                const settings = await response.json();
+
+                // SMTP
+                document.getElementById('smtp_host').value = settings.smtp_host || '';
+                document.getElementById('smtp_port').value = settings.smtp_port || 587;
+                document.getElementById('smtp_username').value = settings.smtp_username || '';
+                document.getElementById('smtp_from_email').value = settings.smtp_from_email || '';
+                document.getElementById('smtp_use_tls').checked = settings.smtp_use_tls;
+                document.getElementById('smtp_use_ssl').checked = settings.smtp_use_ssl;
+
+                // Telegram
+                document.getElementById('telegram_chat_ids').value = settings.telegram_chat_ids || '';
+
+                // Events
+                document.getElementById('event_log_errors').checked = settings.event_log_errors;
+                document.getElementById('event_db_issues').checked = settings.event_db_issues;
+                document.getElementById('event_disk_space').checked = settings.event_disk_space;
+                document.getElementById('event_resource_monitoring').checked = settings.event_resource_monitoring;
+                document.getElementById('event_backup_success').checked = settings.event_backup_success;
+                document.getElementById('event_info_notifications').checked = settings.event_info_notifications;
+
+                // Thresholds
+                document.getElementById('cpu_threshold_percent').value = settings.cpu_threshold_percent;
+                document.getElementById('memory_threshold_percent').value = settings.memory_threshold_percent;
+                document.getElementById('disk_threshold_percent').value = settings.disk_threshold_percent;
+
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                showAlert('Ошибка загрузки настроек', 'danger');
+            }
+        }
+
+        async function saveSettings() {
+            const data = {
+                smtp_host: document.getElementById('smtp_host').value,
+                smtp_port: parseInt(document.getElementById('smtp_port').value),
+                smtp_username: document.getElementById('smtp_username').value,
+                smtp_from_email: document.getElementById('smtp_from_email').value || null,
+                smtp_use_tls: document.getElementById('smtp_use_tls').checked,
+                smtp_use_ssl: document.getElementById('smtp_use_ssl').checked,
+                telegram_chat_ids: document.getElementById('telegram_chat_ids').value || null,
+                event_log_errors: document.getElementById('event_log_errors').checked,
+                event_db_issues: document.getElementById('event_db_issues').checked,
+                event_disk_space: document.getElementById('event_disk_space').checked,
+                event_resource_monitoring: document.getElementById('event_resource_monitoring').checked,
+                event_backup_success: document.getElementById('event_backup_success').checked,
+                event_info_notifications: document.getElementById('event_info_notifications').checked,
+                cpu_threshold_percent: parseInt(document.getElementById('cpu_threshold_percent').value),
+                memory_threshold_percent: parseInt(document.getElementById('memory_threshold_percent').value),
+                disk_threshold_percent: parseInt(document.getElementById('disk_threshold_percent').value),
+                is_active: true
+            };
+
+            // Only include password and token if they were changed
+            const smtpPassword = document.getElementById('smtp_password').value;
+            if (smtpPassword) {
+                data.smtp_password = smtpPassword;
+            }
+
+            const telegramToken = document.getElementById('telegram_bot_token').value;
+            if (telegramToken) {
+                data.telegram_bot_token = telegramToken;
+            }
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save settings');
+                }
+
+                showAlert('✅ Настройки успешно сохранены', 'success');
+                // Clear password fields after successful save
+                document.getElementById('smtp_password').value = '';
+                document.getElementById('telegram_bot_token').value = '';
+                loadSettings();
+
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showAlert(`❌ Ошибка сохранения: ${error.message}`, 'danger');
+            }
+        }
+
+        async function testNotifications(type) {
+            try {
+                showAlert(`🔄 Отправка тестового уведомления...`, 'info');
+
+                const response = await fetch(`${API_BASE}/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ test_type: type })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert(`✅ ${result.message}`, 'success');
+                } else {
+                    showAlert(`⚠️ ${result.message}`, 'danger');
+                }
+
+                // Show detailed results
+                console.log('Test results:', result.results);
+
+            } catch (error) {
+                console.error('Error testing notifications:', error);
+                showAlert(`❌ Ошибка тестирования: ${error.message}`, 'danger');
+            }
+        }
+
+        async function loadHistory() {
+            const loading = document.getElementById('history-loading');
+            const table = document.getElementById('history-table');
+            const tbody = document.getElementById('history-tbody');
+
+            loading.classList.add('active');
+            table.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/history?page=1&page_size=20`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load history');
+
+                const data = await response.json();
+                tbody.innerHTML = '';
+
+                if (data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">История пуста</td></tr>';
+                } else {
+                    data.items.forEach(item => {
+                        const row = document.createElement('tr');
+                        const date = new Date(item.sent_at).toLocaleString('ru-RU');
+                        const statusClass = item.status === 'sent' ? 'status-sent' : 'status-failed';
+                        const statusText = item.status === 'sent' ? 'Отправлено' : 'Ошибка';
+                        
+                        row.innerHTML = `
+                            <td>${date}</td>
+                            <td>${item.notification_type}</td>
+                            <td>${item.recipient}</td>
+                            <td>${item.message.substring(0, 50)}...</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                table.style.display = 'table';
+            } catch (error) {
+                console.error('Error loading history:', error);
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger-color);">Ошибка загрузки истории</td></tr>';
+                table.style.display = 'table';
+            } finally {
+                loading.classList.remove('active');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            window.location.href = '/admin/login';
+        }
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadHistory();
+        });
+    </script>
+</body>
+</html>

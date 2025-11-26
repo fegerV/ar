@@ -25,27 +25,93 @@ class AlertManager:
         
     async def send_telegram_alert(self, message: str) -> bool:
         """Send alert via Telegram bot."""
-        if not settings.TELEGRAM_BOT_TOKEN or not settings.TELEGRAM_CHAT_ID:
+        # Try to get settings from database first
+        from app.notification_config import get_notification_config
+        notification_config = get_notification_config()
+        telegram_config = notification_config.get_telegram_config()
+        
+        if telegram_config:
+            bot_token = telegram_config['bot_token']
+            chat_ids = telegram_config['chat_ids']
+        else:
+            # Fallback to environment variables
+            bot_token = settings.TELEGRAM_BOT_TOKEN
+            chat_ids = [settings.TELEGRAM_CHAT_ID] if settings.TELEGRAM_CHAT_ID else []
+        
+        if not bot_token or not chat_ids:
             logger.warning("Telegram credentials not configured")
             return False
             
         try:
-            url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
-            payload = {
-                "chat_id": settings.TELEGRAM_CHAT_ID,
-                "text": f"🚨 **VERTEX AR ALERT** 🚨\n\n{message}",
-                "parse_mode": "Markdown"
-            }
+            success_count = 0
+            for chat_id in chat_ids:
+                try:
+                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    payload = {
+                        "chat_id": chat_id,
+                        "text": f"🚨 **VERTEX AR ALERT** 🚨\n\n{message}",
+                        "parse_mode": "Markdown"
+                    }
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload, timeout=10) as response:
+                            if response.status == 200:
+                                logger.info(f"Telegram alert sent successfully to {chat_id}")
+                                success_count += 1
+                                
+                                # Log to notification history
+                                try:
+                                    from app.database import Database
+                                    import uuid
+                                    db = Database(settings.DB_PATH)
+                                    db.add_notification_history(
+                                        history_id=str(uuid.uuid4()),
+                                        notification_type='telegram',
+                                        recipient=str(chat_id),
+                                        message=message,
+                                        status='sent'
+                                    )
+                                except Exception as log_error:
+                                    logger.error(f"Failed to log notification history: {log_error}")
+                            else:
+                                error_text = await response.text()
+                                logger.error(f"Failed to send Telegram alert to {chat_id}: {response.status} - {error_text}")
+                                
+                                # Log failure to notification history
+                                try:
+                                    from app.database import Database
+                                    import uuid
+                                    db = Database(settings.DB_PATH)
+                                    db.add_notification_history(
+                                        history_id=str(uuid.uuid4()),
+                                        notification_type='telegram',
+                                        recipient=str(chat_id),
+                                        message=message,
+                                        status='failed',
+                                        error_message=f"HTTP {response.status}: {error_text}"
+                                    )
+                                except Exception as log_error:
+                                    logger.error(f"Failed to log notification history: {log_error}")
+                except Exception as e:
+                    logger.error(f"Error sending Telegram alert to {chat_id}: {e}")
+                    
+                    # Log failure to notification history
+                    try:
+                        from app.database import Database
+                        import uuid
+                        db = Database(settings.DB_PATH)
+                        db.add_notification_history(
+                            history_id=str(uuid.uuid4()),
+                            notification_type='telegram',
+                            recipient=str(chat_id),
+                            message=message,
+                            status='failed',
+                            error_message=str(e)
+                        )
+                    except Exception as log_error:
+                        logger.error(f"Failed to log notification history: {log_error}")
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=10) as response:
-                    if response.status == 200:
-                        logger.info("Telegram alert sent successfully")
-                        return True
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"Failed to send Telegram alert: {response.status} - {error_text}")
-                        return False
+            return success_count > 0
                         
         except Exception as e:
             logger.error(f"Error sending Telegram alert: {e}")
@@ -53,14 +119,40 @@ class AlertManager:
     
     async def send_email_alert(self, subject: str, message: str) -> bool:
         """Send alert via email."""
-        if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD or not settings.ADMIN_EMAILS:
+        # Try to get settings from database first
+        from app.notification_config import get_notification_config
+        notification_config = get_notification_config()
+        smtp_config = notification_config.get_smtp_config()
+        
+        if smtp_config:
+            smtp_host = smtp_config['host']
+            smtp_port = smtp_config['port']
+            smtp_username = smtp_config['username']
+            smtp_password = smtp_config['password']
+            from_email = smtp_config['from_email']
+            use_tls = smtp_config['use_tls']
+            use_ssl = smtp_config['use_ssl']
+            # Send to from_email as recipient for now (can be extended later)
+            admin_emails = [from_email]
+        else:
+            # Fallback to environment variables
+            smtp_host = settings.SMTP_SERVER
+            smtp_port = settings.SMTP_PORT
+            smtp_username = settings.SMTP_USERNAME
+            smtp_password = settings.SMTP_PASSWORD
+            from_email = settings.EMAIL_FROM
+            use_tls = True
+            use_ssl = False
+            admin_emails = settings.ADMIN_EMAILS
+        
+        if not smtp_username or not smtp_password or not admin_emails:
             logger.warning("Email credentials not configured")
             return False
             
         try:
             msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ", ".join(settings.ADMIN_EMAILS)
+            msg['From'] = from_email
+            msg['To'] = ", ".join(admin_emails)
             msg['Subject'] = f"[VERTEX AR ALERT] {subject}"
             
             body = MIMEText(f"""
@@ -77,21 +169,75 @@ Server: {settings.BASE_URL}
             
             # Send email in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._send_email_sync, msg)
+            await loop.run_in_executor(
+                None, 
+                self._send_email_sync, 
+                smtp_host, 
+                smtp_port, 
+                smtp_username, 
+                smtp_password, 
+                use_tls, 
+                use_ssl, 
+                msg
+            )
             
-            logger.info(f"Email alert sent to {len(settings.ADMIN_EMAILS)} recipients")
+            logger.info(f"Email alert sent to {len(admin_emails)} recipients")
+            
+            # Log to notification history
+            for recipient in admin_emails:
+                try:
+                    from app.database import Database
+                    import uuid
+                    db = Database(settings.DB_PATH)
+                    db.add_notification_history(
+                        history_id=str(uuid.uuid4()),
+                        notification_type='email',
+                        recipient=recipient,
+                        subject=subject,
+                        message=message,
+                        status='sent'
+                    )
+                except Exception as log_error:
+                    logger.error(f"Failed to log notification history: {log_error}")
+            
             return True
             
         except Exception as e:
             logger.error(f"Error sending email alert: {e}")
+            
+            # Log failure to notification history
+            for recipient in admin_emails:
+                try:
+                    from app.database import Database
+                    import uuid
+                    db = Database(settings.DB_PATH)
+                    db.add_notification_history(
+                        history_id=str(uuid.uuid4()),
+                        notification_type='email',
+                        recipient=recipient,
+                        subject=subject,
+                        message=message,
+                        status='failed',
+                        error_message=str(e)
+                    )
+                except Exception as log_error:
+                    logger.error(f"Failed to log notification history: {log_error}")
+            
             return False
     
-    def _send_email_sync(self, msg: MIMEMultipart) -> None:
+    def _send_email_sync(self, host: str, port: int, username: str, password: str, 
+                         use_tls: bool, use_ssl: bool, msg: MIMEMultipart) -> None:
         """Synchronous email sending for thread pool execution."""
-        with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
+        if use_ssl:
+            server = smtplib.SMTP_SSL(host, port)
+        else:
+            server = smtplib.SMTP(host, port)
+            if use_tls:
+                server.starttls()
+        
+        server.login(username, password)
+        server.send_message(msg)
+        server.quit()
     
     def should_send_alert(self, alert_type: str) -> bool:
         """Check if alert should be sent (cooldown logic)."""

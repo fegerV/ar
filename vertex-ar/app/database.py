@@ -372,6 +372,66 @@ class Database:
             except sqlite3.OperationalError:
                 pass
 
+            # Create notification_settings table for centralized email and Telegram settings
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS notification_settings (
+                    id TEXT PRIMARY KEY,
+                    smtp_host TEXT,
+                    smtp_port INTEGER,
+                    smtp_username TEXT,
+                    smtp_password_encrypted TEXT,
+                    smtp_from_email TEXT,
+                    smtp_use_tls INTEGER DEFAULT 1,
+                    smtp_use_ssl INTEGER DEFAULT 0,
+                    telegram_bot_token_encrypted TEXT,
+                    telegram_chat_ids TEXT,
+                    event_log_errors INTEGER DEFAULT 1,
+                    event_db_issues INTEGER DEFAULT 1,
+                    event_disk_space INTEGER DEFAULT 1,
+                    event_resource_monitoring INTEGER DEFAULT 1,
+                    event_backup_success INTEGER DEFAULT 1,
+                    event_info_notifications INTEGER DEFAULT 1,
+                    disk_threshold_percent INTEGER DEFAULT 90,
+                    cpu_threshold_percent INTEGER DEFAULT 80,
+                    memory_threshold_percent INTEGER DEFAULT 85,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            # Create notification_history table for tracking sent notifications
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS notification_history (
+                    id TEXT PRIMARY KEY,
+                    notification_type TEXT NOT NULL,
+                    recipient TEXT NOT NULL,
+                    subject TEXT,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK (status IN ('sent', 'failed')),
+                    error_message TEXT,
+                    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            # Create indexes for notification tables
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_type ON notification_history(notification_type)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_status ON notification_history(status)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_sent_at ON notification_history(sent_at)")
+            except sqlite3.OperationalError:
+                pass
+
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
             cursor = self._connection.execute(query, parameters)
@@ -1693,6 +1753,165 @@ class Database:
         )
         row = cursor.fetchone()
         return row['count'] if row else 0
+
+    # Notification settings methods
+    def get_notification_settings(self) -> Optional[Dict[str, Any]]:
+        """Get notification settings (returns first row, as we only have one config)."""
+        cursor = self._execute("SELECT * FROM notification_settings ORDER BY created_at DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def create_notification_settings(self, settings_id: str, **kwargs) -> Dict[str, Any]:
+        """Create notification settings."""
+        fields = [
+            'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password_encrypted',
+            'smtp_from_email', 'smtp_use_tls', 'smtp_use_ssl',
+            'telegram_bot_token_encrypted', 'telegram_chat_ids',
+            'event_log_errors', 'event_db_issues', 'event_disk_space',
+            'event_resource_monitoring', 'event_backup_success', 'event_info_notifications',
+            'disk_threshold_percent', 'cpu_threshold_percent', 'memory_threshold_percent',
+            'is_active'
+        ]
+        
+        # Build insert statement
+        columns = ['id'] + [f for f in fields if f in kwargs]
+        placeholders = ['?'] * len(columns)
+        values = [settings_id] + [kwargs[f] for f in columns[1:]]
+        
+        query = f"INSERT INTO notification_settings ({', '.join(columns)}) VALUES ({', '.join(placeholders)})"
+        self._execute(query, tuple(values))
+        
+        logger.info("Created notification settings")
+        return self.get_notification_settings()
+
+    def update_notification_settings(self, settings_id: str, **kwargs) -> bool:
+        """Update notification settings."""
+        valid_fields = [
+            'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password_encrypted',
+            'smtp_from_email', 'smtp_use_tls', 'smtp_use_ssl',
+            'telegram_bot_token_encrypted', 'telegram_chat_ids',
+            'event_log_errors', 'event_db_issues', 'event_disk_space',
+            'event_resource_monitoring', 'event_backup_success', 'event_info_notifications',
+            'disk_threshold_percent', 'cpu_threshold_percent', 'memory_threshold_percent',
+            'is_active'
+        ]
+        
+        updates = []
+        params = []
+        for field in valid_fields:
+            if field in kwargs:
+                updates.append(f"{field} = ?")
+                params.append(kwargs[field])
+        
+        if not updates:
+            return False
+        
+        # Always update the updated_at timestamp
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(settings_id)
+        
+        query = f"UPDATE notification_settings SET {', '.join(updates)} WHERE id = ?"
+        cursor = self._execute(query, tuple(params))
+        return cursor.rowcount > 0
+
+    def save_notification_settings(self, settings_id: str, **kwargs) -> Dict[str, Any]:
+        """Save notification settings (create or update)."""
+        existing = self.get_notification_settings()
+        if existing:
+            self.update_notification_settings(existing['id'], **kwargs)
+        else:
+            return self.create_notification_settings(settings_id, **kwargs)
+        return self.get_notification_settings()
+
+    # Notification history methods
+    def add_notification_history(
+        self,
+        history_id: str,
+        notification_type: str,
+        recipient: str,
+        message: str,
+        status: str,
+        subject: Optional[str] = None,
+        error_message: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Add a notification to history."""
+        self._execute(
+            """
+            INSERT INTO notification_history 
+            (id, notification_type, recipient, subject, message, status, error_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (history_id, notification_type, recipient, subject, message, status, error_message)
+        )
+        logger.info(f"Added notification history: {notification_type} to {recipient} ({status})")
+        return self.get_notification_history_item(history_id)
+
+    def get_notification_history_item(self, history_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single notification history item."""
+        cursor = self._execute("SELECT * FROM notification_history WHERE id = ?", (history_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def list_notification_history(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        notification_type: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get list of notification history with optional filters."""
+        query = "SELECT * FROM notification_history WHERE 1=1"
+        params: List[Any] = []
+        
+        if notification_type:
+            query += " AND notification_type = ?"
+            params.append(notification_type)
+        
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        
+        query += " ORDER BY sent_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def count_notification_history(
+        self,
+        notification_type: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> int:
+        """Count notification history with optional filters."""
+        query = "SELECT COUNT(*) as count FROM notification_history WHERE 1=1"
+        params: List[Any] = []
+        
+        if notification_type:
+            query += " AND notification_type = ?"
+            params.append(notification_type)
+        
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
+    def cleanup_old_notification_history(self, days: int = 30) -> int:
+        """Clean up notification history older than specified days."""
+        cursor = self._execute(
+            "DELETE FROM notification_history WHERE sent_at < datetime('now', ?)",
+            (f'-{days} days',)
+        )
+        deleted = cursor.rowcount
+        if deleted > 0:
+            logger.info(f"Cleaned up {deleted} old notification history records")
+        return deleted
 
 
 def ensure_default_admin_user(database: "Database") -> None:
