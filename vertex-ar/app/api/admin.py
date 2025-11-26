@@ -298,6 +298,18 @@ async def admin_settings_panel(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("admin_settings.html", context)
 
 
+@router.get("/settings/notifications", response_class=HTMLResponse)
+async def admin_notification_settings_panel(request: Request) -> HTMLResponse:
+    """Serve notification settings page."""
+    username = _validate_admin_session(request)
+    if not username:
+        return _redirect_to_login("unauthorized")
+
+    templates = get_templates()
+    context = {"request": request, "username": username}
+    return templates.TemplateResponse("admin_notification_settings.html", context)
+
+
 @router.post("/settings/backup")
 async def admin_backup_settings(
     request: Request,
