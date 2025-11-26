@@ -204,25 +204,34 @@ def create_app() -> FastAPI:
         
         # Get active video for this portrait
         active_video = database.get_active_video(portrait["id"])
+        
+        # Determine portrait status based on video availability and status
+        portrait_status = "active"
+        video_url = None
+        
         if not active_video:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_404_NOT_FOUND,
-                detail="No active video found for this portrait"
-            )
-        
-        # Prepare video URL using storage manager
-        base_url = app.state.config["BASE_URL"]
-        storage_manager = app.state.storage_manager
-        
-        # Get video URL from storage manager
-        video_url = storage_manager.get_public_url(active_video['video_path'], "videos")
+            # No active video - treat as archived
+            portrait_status = "archived"
+        else:
+            # Check video status field (if it exists)
+            video_status = active_video.get("status", "active")
+            if video_status == "archived":
+                portrait_status = "archived"
+            elif video_status == "inactive":
+                portrait_status = "archived"
+            else:
+                # Video is active - prepare URL
+                storage_manager = app.state.storage_manager
+                video_url = storage_manager.get_public_url(active_video['video_path'], "videos")
+                portrait_status = "active"
         
         # Prepare portrait data for AR viewer
         portrait_data = {
             "id": portrait["id"],
             "permanent_link": portrait["permanent_link"],
             "video_url": video_url,
-            "view_count": portrait["view_count"]
+            "view_count": portrait["view_count"],
+            "status": portrait_status
         }
         
         templates = app.state.templates
