@@ -599,23 +599,8 @@ class SystemMonitor:
                 "status": "not_configured",
             }  # Not used, so considered healthy
 
-        # Check web server response time (self-check)
-        web_start_time = time.time()
-        try:
-            import requests
-
-            response = requests.get(f"{settings.BASE_URL}/health", timeout=5)
-            web_response_time = (time.time() - web_start_time) * 1000
-
-            health_status["web_server"] = {
-                "healthy": response.status_code == 200,
-                "response_time_ms": round(web_response_time, 2),
-                "status": "operational" if response.status_code == 200 else "degraded",
-                "status_code": response.status_code,
-            }
-        except Exception as e:
-            logger.error(f"Web server health check failed: {e}")
-            health_status["web_server"] = {"healthy": False, "response_time_ms": None, "status": "failed", "error": str(e)}
+        # Check web server response time (self-check) with fallback and diagnostics
+        health_status["web_server"] = self._check_web_server_health()
 
         # Check external services if configured
         health_status["external_services"] = self._check_external_services()
@@ -624,6 +609,190 @@ class SystemMonitor:
         health_status["recent_errors"] = self._get_recent_errors()
 
         return health_status
+
+    def _check_web_server_health(self) -> Dict[str, Any]:
+        """
+        Check web server health with multiple fallback attempts and process diagnostics.
+        
+        Returns detailed diagnostics including:
+        - Which URLs were attempted and their results
+        - Process and port status from psutil/socket
+        - Exception details for failed attempts
+        """
+        import requests
+        import socket
+        import urllib3
+        
+        # Suppress SSL warnings for localhost health checks
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        diagnostics = {
+            "healthy": False,
+            "response_time_ms": None,
+            "status": "unknown",
+            "attempts": [],
+            "process_info": {},
+            "port_info": {}
+        }
+        
+        # Build list of URLs to try
+        urls_to_try = []
+        
+        # 1. Try INTERNAL_HEALTH_URL if configured
+        if settings.INTERNAL_HEALTH_URL:
+            urls_to_try.append(("internal", settings.INTERNAL_HEALTH_URL.rstrip('/') + "/health"))
+        
+        # 2. Try BASE_URL (public URL)
+        if settings.BASE_URL:
+            urls_to_try.append(("public", settings.BASE_URL.rstrip('/') + "/health"))
+        
+        # 3. Localhost fallback URLs (if not already tried)
+        localhost_urls = [
+            ("localhost", f"http://localhost:{settings.APP_PORT}/health"),
+            ("127.0.0.1", f"http://127.0.0.1:{settings.APP_PORT}/health"),
+        ]
+        
+        # Only add localhost URLs if they're not already in the list
+        for name, url in localhost_urls:
+            if url not in [u[1] for u in urls_to_try]:
+                urls_to_try.append((name, url))
+        
+        # Try each URL until one succeeds
+        for url_type, url in urls_to_try:
+            attempt = {
+                "type": url_type,
+                "url": url,
+                "success": False,
+                "error": None,
+                "response_time_ms": None,
+                "status_code": None
+            }
+            
+            try:
+                start_time = time.time()
+                response = requests.get(url, timeout=5, verify=False)  # Skip SSL verification for localhost
+                response_time = (time.time() - start_time) * 1000
+                
+                attempt["success"] = response.status_code == 200
+                attempt["response_time_ms"] = round(response_time, 2)
+                attempt["status_code"] = response.status_code
+                
+                if response.status_code == 200:
+                    # Success! Update main diagnostics
+                    diagnostics["healthy"] = True
+                    diagnostics["response_time_ms"] = round(response_time, 2)
+                    diagnostics["status"] = "operational"
+                    diagnostics["status_code"] = response.status_code
+                    diagnostics["successful_url"] = url
+                    diagnostics["successful_url_type"] = url_type
+                    diagnostics["attempts"].append(attempt)
+                    break  # Stop trying other URLs
+                else:
+                    attempt["error"] = f"HTTP {response.status_code}"
+                    
+            except requests.exceptions.SSLError as e:
+                attempt["error"] = f"SSL/TLS error: {str(e)[:100]}"
+            except requests.exceptions.ConnectionError as e:
+                attempt["error"] = f"Connection error: {str(e)[:100]}"
+            except requests.exceptions.Timeout as e:
+                attempt["error"] = f"Timeout: {str(e)[:100]}"
+            except Exception as e:
+                attempt["error"] = f"{type(e).__name__}: {str(e)[:100]}"
+            
+            diagnostics["attempts"].append(attempt)
+        
+        # If all HTTP attempts failed, check process and port status
+        if not diagnostics["healthy"]:
+            diagnostics["status"] = "failed"
+            
+            # Check if uvicorn/gunicorn process is running
+            process_status = self._check_web_process()
+            diagnostics["process_info"] = process_status
+            
+            # Check if port is accepting connections
+            port_status = self._check_port_status(settings.APP_PORT)
+            diagnostics["port_info"] = port_status
+            
+            # If process is running and port is open, service might be healthy but unreachable via HTTP
+            if process_status.get("running") and port_status.get("accepting_connections"):
+                diagnostics["status"] = "degraded"
+                diagnostics["status_message"] = "Process running and port open, but HTTP health check failed"
+        
+        return diagnostics
+    
+    def _check_web_process(self) -> Dict[str, Any]:
+        """Check if uvicorn or gunicorn process is running using psutil."""
+        try:
+            current_process = psutil.Process()
+            process_name = current_process.name().lower()
+            
+            # Check if current process is uvicorn/gunicorn
+            if any(name in process_name for name in ['uvicorn', 'gunicorn', 'python']):
+                return {
+                    "running": True,
+                    "pid": current_process.pid,
+                    "name": current_process.name(),
+                    "cpu_percent": current_process.cpu_percent(),
+                    "memory_mb": current_process.memory_info().rss / (1024**2),
+                    "num_threads": current_process.num_threads(),
+                    "create_time": datetime.fromtimestamp(current_process.create_time()).isoformat(),
+                }
+            
+            # Search for uvicorn/gunicorn in all processes
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    proc_name = proc.info['name'].lower()
+                    cmdline = ' '.join(proc.info['cmdline'] or []).lower()
+                    
+                    if any(name in proc_name or name in cmdline for name in ['uvicorn', 'gunicorn']):
+                        return {
+                            "running": True,
+                            "pid": proc.info['pid'],
+                            "name": proc.info['name'],
+                            "cmdline": ' '.join(proc.info['cmdline'] or [])[:200],
+                        }
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            return {
+                "running": False,
+                "error": "No uvicorn/gunicorn process found"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking web process: {e}")
+            return {
+                "running": False,
+                "error": f"Error: {str(e)}"
+            }
+    
+    def _check_port_status(self, port: int) -> Dict[str, Any]:
+        """Check if the specified port is accepting connections using socket."""
+        import socket
+        
+        try:
+            # Try to connect to the port on localhost
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex(('127.0.0.1', port))
+            sock.close()
+            
+            accepting = result == 0
+            
+            return {
+                "port": port,
+                "accepting_connections": accepting,
+                "status": "open" if accepting else "closed",
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking port {port}: {e}")
+            return {
+                "port": port,
+                "accepting_connections": False,
+                "status": "error",
+                "error": str(e)
+            }
 
     def _check_external_services(self) -> Dict[str, Any]:
         """Check health of external services."""
