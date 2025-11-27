@@ -84,12 +84,13 @@
 - **Тестовые сценарии:** [../TESTING_SCENARIOS.md](../TESTING_SCENARIOS.md) - готовые сценарии
 - **Настройка IDE:** [../IDE_TESTING_SETUP.md](../IDE_TESTING_SETUP.md) - VS Code, PyCharm, Vim
 - **Отчёт о тестировании:** [../TESTING_REPORT.md](../TESTING_REPORT.md) - покрытие и статистика
-- **Основное руководство:** [../TESTING_README.md](../TESTING_README.md) - всё о тестировании
+- **Стратегия тестирования:** [development/testing.md](development/testing.md) - для разработчиков
+- **Тесты в test_files/:** [../test_files/README.md](../test_files/README.md) - организация тестов
 
 ### Скрипты и инструменты
-- `check_production_readiness.sh` - проверка готовности к продакшену
-- `run_performance_tests.sh` - производительные тесты
-- `quick_test.sh` - быстрый запуск тестов
+- `scripts/check_production_readiness.sh` - проверка готовности к продакшену
+- `test_files/run_performance_tests.sh` - производительные тесты
+- `scripts/quick_test.sh` - быстрый запуск тестов
 
 ---
 

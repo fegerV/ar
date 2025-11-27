@@ -7,7 +7,7 @@
 ## ⚡ Супер-быстрый старт (1 команда)
 
 ```bash
-./quick_test.sh demo
+./scripts/quick_test.sh demo
 ```
 
 Эта команда:
@@ -48,31 +48,43 @@ pip install -r vertex-ar/requirements-dev.txt
 ### Все тесты
 
 ```bash
-./quick_test.sh all
+pytest
+# или
+./scripts/quick_test.sh all
 ```
 
 ### Быстрые тесты (без медленных)
 
 ```bash
-./quick_test.sh quick
+./scripts/quick_test.sh quick
 ```
 
 ### Только Unit тесты
 
 ```bash
-./quick_test.sh unit
+pytest vertex-ar/tests/
+# или
+./scripts/quick_test.sh unit
+```
+
+### Только интеграционные тесты
+
+```bash
+pytest test_files/ -k "not performance"
 ```
 
 ### С отчётом о покрытии
 
 ```bash
-./quick_test.sh coverage
+pytest --cov=vertex-ar --cov-report=term-missing
+# или
+./scripts/quick_test.sh coverage
 ```
 
 ### Интерактивная демонстрация
 
 ```bash
-./quick_test.sh demo
+./scripts/quick_test.sh demo
 ```
 
 ---
@@ -159,28 +171,32 @@ docker compose run --rm app pytest -v
 
 Проект содержит следующие типы тестов:
 
-| Тип | Маркер | Файлы | Описание |
-|-----|--------|-------|----------|
-| **Unit** | `@pytest.mark.unit` | `test_models.py`, `test_auth.py` | Модульные тесты |
-| **Integration** | `@pytest.mark.integration` | `test_api.py`, `test_user_management.py` | Интеграционные тесты |
-| **AR Features** | `@pytest.mark.ar` | `test_ar_features.py`, `test_nft_generation.py` | AR функциональность |
-| **Performance** | `@pytest.mark.performance` | `test_performance.py` | Тесты производительности |
-| **Security** | `@pytest.mark.security` | `test_security.py` | Тесты безопасности |
+| Тип | Расположение | Описание |
+|-----|--------------|----------|
+| **Unit** | `vertex-ar/tests/` | Модульные тесты, быстрые, изолированные |
+| **Integration** | `test_files/test_api*.py`, `test_files/test_admin*.py` | Интеграционные тесты API, админ-панели |
+| **AR Features** | `test_files/test_ar*.py`, `test_files/test_nft*.py` | AR функциональность, генерация маркеров |
+| **Performance** | `test_files/test_*performance*.py`, `test_files/test_*load*.py` | Тесты производительности и нагрузки |
+| **Security** | `test_files/test_security.py` | Тесты безопасности |
 
-### Запуск тестов по маркерам
+### Запуск тестов по типу
 
 ```bash
 # Только unit тесты
-pytest -m unit -v
+pytest vertex-ar/tests/ -v
 
 # Только integration тесты
-pytest -m integration -v
+pytest test_files/ -k "not performance" -v
+
+# AR функциональность
+pytest test_files/test_ar*.py -v
+
+# Performance тесты
+pytest test_files/test_*performance*.py -v
+cd test_files && ./run_performance_tests.sh
 
 # Исключить медленные тесты
 pytest -m "not slow" -v
-
-# AR функциональность
-pytest -m ar -v
 ```
 
 ---
@@ -203,7 +219,11 @@ pytest -vv -s --log-cli-level=DEBUG
 ### Запуск конкретного теста
 
 ```bash
+# Unit тест
 pytest vertex-ar/tests/test_auth.py::test_user_registration -v
+
+# Integration тест
+pytest test_files/test_api_endpoints.py::test_auth_registration -v
 ```
 
 ### Только упавшие тесты
@@ -243,6 +263,7 @@ open http://localhost:8089
 ### С помощью встроенных тестов
 
 ```bash
+cd test_files
 ./run_performance_tests.sh
 ```
 
@@ -253,7 +274,7 @@ open http://localhost:8089
 ### Очистить все тестовые данные
 
 ```bash
-./quick_test.sh clean
+./scripts/quick_test.sh clean
 ```
 
 ### Ручная очистка
@@ -363,7 +384,7 @@ pytest vertex-ar/tests/test_auth.py::test_user_registration -vv -s
 
 ```bash
 # Запустите демо-скрипт и изучите вывод
-./quick_test.sh demo
+./scripts/quick_test.sh demo
 
 # Скрипт покажет вам:
 # - Регистрацию пользователя
@@ -390,17 +411,18 @@ open htmlcov/index.html
 
 ## 🚀 Следующие шаги
 
-1. ✅ Запустите `./quick_test.sh demo` для знакомства с API
+1. ✅ Запустите `./scripts/quick_test.sh demo` для знакомства с API
 2. ✅ Изучите [TESTING_SCENARIOS.md](TESTING_SCENARIOS.md) для готовых примеров
 3. ✅ Прочитайте [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md) для глубокого понимания
-4. ✅ Изучите существующие тесты в `vertex-ar/tests/`
-5. ✅ Напишите свой первый тест!
+4. ✅ Изучите существующие тесты в `vertex-ar/tests/` (unit) и `test_files/` (integration)
+5. ✅ Прочитайте [test_files/README.md](test_files/README.md) для понимания организации тестов
+6. ✅ Напишите свой первый тест!
 
 ---
 
 ## 📞 Нужна помощь?
 
-- 📖 **Документация:** [docs/](docs/)
+- 📖 **Документация:** [docs/README.md](docs/README.md) — центральное оглавление
 - 🐛 **Issues:** [GitHub Issues](https://github.com/your-org/vertex-ar/issues)
 - 💬 **Discord:** [Vertex AR Community](https://discord.gg/vertexar)
 - 📧 **Email:** support@vertex-ar.example.com
@@ -411,7 +433,7 @@ open htmlcov/index.html
 
 ```bash
 # Одна команда для начала:
-./quick_test.sh demo
+./scripts/quick_test.sh demo
 ```
 
 **Удачи в тестировании! 🚀**
