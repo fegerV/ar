@@ -619,8 +619,19 @@
             showLoading(true);
             
             try {
-                // This would need to be implemented - for now we'll show a placeholder
-                const response = await fetch('/videos', {
+                const companyFilter = document.getElementById('companyFilter');
+                const selectedCompany = companyFilter ? companyFilter.value : '';
+                
+                // Build query string with filters
+                const params = new URLSearchParams();
+                if (selectedCompany) {
+                    params.append('company_id', selectedCompany);
+                }
+                
+                const queryString = params.toString();
+                const url = `/videos${queryString ? '?' + queryString : ''}`;
+                
+                const response = await fetch(url, {
                     credentials: 'include'
                 });
                 
@@ -632,7 +643,6 @@
             } catch (error) {
                 console.error('Error loading videos:', error);
                 showToast('Ошибка загрузки видео', 'error');
-                // Show placeholder for now
                 displayVideos([]);
             } finally {
                 showLoading(false);
@@ -759,14 +769,35 @@
             }
         }
 
-        // Companies management (placeholder)
+        // Companies management
         async function loadCompanies() {
             const select = document.getElementById('companyFilter');
-            // This would load companies - for now just show placeholder
-            select.innerHTML = `
-                <option value="">Все компании</option>
-                <option value="vertex-ar-default">Vertex AR</option>
-            `;
+            
+            try {
+                const response = await fetch('/companies', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Failed to load companies');
+                
+                const data = await response.json();
+                const companies = data.items || [];
+                
+                select.innerHTML = '<option value="">Все компании</option>';
+                companies.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company.id;
+                    option.textContent = company.name;
+                    select.appendChild(option);
+                });
+                
+                // Add change listener to reload videos when filter changes
+                select.addEventListener('change', loadVideos);
+            } catch (error) {
+                console.error('Error loading companies:', error);
+                // Fallback to placeholder
+                select.innerHTML = '<option value="">Все компании</option>';
+            }
         }
 
         // Utility functions

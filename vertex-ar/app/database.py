@@ -1318,6 +1318,49 @@ class Database:
         row = cursor.fetchone()
         return row["count"] if row else 0
 
+    def list_videos_for_schedule(
+        self,
+        company_id: Optional[str] = None,
+        status: Optional[str] = None,
+        rotation_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of all videos with scheduling information.
+        
+        Args:
+            company_id: Optional filter by company (via portrait -> client -> company)
+            status: Optional filter by video status (active, inactive, archived)
+            rotation_type: Optional filter by rotation type (none, sequential, cyclic)
+            
+        Returns:
+            List of video records with all fields including scheduling metadata
+        """
+        query = """
+            SELECT v.*
+            FROM videos v
+            JOIN portraits p ON v.portrait_id = p.id
+            JOIN clients c ON p.client_id = c.id
+            WHERE 1=1
+        """
+        params: List[Any] = []
+        
+        if company_id:
+            query += " AND c.company_id = ?"
+            params.append(company_id)
+        
+        if status:
+            query += " AND v.status = ?"
+            params.append(status)
+        
+        if rotation_type:
+            query += " AND v.rotation_type = ?"
+            params.append(rotation_type)
+        
+        query += " ORDER BY v.created_at DESC"
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
     def count_active_portraits(self, company_id: Optional[str] = None) -> int:
         """Count portraits that have an active video."""
         query = (
