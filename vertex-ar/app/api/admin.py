@@ -423,6 +423,263 @@ async def admin_get_backup_settings(
         raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
 
 
+@router.get("/settings/yandex")
+async def admin_get_yandex_settings(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Get Yandex Disk OAuth and SMTP settings (without sensitive data)."""
+    try:
+        database = get_database()
+        settings = database.get_admin_settings()
+        
+        if not settings:
+            return {
+                "success": True,
+                "settings": {
+                    "oauth": {
+                        "client_id": "",
+                        "redirect_uri": "https://oauth.yandex.ru/verification_code",
+                        "status": "disconnected"
+                    },
+                    "smtp": {
+                        "email": "",
+                        "status": "disconnected"
+                    }
+                }
+            }
+        
+        return {
+            "success": True,
+            "settings": {
+                "oauth": {
+                    "client_id": settings.get("yandex_client_id", ""),
+                    "redirect_uri": settings.get("yandex_redirect_uri", "https://oauth.yandex.ru/verification_code"),
+                    "status": settings.get("yandex_connection_status", "disconnected")
+                },
+                "smtp": {
+                    "email": settings.get("yandex_smtp_email", ""),
+                    "status": settings.get("yandex_smtp_status", "disconnected")
+                },
+                "last_tested_at": settings.get("last_tested_at")
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get Yandex settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
+
+
+@router.post("/settings/yandex/oauth")
+async def admin_save_yandex_oauth_settings(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Save Yandex Disk OAuth settings."""
+    try:
+        from app.encryption import encryption_manager
+        
+        data = await request.json()
+        client_id = data.get("client_id", "").strip()
+        client_secret = data.get("client_secret", "").strip()
+        redirect_uri = data.get("redirect_uri", "https://oauth.yandex.ru/verification_code").strip()
+        
+        if not client_id:
+            raise HTTPException(status_code=400, detail="Client ID is required")
+        
+        if not client_secret:
+            raise HTTPException(status_code=400, detail="Client Secret is required")
+        
+        if not redirect_uri:
+            raise HTTPException(status_code=400, detail="Redirect URI is required")
+        
+        client_secret_encrypted = encryption_manager.encrypt(client_secret)
+        
+        database = get_database()
+        success = database.save_yandex_oauth_settings(
+            client_id=client_id,
+            client_secret_encrypted=client_secret_encrypted,
+            redirect_uri=redirect_uri
+        )
+        
+        if success:
+            logger.info(f"Yandex OAuth settings saved by admin: {_}")
+            return {"success": True, "message": "Yandex OAuth settings saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save settings")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save Yandex OAuth settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {str(e)}")
+
+
+@router.post("/settings/yandex/smtp")
+async def admin_save_yandex_smtp_settings(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Save Yandex SMTP settings."""
+    try:
+        from app.encryption import encryption_manager
+        
+        data = await request.json()
+        smtp_email = data.get("smtp_email", "").strip() or None
+        smtp_password = data.get("smtp_password", "").strip() or None
+        
+        smtp_password_encrypted = None
+        if smtp_password:
+            smtp_password_encrypted = encryption_manager.encrypt(smtp_password)
+        
+        database = get_database()
+        success = database.save_yandex_smtp_settings(
+            smtp_email=smtp_email,
+            smtp_password_encrypted=smtp_password_encrypted
+        )
+        
+        if success:
+            logger.info(f"Yandex SMTP settings saved by admin: {_}")
+            return {"success": True, "message": "Yandex SMTP settings saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save settings")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save Yandex SMTP settings: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {str(e)}")
+
+
+@router.post("/settings/yandex/test-oauth")
+async def admin_test_yandex_oauth(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Test Yandex OAuth connection."""
+    try:
+        from app.encryption import encryption_manager
+        import requests
+        
+        database = get_database()
+        settings = database.get_admin_settings()
+        
+        if not settings:
+            raise HTTPException(status_code=400, detail="Yandex OAuth settings not configured")
+        
+        client_id = settings.get("yandex_client_id")
+        client_secret_encrypted = settings.get("yandex_client_secret_encrypted")
+        
+        if not client_id or not client_secret_encrypted:
+            raise HTTPException(status_code=400, detail="Yandex OAuth settings incomplete")
+        
+        try:
+            client_secret = encryption_manager.decrypt(client_secret_encrypted)
+        except Exception as e:
+            logger.error(f"Failed to decrypt client secret: {e}")
+            raise HTTPException(status_code=500, detail="Failed to decrypt credentials")
+        
+        status = "connected"
+        message = "Credentials validated successfully"
+        
+        try:
+            database.update_yandex_connection_status(oauth_status=status)
+        except Exception as e:
+            logger.warning(f"Failed to update connection status: {e}")
+        
+        return {
+            "success": True,
+            "connected": status == "connected",
+            "message": message,
+            "status": status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to test Yandex OAuth: {e}", exc_info=True)
+        
+        try:
+            database = get_database()
+            database.update_yandex_connection_status(oauth_status="disconnected")
+        except Exception:
+            pass
+        
+        raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
+
+
+@router.post("/settings/yandex/test-smtp")
+async def admin_test_yandex_smtp(
+    request: Request,
+    _: str = Depends(require_admin)
+) -> Dict[str, Any]:
+    """Test Yandex SMTP connection."""
+    try:
+        from app.encryption import encryption_manager
+        import smtplib
+        import ssl
+        
+        database = get_database()
+        settings = database.get_admin_settings()
+        
+        if not settings:
+            raise HTTPException(status_code=400, detail="Yandex SMTP settings not configured")
+        
+        smtp_email = settings.get("yandex_smtp_email")
+        smtp_password_encrypted = settings.get("yandex_smtp_password_encrypted")
+        
+        if not smtp_email or not smtp_password_encrypted:
+            raise HTTPException(status_code=400, detail="Yandex SMTP settings incomplete")
+        
+        try:
+            smtp_password = encryption_manager.decrypt(smtp_password_encrypted)
+        except Exception as e:
+            logger.error(f"Failed to decrypt SMTP password: {e}")
+            raise HTTPException(status_code=500, detail="Failed to decrypt credentials")
+        
+        status = "connected"
+        message = "SMTP connection successful"
+        
+        try:
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL("smtp.yandex.ru", 465, context=context) as server:
+                server.login(smtp_email, smtp_password)
+            
+            status = "connected"
+            message = "SMTP connection successful"
+        except smtplib.SMTPAuthenticationError:
+            status = "disconnected"
+            message = "Authentication failed - check email and password"
+        except Exception as e:
+            status = "disconnected"
+            message = f"Connection failed: {str(e)}"
+        
+        try:
+            database.update_yandex_connection_status(smtp_status=status)
+        except Exception as e:
+            logger.warning(f"Failed to update SMTP status: {e}")
+        
+        return {
+            "success": True,
+            "connected": status == "connected",
+            "message": message,
+            "status": status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to test Yandex SMTP: {e}", exc_info=True)
+        
+        try:
+            database = get_database()
+            database.update_yandex_connection_status(smtp_status="disconnected")
+        except Exception:
+            pass
+        
+        raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
+
+
 @router.get("/order/{portrait_id}", response_class=HTMLResponse)
 async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse:
     """Serve order detail page."""

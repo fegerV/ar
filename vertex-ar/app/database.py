@@ -398,6 +398,25 @@ class Database:
                 """
             )
 
+            # Create admin_settings table for Yandex Disk OAuth and SMTP settings
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS admin_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    yandex_client_id TEXT,
+                    yandex_client_secret_encrypted TEXT,
+                    yandex_redirect_uri TEXT,
+                    yandex_smtp_email TEXT,
+                    yandex_smtp_password_encrypted TEXT,
+                    yandex_connection_status TEXT DEFAULT 'disconnected' CHECK (yandex_connection_status IN ('connected', 'disconnected', 'reconnect_needed')),
+                    yandex_smtp_status TEXT DEFAULT 'disconnected' CHECK (yandex_smtp_status IN ('connected', 'disconnected', 'reconnect_needed')),
+                    last_tested_at TIMESTAMP,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
             # Add storage columns to companies table
             try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN storage_connection_id TEXT")
@@ -2204,6 +2223,131 @@ class Database:
             (portrait_id,)
         )
         return cursor.rowcount > 0
+
+    def get_admin_settings(self) -> Optional[Dict[str, Any]]:
+        """Get admin settings (Yandex Disk OAuth and SMTP)."""
+        cursor = self._execute("SELECT * FROM admin_settings WHERE id = 1")
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def save_yandex_oauth_settings(
+        self,
+        client_id: str,
+        client_secret_encrypted: str,
+        redirect_uri: str
+    ) -> bool:
+        """Save Yandex Disk OAuth settings with encrypted client secret."""
+        from datetime import datetime
+        
+        existing = self.get_admin_settings()
+        now = datetime.now()
+        
+        if existing:
+            cursor = self._execute(
+                """
+                UPDATE admin_settings 
+                SET yandex_client_id = ?,
+                    yandex_client_secret_encrypted = ?,
+                    yandex_redirect_uri = ?,
+                    updated_at = ?
+                WHERE id = 1
+                """,
+                (client_id, client_secret_encrypted, redirect_uri, now)
+            )
+        else:
+            cursor = self._execute(
+                """
+                INSERT INTO admin_settings (
+                    id, yandex_client_id, yandex_client_secret_encrypted, 
+                    yandex_redirect_uri, created_at, updated_at
+                )
+                VALUES (1, ?, ?, ?, ?, ?)
+                """,
+                (client_id, client_secret_encrypted, redirect_uri, now, now)
+            )
+        
+        return cursor.rowcount > 0
+
+    def save_yandex_smtp_settings(
+        self,
+        smtp_email: Optional[str],
+        smtp_password_encrypted: Optional[str]
+    ) -> bool:
+        """Save Yandex SMTP settings with encrypted password."""
+        from datetime import datetime
+        
+        existing = self.get_admin_settings()
+        now = datetime.now()
+        
+        if existing:
+            cursor = self._execute(
+                """
+                UPDATE admin_settings 
+                SET yandex_smtp_email = ?,
+                    yandex_smtp_password_encrypted = ?,
+                    updated_at = ?
+                WHERE id = 1
+                """,
+                (smtp_email, smtp_password_encrypted, now)
+            )
+        else:
+            cursor = self._execute(
+                """
+                INSERT INTO admin_settings (
+                    id, yandex_smtp_email, yandex_smtp_password_encrypted,
+                    created_at, updated_at
+                )
+                VALUES (1, ?, ?, ?, ?)
+                """,
+                (smtp_email, smtp_password_encrypted, now, now)
+            )
+        
+        return cursor.rowcount > 0
+
+    def update_yandex_connection_status(
+        self,
+        oauth_status: Optional[str] = None,
+        smtp_status: Optional[str] = None
+    ) -> bool:
+        """Update Yandex connection status."""
+        from datetime import datetime
+        
+        existing = self.get_admin_settings()
+        now = datetime.now()
+        
+        if not existing:
+            self._execute(
+                "INSERT INTO admin_settings (id, created_at, updated_at) VALUES (1, ?, ?)",
+                (now, now)
+            )
+        
+        updates = []
+        params = []
+        
+        if oauth_status:
+            updates.append("yandex_connection_status = ?")
+            params.append(oauth_status)
+        
+        if smtp_status:
+            updates.append("yandex_smtp_status = ?")
+            params.append(smtp_status)
+        
+        if updates:
+            updates.append("last_tested_at = ?")
+            params.append(now)
+            updates.append("updated_at = ?")
+            params.append(now)
+            params.append(1)  # WHERE id = 1
+            
+            cursor = self._execute(
+                f"UPDATE admin_settings SET {', '.join(updates)} WHERE id = ?",
+                tuple(params)
+            )
+            return cursor.rowcount > 0
+        
+        return False
 
 
 def ensure_default_admin_user(database: "Database") -> None:
