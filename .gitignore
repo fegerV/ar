@@ -116,6 +116,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+test_env/
 
 # Spyder project settings
 .spyderproject
@@ -153,6 +154,9 @@ app_data.db
 vertex_art.db
 app_data/
 !app_data/.gitkeep
+# Database backup files
+*.db.before_restore_*
+*.db.backup_*
 
 # Storage directories (user uploaded files)
 storage/
@@ -174,6 +178,8 @@ qr-codes/
 tmp/
 temp/
 *.tmp
+# Test/demo HTML harnesses
+test_*.html
 
 # Log files
 *.log
