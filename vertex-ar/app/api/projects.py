@@ -54,6 +54,8 @@ async def create_project(
             company_id=project_data.company_id,
             name=project_data.name,
             description=project_data.description,
+            status=project_data.status or "active",
+            subscription_end=project_data.subscription_end,
         )
         logger.info(f"Project created: {project_id}")
         return ProjectResponse(**project)
@@ -136,6 +138,8 @@ async def update_project(
         project_id=project_id,
         name=project_data.name,
         description=project_data.description,
+        status=project_data.status,
+        subscription_end=project_data.subscription_end,
     )
     
     if not success:
