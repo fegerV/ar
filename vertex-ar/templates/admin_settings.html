@@ -647,13 +647,107 @@
                     </button>
                     <button id="testBackupCreation" class="btn btn-secondary">
                         🧪 Тестировать создание бэкапа
-                    </button>
-                </div>
-            </section>
-        </div>
-    </div>
+                        </button>
+                        </div>
+                        </section>
 
-    <script>
+                        <!-- Yandex Disk OAuth Settings -->
+                        <section class="settings-section">
+                        <h2>🔑 Яндекс.Диск REST API</h2>
+
+                        <div id="yandexOAuthAlertContainer"></div>
+
+                        <div class="form-group">
+                        <label for="yandexClientId">Client ID <span style="color: var(--danger-color);">*</span></label>
+                        <input type="text" id="yandexClientId" placeholder="Введите Client ID" required>
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                        ID вашего приложения в Яндекс OAuth
+                        </small>
+                        </div>
+
+                        <div class="form-group">
+                        <label for="yandexClientSecret">Client Secret <span style="color: var(--danger-color);">*</span></label>
+                        <input type="password" id="yandexClientSecret" placeholder="Введите Client Secret" required>
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                        Секретный ключ приложения (будет зашифрован при сохранении)
+                        </small>
+                        </div>
+
+                        <div class="form-group">
+                        <label for="yandexRedirectUri">Redirect URI</label>
+                        <input type="text" id="yandexRedirectUri" placeholder="https://oauth.yandex.ru/verification_code" value="https://oauth.yandex.ru/verification_code">
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                        URI для OAuth авторизации
+                        </small>
+                        </div>
+
+                        <div class="btn-group">
+                        <button id="saveYandexOAuth" class="btn btn-success">
+                        💾 Сохранить настройки OAuth
+                        </button>
+                        <button id="testYandexOAuth" class="btn btn-primary">
+                        🔗 Тест подключения
+                        </button>
+                        </div>
+
+                        <div id="yandexOAuthStatus" style="margin-top: 1rem; display: none;">
+                        <span class="status-indicator">
+                        <span id="yandexOAuthStatusIcon">●</span>
+                        <span id="yandexOAuthStatusText">Отключено</span>
+                        </span>
+                        </div>
+                        </section>
+
+                        <!-- Yandex SMTP Settings -->
+                        <section class="settings-section">
+                        <h2>📧 Яндекс.Почта SMTP</h2>
+
+                        <div id="yandexSmtpAlertContainer"></div>
+
+                        <div class="form-group">
+                        <label for="yandexSmtpEmail">SMTP Email</label>
+                        <input type="email" id="yandexSmtpEmail" placeholder="example@yandex.ru">
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                        Email адрес для отправки писем через SMTP (опционально)
+                        </small>
+                        </div>
+
+                        <div class="form-group">
+                        <label for="yandexSmtpPassword">SMTP Password</label>
+                        <input type="password" id="yandexSmtpPassword" placeholder="Введите пароль от почты">
+                        <small style="color: var(--text-color); opacity: 0.7;">
+                        Пароль от почты или пароль приложения (будет зашифрован при сохранении)
+                        </small>
+                        </div>
+
+                        <div class="btn-group">
+                        <button id="saveYandexSmtp" class="btn btn-success">
+                        💾 Сохранить настройки SMTP
+                        </button>
+                        <button id="testYandexSmtp" class="btn btn-primary">
+                        🔗 Тест подключения
+                        </button>
+                        </div>
+
+                        <div id="yandexSmtpStatus" style="margin-top: 1rem; display: none;">
+                        <span class="status-indicator">
+                        <span id="yandexSmtpStatusIcon">●</span>
+                        <span id="yandexSmtpStatusText">Отключено</span>
+                        </span>
+                        </div>
+
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(23, 162, 184, 0.1); border: 1px solid var(--info-color); border-radius: var(--border-radius);">
+                        <p style="margin: 0; color: var(--info-color); font-size: 0.9rem;">
+                        <strong>📝 Требуемые разрешения для Яндекс приложения:</strong><br>
+                        • <strong>Яндекс.Диск:</strong> Доступ к папке приложения, Чтение всего Диска, Запись в любом месте, Информация о Диске<br>
+                        • <strong>Яндекс.Почта:</strong> Отправка писем через SMTP
+                        </p>
+                        </div>
+                        </section>
+                        </div>
+                        </div>
+
+                        <script>
         // Theme toggle
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -1098,6 +1192,217 @@
             }
         }
 
+        // Yandex settings functions
+        function updateYandexOAuthStatus(status, text) {
+            const statusDiv = document.getElementById('yandexOAuthStatus');
+            const statusIcon = document.getElementById('yandexOAuthStatusIcon');
+            const statusText = document.getElementById('yandexOAuthStatusText');
+            
+            statusDiv.style.display = 'block';
+            statusDiv.querySelector('.status-indicator').className = 'status-indicator';
+            
+            if (status === 'connected') {
+                statusDiv.querySelector('.status-indicator').classList.add('status-connected');
+                statusIcon.textContent = '✅';
+            } else if (status === 'reconnect_needed') {
+                statusDiv.querySelector('.status-indicator').classList.add('status-testing');
+                statusIcon.textContent = '⚠️';
+            } else {
+                statusDiv.querySelector('.status-indicator').classList.add('status-disconnected');
+                statusIcon.textContent = '❌';
+            }
+            
+            statusText.textContent = text;
+        }
+
+        function updateYandexSmtpStatus(status, text) {
+            const statusDiv = document.getElementById('yandexSmtpStatus');
+            const statusIcon = document.getElementById('yandexSmtpStatusIcon');
+            const statusText = document.getElementById('yandexSmtpStatusText');
+            
+            statusDiv.style.display = 'block';
+            statusDiv.querySelector('.status-indicator').className = 'status-indicator';
+            
+            if (status === 'connected') {
+                statusDiv.querySelector('.status-indicator').classList.add('status-connected');
+                statusIcon.textContent = '✅';
+            } else if (status === 'reconnect_needed') {
+                statusDiv.querySelector('.status-indicator').classList.add('status-testing');
+                statusIcon.textContent = '⚠️';
+            } else {
+                statusDiv.querySelector('.status-indicator').classList.add('status-disconnected');
+                statusIcon.textContent = '❌';
+            }
+            
+            statusText.textContent = text;
+        }
+
+        async function loadYandexSettings() {
+            try {
+                const response = await fetch('/admin/settings/yandex', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const result = await response.json();
+                const settings = result.settings;
+                
+                if (settings.oauth) {
+                    document.getElementById('yandexClientId').value = settings.oauth.client_id || '';
+                    document.getElementById('yandexRedirectUri').value = settings.oauth.redirect_uri || 'https://oauth.yandex.ru/verification_code';
+                    
+                    const statusMap = {
+                        'connected': 'Подключено',
+                        'disconnected': 'Отключено',
+                        'reconnect_needed': 'Требуется переподключение'
+                    };
+                    updateYandexOAuthStatus(settings.oauth.status, statusMap[settings.oauth.status] || 'Отключено');
+                }
+                
+                if (settings.smtp) {
+                    document.getElementById('yandexSmtpEmail').value = settings.smtp.email || '';
+                    
+                    const statusMap = {
+                        'connected': 'Подключено',
+                        'disconnected': 'Отключено',
+                        'reconnect_needed': 'Требуется переподключение'
+                    };
+                    updateYandexSmtpStatus(settings.smtp.status, statusMap[settings.smtp.status] || 'Отключено');
+                }
+            } catch (error) {
+                console.error('Failed to load Yandex settings:', error);
+            }
+        }
+
+        async function saveYandexOAuth() {
+            const clientId = document.getElementById('yandexClientId').value.trim();
+            const clientSecret = document.getElementById('yandexClientSecret').value.trim();
+            const redirectUri = document.getElementById('yandexRedirectUri').value.trim();
+            
+            if (!clientId) {
+                showAlert('Пожалуйста, введите Client ID', 'error');
+                return;
+            }
+            
+            if (!clientSecret) {
+                showAlert('Пожалуйста, введите Client Secret', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/settings/yandex/oauth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        redirect_uri: redirectUri
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Настройки Яндекс OAuth сохранены успешно!', 'success');
+                    document.getElementById('yandexClientSecret').value = '';
+                    updateYandexOAuthStatus('disconnected', 'Требуется тест подключения');
+                } else {
+                    showAlert('Ошибка при сохранении настроек: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при сохранении настроек: ' + error.message, 'error');
+            }
+        }
+
+        async function testYandexOAuth() {
+            updateYandexOAuthStatus('testing', 'Проверка подключения...');
+            
+            try {
+                const response = await fetch('/admin/settings/yandex/test-oauth', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                
+                if (result.connected) {
+                    updateYandexOAuthStatus('connected', 'Подключено');
+                    showAlert('Соединение с Яндекс OAuth установлено успешно!', 'success');
+                } else {
+                    updateYandexOAuthStatus('disconnected', 'Ошибка соединения');
+                    showAlert(result.message || 'Не удалось установить соединение', 'error');
+                }
+            } catch (error) {
+                updateYandexOAuthStatus('disconnected', 'Ошибка соединения');
+                showAlert('Ошибка при проверке соединения: ' + error.message, 'error');
+            }
+        }
+
+        async function saveYandexSmtp() {
+            const smtpEmail = document.getElementById('yandexSmtpEmail').value.trim();
+            const smtpPassword = document.getElementById('yandexSmtpPassword').value.trim();
+
+            try {
+                const response = await fetch('/admin/settings/yandex/smtp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        smtp_email: smtpEmail || null,
+                        smtp_password: smtpPassword || null
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Настройки Яндекс SMTP сохранены успешно!', 'success');
+                    document.getElementById('yandexSmtpPassword').value = '';
+                    if (smtpEmail && smtpPassword) {
+                        updateYandexSmtpStatus('disconnected', 'Требуется тест подключения');
+                    } else {
+                        updateYandexSmtpStatus('disconnected', 'Отключено');
+                    }
+                } else {
+                    showAlert('Ошибка при сохранении настроек: ' + (result.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Ошибка при сохранении настроек: ' + error.message, 'error');
+            }
+        }
+
+        async function testYandexSmtp() {
+            updateYandexSmtpStatus('testing', 'Проверка подключения...');
+            
+            try {
+                const response = await fetch('/admin/settings/yandex/test-smtp', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+                
+                if (result.connected) {
+                    updateYandexSmtpStatus('connected', 'Подключено');
+                    showAlert('Соединение с Яндекс SMTP установлено успешно!', 'success');
+                } else {
+                    updateYandexSmtpStatus('disconnected', 'Ошибка соединения');
+                    showAlert(result.message || 'Не удалось установить соединение', 'error');
+                }
+            } catch (error) {
+                updateYandexSmtpStatus('disconnected', 'Ошибка соединения');
+                showAlert('Ошибка при проверке соединения: ' + error.message, 'error');
+            }
+        }
+
         // Event listeners
         document.getElementById('testYandexConnection').addEventListener('click', testYandexConnection);
         document.getElementById('saveYandexConfig').addEventListener('click', saveYandexConfig);
@@ -1107,11 +1412,17 @@
         document.getElementById('saveStorageConfig').addEventListener('click', saveStorageConfig);
         document.getElementById('saveBackupSettings').addEventListener('click', saveBackupSettings);
         document.getElementById('testBackupCreation').addEventListener('click', testBackupCreation);
+        
+        document.getElementById('saveYandexOAuth').addEventListener('click', saveYandexOAuth);
+        document.getElementById('testYandexOAuth').addEventListener('click', testYandexOAuth);
+        document.getElementById('saveYandexSmtp').addEventListener('click', saveYandexSmtp);
+        document.getElementById('testYandexSmtp').addEventListener('click', testYandexSmtp);
 
         // Load current configuration on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadCurrentConfig();
             loadBackupSettings();
+            loadYandexSettings();
         });
     </script>
 </body>
