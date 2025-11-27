@@ -32,8 +32,81 @@ class SystemMonitor:
         }
         # Store historical data for trend analysis (keep last 100 data points)
         self.historical_data: Dict[str, List[Dict[str, Any]]] = {"cpu": [], "memory": [], "disk": [], "network": []}
+        # Track consecutive failures per service/metric for alert deduplication
         self.last_alerts: Dict[str, datetime] = {}
+        # Track failure counts per metric/service key
+        self.failure_counts: Dict[str, int] = {}
+        # Consecutive failures required before escalating to alert
+        self.consecutive_failure_threshold = getattr(settings, 'MONITORING_CONSECUTIVE_FAILURES', 3)
+        # Deduplication window in seconds
+        self.dedup_window = getattr(settings, 'MONITORING_DEDUP_WINDOW', settings.NOTIFICATION_DEDUP_WINDOW)
 
+    def _should_escalate_alert(self, alert_key: str) -> bool:
+        """
+        Check if an alert should be escalated based on consecutive failures.
+        
+        Args:
+            alert_key: Unique key for the alert (e.g., "cpu_high", "service_database")
+            
+        Returns:
+            True if alert should be escalated, False otherwise
+        """
+        # Increment failure count
+        self.failure_counts[alert_key] = self.failure_counts.get(alert_key, 0) + 1
+        
+        # Check if we've reached the consecutive failure threshold
+        if self.failure_counts[alert_key] >= self.consecutive_failure_threshold:
+            # Check deduplication window
+            if alert_key in self.last_alerts:
+                time_since_last = (datetime.utcnow() - self.last_alerts[alert_key]).total_seconds()
+                if time_since_last < self.dedup_window:
+                    logger.debug(f"Alert {alert_key} within dedup window ({time_since_last:.1f}s < {self.dedup_window}s)")
+                    return False
+            
+            # Update last alert time
+            self.last_alerts[alert_key] = datetime.utcnow()
+            logger.info(f"Escalating alert {alert_key} after {self.failure_counts[alert_key]} consecutive failures")
+            return True
+        else:
+            logger.debug(f"Alert {alert_key} not escalated: {self.failure_counts[alert_key]}/{self.consecutive_failure_threshold} failures")
+            return False
+    
+    def _reset_failure_count(self, alert_key: str) -> None:
+        """
+        Reset the failure count for a metric/service that has recovered.
+        
+        Args:
+            alert_key: Unique key for the alert
+        """
+        if alert_key in self.failure_counts and self.failure_counts[alert_key] > 0:
+            logger.debug(f"Resetting failure count for {alert_key} (was {self.failure_counts[alert_key]})")
+            self.failure_counts[alert_key] = 0
+    
+    def _determine_severity(self, metric_type: str, value: float, threshold: float) -> str:
+        """
+        Determine alert severity based on how much a metric exceeds its threshold.
+        
+        Args:
+            metric_type: Type of metric (cpu, memory, disk)
+            value: Current value
+            threshold: Alert threshold
+            
+        Returns:
+            Severity level: "warning", "medium", or "high"
+        """
+        # Calculate percentage over threshold
+        overshoot = ((value - threshold) / threshold) * 100
+        
+        # Critical level (>15% over threshold or >95% for any metric)
+        if value > 95 or overshoot > 15:
+            return "high"
+        # Degraded level (5-15% over threshold)
+        elif overshoot > 5:
+            return "medium"
+        # Warning level (just over threshold)
+        else:
+            return "warning"
+    
     def get_cpu_usage(self) -> Dict[str, Any]:
         """Get comprehensive CPU usage information."""
         # Current usage percentage
@@ -813,59 +886,98 @@ class SystemMonitor:
             health_data["metrics"]["cpu"] = cpu_usage
 
             if cpu_usage["percent"] > self.alert_thresholds["cpu"]:
+                alert_key = "high_cpu"
+                severity = self._determine_severity("cpu", cpu_usage["percent"], self.alert_thresholds["cpu"])
                 alert_msg = f"High CPU usage: {cpu_usage['percent']:.1f}% (threshold: {self.alert_thresholds['cpu']}%)"
                 if cpu_usage["load_average"]["1min"] > cpu_usage["cpu_count"]["physical"]:
                     alert_msg += f", Load average: {cpu_usage['load_average']['1min']:.1f}"
-                health_data["alerts"].append(
-                    {"type": "cpu", "severity": "high" if cpu_usage["percent"] > 90 else "medium", "message": alert_msg}
-                )
-                await alert_manager.send_alert(
-                    "high_cpu", "High CPU Usage Detected", alert_msg, "high" if cpu_usage["percent"] > 90 else "medium"
-                )
+                
+                # Check if we should escalate this alert
+                if self._should_escalate_alert(alert_key):
+                    health_data["alerts"].append(
+                        {"type": "cpu", "severity": severity, "message": alert_msg}
+                    )
+                    await alert_manager.send_alert(
+                        alert_key, "High CPU Usage Detected", alert_msg, severity
+                    )
+                else:
+                    # Add to health_data for visibility but don't send alert yet
+                    health_data["alerts"].append(
+                        {"type": "cpu", "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                    )
+            else:
+                # Reset failure count when metric is healthy
+                self._reset_failure_count("high_cpu")
 
             # Memory check
             memory_info = self.get_memory_usage()
             health_data["metrics"]["memory"] = memory_info
 
             if memory_info["virtual"]["percent"] > self.alert_thresholds["memory"]:
+                alert_key = "high_memory"
+                severity = self._determine_severity("memory", memory_info["virtual"]["percent"], self.alert_thresholds["memory"])
                 alert_msg = f"High memory usage: {memory_info['virtual']['percent']:.1f}% ({memory_info['virtual']['used_gb']:.1f}GB used)"
                 if memory_info["swap"]["percent"] > 50:
                     alert_msg += f", Swap: {memory_info['swap']['percent']:.1f}%"
-                health_data["alerts"].append(
-                    {
-                        "type": "memory",
-                        "severity": "high" if memory_info["virtual"]["percent"] > 95 else "medium",
-                        "message": alert_msg,
-                    }
-                )
-                await alert_manager.send_alert(
-                    "high_memory",
-                    "High Memory Usage Detected",
-                    alert_msg,
-                    "high" if memory_info["virtual"]["percent"] > 95 else "medium",
-                )
+                
+                # Check if we should escalate this alert
+                if self._should_escalate_alert(alert_key):
+                    health_data["alerts"].append(
+                        {
+                            "type": "memory",
+                            "severity": severity,
+                            "message": alert_msg,
+                        }
+                    )
+                    await alert_manager.send_alert(
+                        alert_key,
+                        "High Memory Usage Detected",
+                        alert_msg,
+                        severity,
+                    )
+                else:
+                    # Add to health_data for visibility but don't send alert yet
+                    health_data["alerts"].append(
+                        {"type": "memory", "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                    )
+            else:
+                # Reset failure count when metric is healthy
+                self._reset_failure_count("high_memory")
 
             # Disk check
             disk_info = self.get_disk_usage()
             health_data["metrics"]["disk"] = disk_info
 
             if disk_info["storage"]["percent"] > self.alert_thresholds["disk"]:
+                alert_key = "high_disk"
+                severity = self._determine_severity("disk", disk_info["storage"]["percent"], self.alert_thresholds["disk"])
                 alert_msg = (
                     f"High disk usage: {disk_info['storage']['percent']:.1f}% ({disk_info['storage']['used_gb']:.1f}GB used)"
                 )
-                health_data["alerts"].append(
-                    {
-                        "type": "disk",
-                        "severity": "high" if disk_info["storage"]["percent"] > 95 else "medium",
-                        "message": alert_msg,
-                    }
-                )
-                await alert_manager.send_alert(
-                    "high_disk",
-                    "High Disk Usage Detected",
-                    alert_msg,
-                    "high" if disk_info["storage"]["percent"] > 95 else "medium",
-                )
+                
+                # Check if we should escalate this alert
+                if self._should_escalate_alert(alert_key):
+                    health_data["alerts"].append(
+                        {
+                            "type": "disk",
+                            "severity": severity,
+                            "message": alert_msg,
+                        }
+                    )
+                    await alert_manager.send_alert(
+                        alert_key,
+                        "High Disk Usage Detected",
+                        alert_msg,
+                        severity,
+                    )
+                else:
+                    # Add to health_data for visibility but don't send alert yet
+                    health_data["alerts"].append(
+                        {"type": "disk", "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                    )
+            else:
+                # Reset failure count when metric is healthy
+                self._reset_failure_count("high_disk")
 
             # Service health
             service_health = self.get_service_health()
@@ -874,49 +986,99 @@ class SystemMonitor:
             # Check core services
             for service_name, service_data in service_health.items():
                 if service_name in ["database", "storage", "minio", "web_server"]:
+                    alert_key = f"service_{service_name}"
+                    
                     if not service_data["healthy"]:
                         alert_msg = f"Service {service_name} is not responding properly"
                         if service_data.get("response_time_ms"):
                             alert_msg += f" (response time: {service_data['response_time_ms']}ms)"
-                        health_data["alerts"].append(
-                            {"type": "service", "service": service_name, "severity": "high", "message": alert_msg}
-                        )
-                        await alert_manager.send_alert(
-                            f"service_{service_name}", f"Service {service_name} Failure", alert_msg, "high"
-                        )
+                        
+                        # Check if we should escalate this alert
+                        if self._should_escalate_alert(alert_key):
+                            health_data["alerts"].append(
+                                {"type": "service", "service": service_name, "severity": "high", "message": alert_msg}
+                            )
+                            await alert_manager.send_alert(
+                                alert_key, f"Service {service_name} Failure", alert_msg, "high"
+                            )
+                        else:
+                            # Add to health_data for visibility but don't send alert yet
+                            health_data["alerts"].append(
+                                {"type": "service", "service": service_name, "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                            )
                     elif (
                         service_data.get("response_time_ms") is not None and service_data.get("response_time_ms") > 5000
-                    ):  # 5 seconds
-                        alert_msg = f"Service {service_name} response time is high: {service_data['response_time_ms']}ms"
-                        health_data["alerts"].append(
-                            {
-                                "type": "service_performance",
-                                "service": service_name,
-                                "severity": "medium",
-                                "message": alert_msg,
-                            }
-                        )
-                        await alert_manager.send_alert(
-                            f"service_{service_name}_slow", f"Service {service_name} Slow Response", alert_msg, "medium"
-                        )
+                    ):  # 5 seconds - degraded but not failed
+                        alert_key_slow = f"service_{service_name}_slow"
+                        alert_msg = f"Service {service_name} response time is high: {service_data['response_time_ms']}ms (degraded)"
+                        
+                        # Check if we should escalate this alert
+                        if self._should_escalate_alert(alert_key_slow):
+                            health_data["alerts"].append(
+                                {
+                                    "type": "service_performance",
+                                    "service": service_name,
+                                    "severity": "warning",  # Downgraded from medium since service is still working
+                                    "message": alert_msg,
+                                }
+                            )
+                            await alert_manager.send_alert(
+                                alert_key_slow, f"Service {service_name} Slow Response", alert_msg, "medium"
+                            )
+                        else:
+                            # Add to health_data for visibility but don't send alert yet
+                            health_data["alerts"].append(
+                                {"type": "service_performance", "service": service_name, "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                            )
+                        # Reset the main service failure count since it's responding (just slowly)
+                        self._reset_failure_count(alert_key)
+                    else:
+                        # Service is healthy, reset failure counts
+                        self._reset_failure_count(alert_key)
+                        self._reset_failure_count(f"service_{service_name}_slow")
 
             # Check external services
             if "external_services" in service_health:
                 for ext_service, ext_data in service_health["external_services"].items():
+                    alert_key = f"external_{ext_service}"
+                    
                     if not ext_data["healthy"]:
                         alert_msg = f"External service {ext_service} is not responding properly"
-                        health_data["alerts"].append(
-                            {"type": "external_service", "service": ext_service, "severity": "medium", "message": alert_msg}
-                        )
-                        await alert_manager.send_alert(
-                            f"external_{ext_service}", f"External Service {ext_service.title()} Failure", alert_msg, "medium"
-                        )
+                        
+                        # Check if we should escalate this alert
+                        if self._should_escalate_alert(alert_key):
+                            health_data["alerts"].append(
+                                {"type": "external_service", "service": ext_service, "severity": "medium", "message": alert_msg}
+                            )
+                            await alert_manager.send_alert(
+                                alert_key, f"External Service {ext_service.title()} Failure", alert_msg, "medium"
+                            )
+                        else:
+                            # Add to health_data for visibility but don't send alert yet
+                            health_data["alerts"].append(
+                                {"type": "external_service", "service": ext_service, "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                            )
+                    else:
+                        # Reset failure count when service is healthy
+                        self._reset_failure_count(alert_key)
 
             # Check for recent errors
             if "recent_errors" in service_health and service_health["recent_errors"]["total_errors"] > 10:
+                alert_key = "high_error_count"
                 alert_msg = f"High number of recent errors: {service_health['recent_errors']['total_errors']} errors found"
-                health_data["alerts"].append({"type": "error_logs", "severity": "medium", "message": alert_msg})
-                await alert_manager.send_alert("high_error_count", "High Error Count Detected", alert_msg, "medium")
+                
+                # Check if we should escalate this alert
+                if self._should_escalate_alert(alert_key):
+                    health_data["alerts"].append({"type": "error_logs", "severity": "medium", "message": alert_msg})
+                    await alert_manager.send_alert(alert_key, "High Error Count Detected", alert_msg, "medium")
+                else:
+                    # Add to health_data for visibility but don't send alert yet
+                    health_data["alerts"].append(
+                        {"type": "error_logs", "severity": "warning", "message": f"Monitoring: {alert_msg} (transient)", "transient": True}
+                    )
+            else:
+                # Reset failure count when errors are below threshold
+                self._reset_failure_count("high_error_count")
 
             # Additional metrics
             health_data["metrics"]["network"] = self.get_network_stats()

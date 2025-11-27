@@ -83,6 +83,10 @@ class Settings:
         self.WEEKLY_REPORT_DAY = os.getenv("WEEKLY_REPORT_DAY", "monday")  # monday, tuesday, etc.
         self.WEEKLY_REPORT_TIME = os.getenv("WEEKLY_REPORT_TIME", "09:00")  # HH:MM format
         
+        # Alert deduplication and stability settings
+        self.MONITORING_CONSECUTIVE_FAILURES = int(os.getenv("MONITORING_CONSECUTIVE_FAILURES", "3"))  # failures before alert
+        self.MONITORING_DEDUP_WINDOW = int(os.getenv("MONITORING_DEDUP_WINDOW", "300"))  # seconds (5 minutes)
+        
         # Notification center settings
         self.NOTIFICATION_SYNC_INTERVAL = int(os.getenv("NOTIFICATION_SYNC_INTERVAL", "300"))  # 5 minutes
         self.NOTIFICATION_CLEANUP_INTERVAL = int(os.getenv("NOTIFICATION_CLEANUP_INTERVAL", "3600"))  # 1 hour
