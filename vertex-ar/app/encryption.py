@@ -7,8 +7,7 @@ import base64
 from typing import Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
-from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -36,12 +35,11 @@ class EncryptionManager:
         """Derive an encryption key from a password using PBKDF2."""
         # Use a static salt for consistency (in production, store this securely)
         salt = b"vertex-ar-encryption-salt-v1"
-        kdf = PBKDF2(
+        kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=100000,
-            backend=default_backend()
+            iterations=100000
         )
         key = base64.urlsafe_b64encode(kdf.derive(password))
         return key
