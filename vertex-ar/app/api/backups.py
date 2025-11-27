@@ -398,29 +398,80 @@ async def can_delete_backup(
     """
     Check if a backup can be deleted.
     
-    Returns False if it's the last backup to prevent accidental data loss.
+    Returns False if it's the last backup of its type to prevent accidental data loss.
+    Protects against deleting the last restore point for each backup type.
     
     Requires admin authentication.
     """
     try:
         manager = create_backup_manager()
         
-        # Get all backups
-        all_backups = manager.list_backups("all")
+        # Get backups by type
+        db_backups = manager.list_backups("database")
+        storage_backups = manager.list_backups("storage")
+        full_backups = manager.list_backups("full")
         
-        # If only one backup exists, prevent deletion
-        if len(all_backups) <= 1:
-            return {
-                "success": True,
-                "can_delete": False,
-                "reason": "Cannot delete the last backup"
-            }
-        
-        return {
-            "success": True,
-            "can_delete": True,
-            "total_backups": len(all_backups)
+        # Count backups by type
+        backup_types_present = {
+            "database": len(db_backups),
+            "storage": len(storage_backups),
+            "full": len(full_backups)
         }
+        total_backups = sum(backup_types_present.values())
+        
+        # Determine the type of backup being deleted by checking the path
+        backup_type_to_delete = None
+        if "db_backup" in backup_path or backup_path.endswith(".db"):
+            backup_type_to_delete = "database"
+        elif "storage_backup" in backup_path:
+            backup_type_to_delete = "storage"
+        elif "full_backup" in backup_path:
+            backup_type_to_delete = "full"
+        
+        # Check if this is the last backup of its type
+        is_last_of_type = False
+        can_delete = True
+        reason = None
+        recommendation = None
+        
+        if backup_type_to_delete:
+            type_count = backup_types_present.get(backup_type_to_delete, 0)
+            is_last_of_type = type_count <= 1
+            
+            if is_last_of_type:
+                # Cannot delete the last backup of this type
+                can_delete = False
+                reason = f"Cannot delete the last {backup_type_to_delete} backup"
+                recommendation = (
+                    f"This is your only {backup_type_to_delete} backup. "
+                    f"To maintain at least one restore point, please create a new "
+                    f"{backup_type_to_delete} or full backup before deleting this one."
+                )
+        else:
+            # If we can't determine the type, check total count as fallback
+            if total_backups <= 1:
+                can_delete = False
+                reason = "Cannot delete the last backup"
+                recommendation = (
+                    "This is your only backup. Please create a new backup "
+                    "before deleting this one to ensure you have a restore point."
+                )
+        
+        response = {
+            "success": True,
+            "can_delete": can_delete,
+            "total_backups": total_backups,
+            "backup_types_present": backup_types_present,
+            "backup_type_to_delete": backup_type_to_delete,
+            "is_last_of_type": is_last_of_type
+        }
+        
+        if reason:
+            response["reason"] = reason
+        if recommendation:
+            response["recommendation"] = recommendation
+        
+        return response
     
     except Exception as e:
         logger.error("Failed to check if backup can be deleted", error=str(e), exc_info=e)

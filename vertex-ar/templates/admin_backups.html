@@ -471,6 +471,45 @@
             display: block;
         }
 
+        .backup-status.warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border: 1px solid var(--warning-color);
+            color: #856404;
+            display: block;
+        }
+
+        [data-theme="dark"] .backup-status.warning {
+            color: var(--warning-color);
+        }
+
+        .backup-delete-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border: 1px solid var(--warning-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+
+        [data-theme="light"] .backup-delete-warning {
+            color: #856404;
+        }
+
+        [data-theme="dark"] .backup-delete-warning {
+            color: var(--warning-color);
+        }
+
+        .backup-delete-warning strong {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .backup-delete-warning .backup-types-summary {
+            margin: 0.5rem 0;
+            padding-left: 1rem;
+        }
+
         /* Footer Styles */
         .footer {
             margin-top: 4rem;
@@ -1351,27 +1390,66 @@
             addLog(`Проверка возможности удаления бэкапа от ${timestamp}`, 'info');
 
             // Check if this is the last backup
+            let checkResult = null;
             try {
                 const checkResponse = await fetch(`/backups/can-delete?backup_path=${encodeURIComponent(backupPath)}`, {
                     credentials: 'include'
                 });
                 
                 if (checkResponse.ok) {
-                    const checkResult = await checkResponse.json();
+                    checkResult = await checkResponse.json();
                     if (!checkResult.can_delete) {
-                        showBackupStatus(
-                            `✗ ${checkResult.reason || 'Невозможно удалить этот бэкап'}`,
-                            'error'
-                        );
-                        addLog(`Удаление бэкапа запрещено: ${checkResult.reason || 'Невозможно удалить этот бэкап'}`, 'warning');
+                        // Build detailed warning message
+                        let warningHtml = `<strong>⚠️ ${checkResult.reason || 'Невозможно удалить этот бэкап'}</strong>`;
+                        
+                        if (checkResult.recommendation) {
+                            warningHtml += `<p style="margin-top: 0.5rem;">${checkResult.recommendation}</p>`;
+                        }
+                        
+                        if (checkResult.backup_types_present) {
+                            const types = checkResult.backup_types_present;
+                            warningHtml += '<div class="backup-types-summary">';
+                            warningHtml += '<p>Текущие бэкапы:</p>';
+                            warningHtml += '<ul style="margin: 0.25rem 0; list-style-position: inside;">';
+                            if (types.database > 0) warningHtml += `<li>Database: ${types.database}</li>`;
+                            if (types.storage > 0) warningHtml += `<li>Storage: ${types.storage}</li>`;
+                            if (types.full > 0) warningHtml += `<li>Full: ${types.full}</li>`;
+                            warningHtml += '</ul>';
+                            warningHtml += '</div>';
+                        }
+                        
+                        // Show warning with context
+                        const statusElement = document.getElementById('backupStatus');
+                        statusElement.innerHTML = warningHtml;
+                        statusElement.className = 'backup-status warning';
+                        
+                        addLog(`Удаление запрещено: ${checkResult.reason}`, 'warning');
+                        
+                        // Hide after 10 seconds (longer than usual to give user time to read)
+                        setTimeout(() => hideBackupStatus(), 10000);
                         return;
                     }
                 }
             } catch (error) {
                 console.error('Error checking if backup can be deleted:', error);
+                addLog(`Ошибка проверки возможности удаления: ${error.message}`, 'warning');
             }
             
-            if (!confirm(`Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`)) {
+            // Build confirmation message with context
+            let confirmMsg = `Удалить бэкап от ${timestamp}? Это действие нельзя отменить.`;
+            if (checkResult && checkResult.backup_type_to_delete) {
+                confirmMsg = `Удалить ${checkResult.backup_type_to_delete} бэкап от ${timestamp}?\n`;
+                if (checkResult.backup_types_present) {
+                    const types = checkResult.backup_types_present;
+                    const remaining = types[checkResult.backup_type_to_delete] - 1;
+                    if (remaining > 0) {
+                        confirmMsg += `После удаления останется ${remaining} ${checkResult.backup_type_to_delete} бэкап(ов).\n\n`;
+                    }
+                }
+                confirmMsg += 'Это действие нельзя отменить.';
+            }
+            
+            if (!confirm(confirmMsg)) {
                 addLog(`Отмена удаления бэкапа от ${timestamp}`, 'info');
                 return;
             }
