@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer, Text, Enum
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer, Text, Enum, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from datetime import datetime
@@ -69,15 +69,21 @@ class Notification(Base):
     user_id = Column(String, nullable=True) # ID пользователя, если уведомление персонализировано
     notification_type = Column(String, default="info")  # info, success, warning, error
     priority = Column(Enum(NotificationPriority), default=NotificationPriority.MEDIUM)
-    status = Column(Enum(NotificationStatus), default=NotificationStatus.NEW)
+    status = Column(Enum(NotificationStatus), default=NotificationStatus.NEW, index=True)
     is_read = Column(Boolean, default=False)
-    source = Column(String, nullable=True)  # Источник события (сервис, модуль)
+    source = Column(String, nullable=True, index=True)  # Источник события (сервис, модуль)
     service_name = Column(String, nullable=True)  # Имя сервиса
     event_data = Column(Text, nullable=True)  # JSON с детальными данными события
-    group_id = Column(String, nullable=True)  # ID для группировки одинаковых алертов
+    group_id = Column(String, nullable=True, index=True)  # ID для группировки одинаковых алертов
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)  # Время, после которого уведомление считается устаревшим
     processed_at = Column(DateTime, nullable=True)  # Время обработки уведомления
+
+    # Additional indexes for better query performance
+    __table_args__ = (
+        Index('ix_notifications_group_id_status', 'group_id', 'status'),
+        Index('ix_notifications_source_created', 'source', 'created_at'),
+    )
 
 
 class NotificationCreate(BaseModel):
