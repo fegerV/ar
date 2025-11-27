@@ -116,44 +116,63 @@ LOG_LEVEL=DEBUG
 
 **Маркер:** `@pytest.mark.unit`
 
+**Запуск:** `pytest vertex-ar/tests/`
+
 ### 2. Integration тесты (интеграционные)
 
 Тестируют взаимодействие между компонентами.
 
-- `test_api.py` — API endpoints
-- `test_user_management.py` — полный цикл управления пользователями
-- `test_storage.py` — работа с файловым хранилищем
+**Расположение:** `test_files/`
+
+- `test_api_endpoints.py` — API endpoints
+- `test_admin_panel.py` — админ-панель
+- `test_ar_functionality.py` — AR функциональность
+- `test_storage_integration.py` — работа с файловым хранилищем
 
 **Маркер:** `@pytest.mark.integration`
+
+**Запуск:** `pytest test_files/ -k "not performance"`
 
 ### 3. AR Feature тесты
 
 Специфические тесты функциональности AR.
 
-- `test_ar_features.py` — генерация NFT маркеров, AR viewer
-- `test_nft_generation.py` — тестирование генератора
+**Расположение:** `test_files/`
+
+- `test_ar_functionality.py` — генерация NFT маркеров, AR viewer
+- `test_ar_upload_functionality.py` — загрузка и обработка
+- `test_nft_improvements.py` — тестирование генератора
 
 **Маркер:** `@pytest.mark.ar`
+
+**Запуск:** `pytest test_files/test_ar*.py`
 
 ### 4. Performance тесты
 
 Тесты производительности и нагрузки.
 
+**Расположение:** `test_files/`
+
 - `test_comprehensive_performance.py`
 - `test_memory_profiler.py`
 - `test_portraits_load.py`
+- `test_performance.py`
 
 **Маркер:** `@pytest.mark.performance`
+
+**Запуск:** `./test_files/run_performance_tests.sh`
 
 ### 5. Security тесты
 
 Тесты безопасности и защиты.
 
-- `test_security.py` — аудит безопасности
-- Тестирование rate limiting
-- Валидация токенов
+**Расположение:** `test_files/`
+
+- `test_security.py` — аудит безопасности, rate limiting, валидация токенов
 
 **Маркер:** `@pytest.mark.security`
+
+**Запуск:** `pytest test_files/test_security.py`
 
 ---
 
@@ -172,36 +191,44 @@ pytest -v
 pytest -vv -s
 
 # Запуск конкретного файла
-pytest vertex-ar/tests/test_auth.py
+pytest vertex-ar/tests/test_auth.py          # Unit тест
+pytest test_files/test_api_endpoints.py      # Integration тест
 
 # Запуск конкретного теста
 pytest vertex-ar/tests/test_auth.py::test_user_registration
+pytest test_files/test_api_endpoints.py::test_auth_registration
 
 # Запуск тестов по маркеру
 pytest -m unit           # Только unit тесты
 pytest -m integration    # Только integration тесты
 pytest -m "not slow"     # Исключить медленные тесты
+
+# Запуск по директории
+pytest vertex-ar/tests/     # Только unit тесты
+pytest test_files/          # Интеграционные и производительные
 ```
 
-### Использование скрипта run_tests.sh
+### Использование скриптов для тестирования
 
-Проект включает удобный скрипт для запуска тестов:
+Проект включает удобные скрипты для запуска тестов:
 
 ```bash
-# Все тесты (по умолчанию)
-./run_tests.sh
+# Quick test script (универсальный, из корня)
+./scripts/quick_test.sh              # Все тесты
+./scripts/quick_test.sh quick        # Быстрые тесты
+./scripts/quick_test.sh demo         # Демонстрация с примерами
+./scripts/quick_test.sh coverage     # С покрытием
 
-# Быстрые тесты (без медленных)
-./run_tests.sh fast
+# Test runner в test_files/
+cd test_files
+./run_tests.sh                       # Все тесты
+./run_tests.sh fast                  # Быстрые тесты
+./run_tests.sh integration           # Только интеграционные
+./run_tests.sh unit                  # Только unit (из vertex-ar/tests/)
 
-# С отчётом о покрытии
-./run_tests.sh coverage
-
-# С подробным выводом
-./run_tests.sh verbose
-
-# Только упавшие тесты (после предыдущего запуска)
-./run_tests.sh failed
+# Performance tests
+cd test_files
+./run_performance_tests.sh           # Все производительные тесты
 ```
 
 ### Тесты с покрытием кода

@@ -18,21 +18,30 @@
 ## 2. Структура тестов
 
 ```
-tests/
-├── test_api_endpoints.py            # REST API, CRUD, валидаторы
-├── test_admin_panel.py              # HTML-маршруты, авторизация
-├── test_ar_functionality.py         # Просмотр AR-сцен, QR-коды
+vertex-ar/tests/               # Unit тесты (модульные)
+├── test_auth.py               # Аутентификация
+├── test_models.py             # Pydantic модели
+├── test_database.py           # Работа с БД
+└── ...                        # Другие unit тесты
+
+test_files/                    # Integration и Performance тесты
+├── test_api_endpoints.py      # REST API, CRUD, валидаторы
+├── test_admin_panel.py        # HTML-маршруты, авторизация
+├── test_ar_functionality.py   # Просмотр AR-сцен, QR-коды
 ├── test_ar_upload_functionality.py  # Загрузка изображений и видео
-├── test_nft_improvements.py         # Генерация и анализ маркеров
-├── test_storage_integration.py      # Работа локального и MinIO-хранилищ
-├── test_security.py                 # Блокировки, rate limiting, валидаторы
-├── test_performance.py              # Производительность API
-├── test_comprehensive_performance.py# Нагрузочные сценарии генератора
-├── test_documentation.py            # Наличие ключевых документов
-└── test_deployment.py               # Проверка скриптов и конфигураций
+├── test_nft_improvements.py   # Генерация и анализ маркеров
+├── test_storage_integration.py # Работа локального и MinIO-хранилищ
+├── test_security.py           # Блокировки, rate limiting, валидаторы
+├── test_performance.py        # Производительность API
+├── test_comprehensive_performance.py # Нагрузочные сценарии генератора
+├── test_documentation.py      # Наличие ключевых документов
+├── test_deployment.py         # Проверка скриптов и конфигураций
+├── run_tests.sh               # Скрипт запуска тестов
+└── run_performance_tests.sh   # Скрипт производительных тестов
 ```
 
-Дополнительно:`vertex-ar/tests/` содержит модульные проверки бизнес-логики.
+**Unit тесты** в `vertex-ar/tests/` — быстрые, изолированные проверки бизнес-логики.  
+**Integration тесты** в `test_files/` — полные сценарии с взаимодействием компонентов.
 
 ---
 
@@ -70,12 +79,12 @@ pytest --cov=vertex-ar --cov-report=term-missing
 
 | Категория | Цель | Файлы |
 | --- | --- | --- |
-| Unit | Изолированная логика, валидаторы | `vertex-ar/tests/` |
-| Integration | Полный цикл API/хранилища | `tests/test_api_endpoints.py`, `tests/test_storage_integration.py` |
-| E2E/UX | Админ-панель, AR-просмотр | `tests/test_admin_panel.py`, `tests/test_ar_functionality.py` |
-| Security | Rate limiting, блокировки, валидация | `tests/test_security.py` |
-| Performance | Время генерации, нагрузка | `tests/test_performance.py`, `tests/test_comprehensive_performance.py` |
-| Documentation | Актуальность README/CHANGELOG/ROADMAP | `tests/test_documentation.py` |
+| Unit | Изолированная логика, валидаторы | `vertex-ar/tests/test_*.py` |
+| Integration | Полный цикл API/хранилища | `test_files/test_api_endpoints.py`, `test_files/test_storage_integration.py` |
+| E2E/UX | Админ-панель, AR-просмотр | `test_files/test_admin_panel.py`, `test_files/test_ar_functionality.py` |
+| Security | Rate limiting, блокировки, валидация | `test_files/test_security.py` |
+| Performance | Время генерации, нагрузка | `test_files/test_performance.py`, `test_files/test_comprehensive_performance.py` |
+| Documentation | Актуальность README/CHANGELOG/ROADMAP | `test_files/test_documentation.py` |
 
 ---
 
@@ -119,10 +128,12 @@ docker-compose -f docker-compose.yml up tests
 
 ## 9. Производительность и нагрузка
 
-Запуск: `./run_performance_tests.sh` (выполняет стресс-тест генератора и API).  
+Запуск: `cd test_files && ./run_performance_tests.sh` (выполняет стресс-тест генератора и API).  
 Метрики сохраняются в `performance_results/`.
 
 Рекомендуемые параметры стенда: CPU 4+, RAM 8+ ГБ, SSD.
+
+Альтернативно: `pytest test_files/ -k "performance or load" -v`
 
 ---
 
@@ -138,9 +149,10 @@ docker-compose -f docker-compose.yml up tests
 
 ## 11. Ретрофит
 
-- Все обнаруженные баги сопровождаются тестами в `tests/regression/`
-- Отдельная папка `tests/fixtures/` содержит данные для генератора и видеороликов
+- Все обнаруженные баги сопровождаются тестами (regression tests)
+- Тестовые данные находятся в `test_files/` (изображения, видео, JSON)
 - При добавлении новых фикстур используйте фабрики и временные директории (`tmp_path`)
+- Используйте `test_files/create_test_video.py` для генерации тестовых видео
 
 ---
 
