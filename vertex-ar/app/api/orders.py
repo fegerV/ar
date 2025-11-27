@@ -52,6 +52,7 @@ async def _create_order_workflow(
     description: str | None = None,
     endpoint: str = "orders",
     company_id: str = "vertex-ar-default",
+    subscription_end: str | None = None,
 ) -> OrderResponse:
     """Shared implementation for creating an order."""
     _validate_upload(image, "image/", "Invalid image file")
@@ -185,6 +186,7 @@ async def _create_order_workflow(
             permanent_link=permanent_link,
             qr_code=qr_code_base64,
             image_preview_path=str(image_preview_path) if image_preview_path else None,
+            subscription_end=subscription_end,
         )
 
         video_record = database.create_video(
@@ -222,6 +224,9 @@ async def _create_order_workflow(
                 image_path=portrait_record["image_path"],
                 view_count=portrait_record["view_count"],
                 created_at=portrait_record["created_at"],
+                subscription_end=portrait_record.get("subscription_end"),
+                lifecycle_status=portrait_record.get("lifecycle_status", "active"),
+                last_status_change=portrait_record.get("last_status_change"),
             ),
             video=VideoResponse(
                 id=video_record["id"],
@@ -249,10 +254,11 @@ async def create_order(
     video: UploadFile = File(...),
     description: str = Form(None),
     company_id: str = Form("vertex-ar-default"),
+    subscription_end: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Create a new order with client, portrait, and primary video."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders", company_id=company_id)
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders", company_id=company_id, subscription_end=subscription_end)
 
 
 @legacy_router.post(
@@ -268,7 +274,8 @@ async def create_order_legacy(
     video: UploadFile = File(...),
     description: str = Form(None),
     company_id: str = Form("vertex-ar-default"),
+    subscription_end: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Legacy compatibility endpoint for /api/orders/create."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders", company_id=company_id)
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders", company_id=company_id, subscription_end=subscription_end)

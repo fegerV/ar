@@ -47,6 +47,9 @@ def _portrait_to_response(portrait: Dict[str, Any]) -> PortraitResponse:
         image_path=portrait["image_path"],
         view_count=portrait["view_count"],
         created_at=portrait["created_at"],
+        subscription_end=portrait.get("subscription_end"),
+        lifecycle_status=portrait.get("lifecycle_status", "active"),
+        last_status_change=portrait.get("last_status_change"),
     )
 
 

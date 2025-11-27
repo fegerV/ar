@@ -277,6 +277,8 @@ class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
     company_id: str = Field(..., description="Company ID")
+    status: Optional[str] = Field(default="active", description="Lifecycle status")
+    subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
     
     @field_validator('name')
     @classmethod
@@ -289,17 +291,55 @@ class ProjectCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError('Company ID is required')
         return v.strip()
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['active', 'expiring', 'archived']:
+            raise ValueError('status must be one of: active, expiring, archived')
+        return v
+    
+    @field_validator('subscription_end')
+    @classmethod
+    def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            from datetime import datetime
+            try:
+                datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                raise ValueError('subscription_end must be a valid ISO format date')
+        return v
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
+    status: Optional[str] = Field(None, description="Lifecycle status")
+    subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
     
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
+        return v
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['active', 'expiring', 'archived']:
+            raise ValueError('status must be one of: active, expiring, archived')
+        return v
+    
+    @field_validator('subscription_end')
+    @classmethod
+    def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            from datetime import datetime
+            try:
+                datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                raise ValueError('subscription_end must be a valid ISO format date')
         return v
 
 
@@ -309,6 +349,9 @@ class ProjectResponse(BaseModel):
     description: Optional[str]
     company_id: str
     created_at: str
+    status: Optional[str] = "active"
+    subscription_end: Optional[str] = None
+    last_status_change: Optional[str] = None
 
 
 class ProjectListItem(ProjectResponse):
@@ -379,6 +422,7 @@ class PaginatedFoldersResponse(BaseModel):
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
+    subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
     
     @field_validator('phone')
     @classmethod
@@ -389,6 +433,17 @@ class OrderCreate(BaseModel):
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
+    
+    @field_validator('subscription_end')
+    @classmethod
+    def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            from datetime import datetime
+            try:
+                datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                raise ValueError('subscription_end must be a valid ISO format date')
+        return v
 
 
 # Portrait models
@@ -403,6 +458,9 @@ class PortraitResponse(BaseModel):
     preview_url: Optional[str] = None  # Public URL for preview
     view_count: int
     created_at: str
+    subscription_end: Optional[str] = None
+    lifecycle_status: Optional[str] = "active"
+    last_status_change: Optional[str] = None
 
 
 # Video models

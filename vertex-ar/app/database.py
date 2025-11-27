@@ -296,6 +296,38 @@ class Database:
                 self._connection.execute("ALTER TABLE clients ADD COLUMN email TEXT")
             except sqlite3.OperationalError:
                 pass
+            
+            # Add lifecycle management columns to projects table
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN subscription_end TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN last_status_change TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_7d TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_24h TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_expired TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Add last_status_change to portraits table
+            try:
+                self._connection.execute("ALTER TABLE portraits ADD COLUMN last_status_change TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
 
             # Create indexes for projects and folders
             try:
@@ -786,6 +818,8 @@ class Database:
         qr_code: Optional[str] = None,
         image_preview_path: Optional[str] = None,
         folder_id: Optional[str] = None,
+        subscription_end: Optional[str] = None,
+        lifecycle_status: str = "active",
     ) -> Dict[str, Any]:
         """Create a new portrait."""
         self._execute(
@@ -793,11 +827,12 @@ class Database:
             INSERT INTO portraits (
                 id, client_id, image_path, image_preview_path,
                 marker_fset, marker_fset3, marker_iset,
-                permanent_link, qr_code, folder_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                permanent_link, qr_code, folder_id, subscription_end, lifecycle_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (portrait_id, client_id, image_path, image_preview_path,
-             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code, folder_id),
+             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code, folder_id, 
+             subscription_end, lifecycle_status),
         )
         return self.get_portrait(portrait_id)
 
@@ -1602,12 +1637,20 @@ class Database:
         return options
 
     # Project methods
-    def create_project(self, project_id: str, company_id: str, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+    def create_project(
+        self, 
+        project_id: str, 
+        company_id: str, 
+        name: str, 
+        description: Optional[str] = None,
+        status: str = "active",
+        subscription_end: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Create a new project."""
         try:
             self._execute(
-                "INSERT INTO projects (id, company_id, name, description) VALUES (?, ?, ?, ?)",
-                (project_id, company_id, name, description),
+                "INSERT INTO projects (id, company_id, name, description, status, subscription_end) VALUES (?, ?, ?, ?, ?, ?)",
+                (project_id, company_id, name, description, status, subscription_end),
             )
             logger.info(f"Created project: {name} in company {company_id}")
             return self.get_project(project_id)
@@ -1662,7 +1705,18 @@ class Database:
         row = cursor.fetchone()
         return row['count'] if row else 0
 
-    def update_project(self, project_id: str, name: Optional[str] = None, description: Optional[str] = None) -> bool:
+    def update_project(
+        self, 
+        project_id: str, 
+        name: Optional[str] = None, 
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        subscription_end: Optional[str] = None,
+        last_status_change: Optional[str] = None,
+        notified_7d: Optional[str] = None,
+        notified_24h: Optional[str] = None,
+        notified_expired: Optional[str] = None
+    ) -> bool:
         """Update project data."""
         updates = []
         params = []
@@ -1672,6 +1726,24 @@ class Database:
         if description is not None:
             updates.append("description = ?")
             params.append(description)
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+        if subscription_end is not None:
+            updates.append("subscription_end = ?")
+            params.append(subscription_end)
+        if last_status_change is not None:
+            updates.append("last_status_change = ?")
+            params.append(last_status_change)
+        if notified_7d is not None:
+            updates.append("notified_7d = ?")
+            params.append(notified_7d)
+        if notified_24h is not None:
+            updates.append("notified_24h = ?")
+            params.append(notified_24h)
+        if notified_expired is not None:
+            updates.append("notified_expired = ?")
+            params.append(notified_expired)
 
         if not updates:
             return False
@@ -1713,6 +1785,45 @@ class Database:
         )
         row = cursor.fetchone()
         return row['count'] if row else 0
+    
+    def set_project_status(self, project_id: str, status: str) -> bool:
+        """Set project status and record status change timestamp."""
+        now = datetime.utcnow().isoformat()
+        return self.update_project(project_id, status=status, last_status_change=now)
+    
+    def list_projects_for_lifecycle_check(self) -> List[Dict[str, Any]]:
+        """Get all projects with subscription_end dates for lifecycle checking."""
+        cursor = self._execute(
+            "SELECT * FROM projects WHERE subscription_end IS NOT NULL ORDER BY subscription_end ASC"
+        )
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def count_projects_by_status(self, company_id: Optional[str] = None) -> Dict[str, int]:
+        """Count projects grouped by lifecycle status."""
+        query = """
+            SELECT 
+                COALESCE(status, 'active') as status,
+                COUNT(*) as count
+            FROM projects
+            WHERE 1=1
+        """
+        params: List[Any] = []
+        
+        if company_id:
+            query += " AND company_id = ?"
+            params.append(company_id)
+        
+        query += " GROUP BY status"
+        
+        cursor = self._execute(query, tuple(params))
+        results = {row["status"]: row["count"] for row in cursor.fetchall()}
+        
+        # Ensure all statuses are present
+        for status in ["active", "expiring", "archived"]:
+            if status not in results:
+                results[status] = 0
+        
+        return results
 
     # Folder methods
     def create_folder(self, folder_id: str, project_id: str, name: str, description: Optional[str] = None) -> Dict[str, Any]:
