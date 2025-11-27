@@ -366,6 +366,55 @@ class TestVideoEndpoints:
         # This will likely return 404 since portrait doesn't exist
         response = client.get("/videos/portrait/fake_portrait_id", headers=auth_headers)
         assert response.status_code in [200, 404]  # May vary
+    
+    def test_list_all_videos_requires_admin(self, client):
+        """Test that listing all videos requires admin authentication."""
+        response = client.get("/videos")
+        assert response.status_code == 401
+    
+    def test_list_all_videos_empty(self, client, auth_headers):
+        """Test listing all videos when none exist."""
+        response = client.get("/videos", headers=auth_headers)
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+    
+    def test_list_all_videos_with_company_filter(self, client, auth_headers):
+        """Test listing videos filtered by company."""
+        response = client.get("/videos?company_id=vertex-ar-default", headers=auth_headers)
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert isinstance(data, list)
+    
+    def test_list_all_videos_with_status_filter(self, client, auth_headers):
+        """Test listing videos filtered by status."""
+        response = client.get("/videos?status=active", headers=auth_headers)
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert isinstance(data, list)
+    
+    def test_list_all_videos_with_rotation_type_filter(self, client, auth_headers):
+        """Test listing videos filtered by rotation type."""
+        response = client.get("/videos?rotation_type=sequential", headers=auth_headers)
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert isinstance(data, list)
+    
+    def test_list_all_videos_with_multiple_filters(self, client, auth_headers):
+        """Test listing videos with multiple filters."""
+        response = client.get(
+            "/videos?company_id=vertex-ar-default&status=active&rotation_type=sequential",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert isinstance(data, list)
 
 
 class TestUnauthenticatedAccess:

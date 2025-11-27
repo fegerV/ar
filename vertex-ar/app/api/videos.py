@@ -5,7 +5,7 @@ import base64
 import uuid
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from app.api.auth import get_current_user, require_admin
 from app.database import Database
@@ -63,6 +63,30 @@ def _video_to_response(video: Dict[str, Any]) -> VideoResponse:
         response.preview_url = storage_manager.get_public_url(video["video_preview_path"], "previews")
     
     return response
+
+
+@router.get("/", response_model=List[VideoResponse])
+async def list_all_videos(
+    company_id: str = Query(None, description="Filter by company ID"),
+    status: str = Query(None, description="Filter by status (active, inactive, archived)"),
+    rotation_type: str = Query(None, description="Filter by rotation type (none, sequential, cyclic)"),
+    username: str = Depends(require_admin)
+) -> List[VideoResponse]:
+    """
+    Get list of all videos with scheduling information (admin only).
+    
+    This endpoint returns all videos with their scheduling metadata and supports
+    filtering by company, status, and rotation type.
+    """
+    database = get_database()
+    
+    videos = database.list_videos_for_schedule(
+        company_id=company_id,
+        status=status,
+        rotation_type=rotation_type,
+    )
+    
+    return [_video_to_response(video) for video in videos]
 
 
 @router.post("/", response_model=VideoResponse, status_code=status.HTTP_201_CREATED)
