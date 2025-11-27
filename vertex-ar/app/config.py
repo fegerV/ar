@@ -33,6 +33,11 @@ class Settings:
             
         # URLs
         self.BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+        # Internal health check URL (fallback for monitoring when BASE_URL is external)
+        # If not set, will auto-build from APP_HOST and APP_PORT
+        self.INTERNAL_HEALTH_URL = os.getenv("INTERNAL_HEALTH_URL", "")
+        self.APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
+        self.APP_PORT = int(os.getenv("APP_PORT", "8000"))
         
         # Authentication settings
         self.SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
