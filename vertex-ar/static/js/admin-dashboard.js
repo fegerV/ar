@@ -1412,6 +1412,7 @@ async function handleOrderSubmit(e) {
     // Get form values
     const clientName = document.getElementById('clientName').value.trim();
     const clientPhone = document.getElementById('clientPhone').value.trim();
+    const clientEmail = document.getElementById('clientEmail').value.trim();
     const clientPhoto = document.getElementById('clientPhoto').files[0];
     const clientVideo = document.getElementById('clientVideo').files[0];
     const clientNotes = document.getElementById('clientNotes').value.trim();
@@ -1425,6 +1426,15 @@ async function handleOrderSubmit(e) {
     if (!clientPhone) {
         showToast('Телефон клиента обязателен', 'error');
         return;
+    }
+    
+    // Validate email format if provided
+    if (clientEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(clientEmail)) {
+            showToast('Неверный формат email', 'error');
+            return;
+        }
     }
     
     if (!clientPhoto) {
@@ -1451,6 +1461,9 @@ async function handleOrderSubmit(e) {
     // Append data with correct field names for API
     formData.append('name', clientName);
     formData.append('phone', clientPhone);
+    if (clientEmail) {
+        formData.append('email', clientEmail);
+    }
     formData.append('image', clientPhoto);
     formData.append('video', clientVideo);
     if (clientNotes) {

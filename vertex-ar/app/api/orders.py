@@ -53,6 +53,7 @@ async def _create_order_workflow(
     endpoint: str = "orders",
     company_id: str = "vertex-ar-default",
     subscription_end: str | None = None,
+    email: str | None = None,
 ) -> OrderResponse:
     """Shared implementation for creating an order."""
     _validate_upload(image, "image/", "Invalid image file")
@@ -75,13 +76,14 @@ async def _create_order_workflow(
     client = database.get_client_by_phone(phone, company_id)
     if not client:
         client_id = str(uuid.uuid4())
-        client = database.create_client(client_id, phone, name, company_id)
+        client = database.create_client(client_id, phone, name, company_id, email)
         logger.info(
             "Created new client for order",
-            extra={"client_id": client_id, "admin": username, "endpoint": endpoint, "company_id": company_id},
+            extra={"client_id": client_id, "admin": username, "endpoint": endpoint, "company_id": company_id, "email": email},
         )
-    elif client.get("name") != name:
-        database.update_client(client["id"], name=name)
+    elif client.get("name") != name or (email and client.get("email") != email):
+        # Update client name and/or email if they differ
+        database.update_client(client["id"], name=name if client.get("name") != name else None, email=email if email and client.get("email") != email else None)
         client = database.get_client(client["id"])  # refresh with updated values
 
     portrait_id = str(uuid.uuid4())
@@ -214,6 +216,7 @@ async def _create_order_workflow(
                 id=client["id"],
                 phone=client["phone"],
                 name=client["name"],
+                email=client.get("email"),
                 created_at=client["created_at"],
             ),
             portrait=PortraitResponse(
@@ -255,10 +258,11 @@ async def create_order(
     description: str = Form(None),
     company_id: str = Form("vertex-ar-default"),
     subscription_end: str = Form(None),
+    email: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Create a new order with client, portrait, and primary video."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders", company_id=company_id, subscription_end=subscription_end)
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="orders", company_id=company_id, subscription_end=subscription_end, email=email)
 
 
 @legacy_router.post(
@@ -275,7 +279,8 @@ async def create_order_legacy(
     description: str = Form(None),
     company_id: str = Form("vertex-ar-default"),
     subscription_end: str = Form(None),
+    email: str = Form(None),
     username: str = Depends(require_admin),
 ) -> OrderResponse:
     """Legacy compatibility endpoint for /api/orders/create."""
-    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders", company_id=company_id, subscription_end=subscription_end)
+    return await _create_order_workflow(phone, name, image, video, username, description, endpoint="api/orders", company_id=company_id, subscription_end=subscription_end, email=email)

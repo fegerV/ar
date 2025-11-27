@@ -297,6 +297,12 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
+            # Create index for email lookups in clients table
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(company_id, email)")
+            except sqlite3.OperationalError:
+                pass
+            
             # Add lifecycle management columns to projects table
             try:
                 self._connection.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
@@ -668,11 +674,11 @@ class Database:
         return cursor.rowcount > 0
 
     # Client methods
-    def create_client(self, client_id: str, phone: str, name: str, company_id: str = "vertex-ar-default") -> Dict[str, Any]:
+    def create_client(self, client_id: str, phone: str, name: str, company_id: str = "vertex-ar-default", email: Optional[str] = None) -> Dict[str, Any]:
         """Create a new client."""
         self._execute(
-            "INSERT INTO clients (id, company_id, phone, name) VALUES (?, ?, ?, ?)",
-            (client_id, company_id, phone, name),
+            "INSERT INTO clients (id, company_id, phone, name, email) VALUES (?, ?, ?, ?, ?)",
+            (client_id, company_id, phone, name, email),
         )
         return self.get_client(client_id)
 
@@ -690,6 +696,17 @@ class Database:
             cursor = self._execute("SELECT * FROM clients WHERE phone = ? AND company_id = ?", (phone, company_id))
         else:
             cursor = self._execute("SELECT * FROM clients WHERE phone = ?", (phone,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def get_client_by_email(self, email: str, company_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get client by email address, optionally filtered by company."""
+        if company_id:
+            cursor = self._execute("SELECT * FROM clients WHERE email = ? AND company_id = ?", (email, company_id))
+        else:
+            cursor = self._execute("SELECT * FROM clients WHERE email = ?", (email,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -716,8 +733,8 @@ class Database:
 
         if search:
             like = f"%{search}%"
-            query += " AND (phone LIKE ? OR name LIKE ?)"
-            params.extend([like, like])
+            query += " AND (phone LIKE ? OR name LIKE ? OR email LIKE ?)"
+            params.extend([like, like, like])
 
         query += " ORDER BY created_at DESC"
 
@@ -739,8 +756,8 @@ class Database:
 
         if search:
             like = f"%{search}%"
-            query += " AND (phone LIKE ? OR name LIKE ?)"
-            params.extend([like, like])
+            query += " AND (phone LIKE ? OR name LIKE ? OR email LIKE ?)"
+            params.extend([like, like, like])
 
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
@@ -781,7 +798,7 @@ class Database:
         )
         return cursor.rowcount
 
-    def update_client(self, client_id: str, phone: Optional[str] = None, name: Optional[str] = None) -> bool:
+    def update_client(self, client_id: str, phone: Optional[str] = None, name: Optional[str] = None, email: Optional[str] = None) -> bool:
         """Update client data."""
         updates = []
         params = []
@@ -791,6 +808,9 @@ class Database:
         if name is not None:
             updates.append("name = ?")
             params.append(name)
+        if email is not None:
+            updates.append("email = ?")
+            params.append(email)
 
         if not updates:
             return False
