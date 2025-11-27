@@ -53,6 +53,7 @@ def _client_to_response(
         "id": client["id"],
         "phone": client["phone"],
         "name": client["name"],
+        "email": client.get("email"),
         "created_at": client["created_at"],
     }
 
@@ -81,6 +82,7 @@ async def create_client(
         phone=client.phone,
         name=client.name,
         company_id=client.company_id,
+        email=client.email,
         username=username,
     )
     
@@ -98,8 +100,23 @@ async def create_client(
             detail="Client with this phone number already exists in this company"
         )
     
+    # Check if client with this email already exists in the same company (if email is provided)
+    if client.email:
+        existing_email_client = database.get_client_by_email(client.email, client.company_id)
+        if existing_email_client:
+            logger.warning(
+                "client_creation_failed_duplicate_email",
+                email=client.email,
+                company_id=client.company_id,
+                username=username,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Client with this email address already exists in this company"
+            )
+    
     client_id = str(uuid.uuid4())
-    db_client = database.create_client(client_id, client.phone, client.name, client.company_id)
+    db_client = database.create_client(client_id, client.phone, client.name, client.company_id, client.email)
     
     logger.info(
         "client_created_successfully",
@@ -189,9 +206,10 @@ async def list_clients_admin(
             id=client["id"],
             phone=client["phone"],
             name=client["name"],
+            email=client.get("email"),
             created_at=client["created_at"],
             portraits_count=portrait_counts.get(client["id"], 0),
-            latest_portrait_preview=latest_previews.get(client_id),
+            latest_portrait_preview=latest_previews.get(client["id"]),
             company_id=client.get("company_id")
         )
         for client in clients
@@ -268,6 +286,7 @@ async def export_clients(
             client["id"],
             client["name"],
             client["phone"],
+            client.get("email", ""),
             portrait_counts.get(client["id"], 0),
             client.get("created_at"),
         )
@@ -281,7 +300,7 @@ async def export_clients(
         text_buffer = StringIO()
         text_buffer.write("\ufeff")
         writer = csv.writer(text_buffer, delimiter=";")
-        writer.writerow(["ID", "Имя", "Телефон", "Портретов", "Создано"])
+        writer.writerow(["ID", "Имя", "Телефон", "Email", "Портретов", "Создано"])
         for row in export_rows:
             writer.writerow(row)
         byte_buffer = BytesIO(text_buffer.getvalue().encode("utf-8"))
@@ -309,7 +328,7 @@ async def export_clients(
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "Clients"
-        sheet.append(["ID", "Имя", "Телефон", "Портретов", "Создано"])
+        sheet.append(["ID", "Имя", "Телефон", "Email", "Портретов", "Создано"])
         for row in export_rows:
             sheet.append(row)
         output = BytesIO()
@@ -432,11 +451,27 @@ async def update_client(
                 detail="Client with this phone number already exists in this company"
             )
     
+    # If updating email, check for duplicates in the same company
+    if client_update.email:
+        email_client = database.get_client_by_email(client_update.email, existing_client.get('company_id'))
+        if email_client and email_client["id"] != client_id:
+            logger.warning(
+                "client_update_failed_duplicate_email",
+                client_id=client_id,
+                email=client_update.email,
+                username=username,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Client with this email address already exists in this company"
+            )
+    
     # Update client
     updated = database.update_client(
         client_id,
         phone=client_update.phone,
-        name=client_update.name
+        name=client_update.name,
+        email=client_update.email
     )
     
     if not updated:

@@ -209,6 +209,7 @@ class ClientCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
     company_id: str = Field(..., description="Company ID")
+    email: Optional[str] = Field(None, max_length=255, description="Client email address")
     
     @field_validator('phone')
     @classmethod
@@ -226,11 +227,19 @@ class ClientCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError('Company ID is required')
         return v.strip()
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
+        return v
 
 
 class ClientUpdate(BaseModel):
     phone: Optional[str] = Field(None, min_length=1, max_length=20)
     name: Optional[str] = Field(None, min_length=1, max_length=150)
+    email: Optional[str] = Field(None, max_length=255, description="Client email address")
     
     @field_validator('phone')
     @classmethod
@@ -245,12 +254,20 @@ class ClientUpdate(BaseModel):
         if v is not None:
             return validate_name(v)
         return v
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
+        return v
 
 
 class ClientResponse(BaseModel):
     id: str
     phone: str
     name: str
+    email: Optional[str] = None
     created_at: str
 
 
@@ -422,6 +439,7 @@ class PaginatedFoldersResponse(BaseModel):
 class OrderCreate(BaseModel):
     phone: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=150)
+    email: Optional[str] = Field(None, max_length=255, description="Client email address")
     subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
     
     @field_validator('phone')
@@ -433,6 +451,13 @@ class OrderCreate(BaseModel):
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
+        return v
     
     @field_validator('subscription_end')
     @classmethod

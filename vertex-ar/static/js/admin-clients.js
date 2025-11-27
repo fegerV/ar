@@ -259,21 +259,17 @@ function createClientRow(client) {
                    ${isSelected ? 'checked' : ''}>
         </td>
         <td>
-            <img src="${client.avatar || '/static/default-avatar.png'}" 
+            <img src="${client.latest_portrait_preview || '/static/default-avatar.png'}" 
                  alt="${client.name}" 
                  class="client-avatar"
                  onerror="this.src='/static/default-avatar.png'">
         </td>
         <td>
             <strong>${client.name || ''}</strong>
-            ${client.email ? `<br><small style="color: var(--secondary-color)">${client.email}</small>` : ''}
         </td>
         <td>${client.phone || ''}</td>
-        <td>
-            <span class="status-badge ${client.status || 'active'}">
-                ${getStatusText(client.status)}
-            </span>
-        </td>
+        <td>${client.email || '-'}</td>
+        <td>${client.company_name || '-'}</td>
         <td>${client.portraits_count || 0}</td>
         <td>${formatDate(client.created_at)}</td>
         <td>
