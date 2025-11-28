@@ -13,6 +13,9 @@ from app.models import (
     CompanyResponse,
     PaginatedCompaniesResponse,
     MessageResponse,
+    YandexFolderUpdate,
+    CompanyContentTypesUpdate,
+    ContentTypeItem,
 )
 from logging_setup import get_logger
 
@@ -269,3 +272,282 @@ async def select_company(
         content_types=company.get("content_types"),
         created_at=company["created_at"],
     )
+
+
+@router.post("/companies/{company_id}/yandex-disk-folder", response_model=CompanyResponse)
+async def set_company_yandex_folder(
+    request: Request,
+    company_id: str,
+    folder_update: YandexFolderUpdate,
+) -> CompanyResponse:
+    """
+    Set Yandex Disk folder for a company.
+    
+    Validates that the company uses Yandex Disk storage,
+    verifies the folder exists on Yandex Disk,
+    and persists the selection to the database.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Get company
+    company = database.get_company(company_id)
+    if not company:
+        logger.error(
+            "Company not found",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    # Validate company uses Yandex Disk storage
+    if company.get('storage_type') != 'yandex_disk':
+        logger.error(
+            "Company does not use Yandex Disk storage",
+            company_id=company_id,
+            storage_type=company.get('storage_type'),
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company must use Yandex Disk storage type"
+        )
+    
+    storage_connection_id = company.get('storage_connection_id')
+    if not storage_connection_id:
+        logger.error(
+            "Company has no storage connection",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company has no storage connection configured"
+        )
+    
+    # Get storage connection
+    connection = database.get_storage_connection(storage_connection_id)
+    if not connection:
+        logger.error(
+            "Storage connection not found",
+            company_id=company_id,
+            storage_connection_id=storage_connection_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Storage connection not found"
+        )
+    
+    if not connection.get('is_active'):
+        logger.error(
+            "Storage connection is inactive",
+            company_id=company_id,
+            storage_connection_id=storage_connection_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Storage connection is inactive"
+        )
+    
+    # Get OAuth token from connection
+    config = connection.get('config', {})
+    oauth_token = config.get('oauth_token')
+    if not oauth_token:
+        logger.error(
+            "No OAuth token in storage connection",
+            company_id=company_id,
+            storage_connection_id=storage_connection_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Storage connection has no OAuth token configured"
+        )
+    
+    # Verify folder exists on Yandex Disk
+    try:
+        from app.storage_yandex import YandexDiskStorageAdapter
+        
+        # Create adapter with empty base_path to check absolute path
+        adapter = YandexDiskStorageAdapter(oauth_token=oauth_token, base_path="")
+        
+        # Check if folder exists
+        folder_exists = await adapter.file_exists(folder_update.folder_path)
+        if not folder_exists:
+            logger.error(
+                "Yandex Disk folder not found",
+                company_id=company_id,
+                folder_path=folder_update.folder_path,
+                user=username
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Folder not found on Yandex Disk: {folder_update.folder_path}"
+            )
+        
+        logger.info(
+            "Verified Yandex Disk folder exists",
+            company_id=company_id,
+            folder_path=folder_update.folder_path,
+            user=username
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to verify Yandex Disk folder",
+            error=str(exc),
+            company_id=company_id,
+            folder_path=folder_update.folder_path,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify folder: {str(exc)}"
+        )
+    
+    # Save folder path to database
+    try:
+        success = database.set_company_yandex_folder(company_id, folder_update.folder_path)
+        if not success:
+            logger.error(
+                "Failed to update company Yandex folder in database",
+                company_id=company_id,
+                folder_path=folder_update.folder_path,
+                user=username
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update company folder"
+            )
+        
+        logger.info(
+            "Set company Yandex Disk folder",
+            company_id=company_id,
+            folder_path=folder_update.folder_path,
+            user=username
+        )
+        
+        # Clear company storage adapter cache
+        from storage_manager import get_storage_manager
+        storage_manager = get_storage_manager()
+        storage_manager.clear_company_cache(company_id)
+        
+        # Return updated company
+        updated_company = database.get_company(company_id)
+        return CompanyResponse(
+            id=updated_company["id"],
+            name=updated_company["name"],
+            storage_type=updated_company.get("storage_type", "local"),
+            storage_connection_id=updated_company.get("storage_connection_id"),
+            yandex_disk_folder_id=updated_company.get("yandex_disk_folder_id"),
+            content_types=updated_company.get("content_types"),
+            created_at=updated_company["created_at"],
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to set company Yandex folder",
+            error=str(exc),
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update company"
+        )
+
+
+@router.post("/companies/{company_id}/content-types", response_model=dict)
+async def update_company_content_types(
+    request: Request,
+    company_id: str,
+    content_types_update: CompanyContentTypesUpdate,
+) -> dict:
+    """
+    Update content types for a company.
+    
+    Accepts a list of content types with labels (and optional slugs).
+    Slugs are auto-generated from labels if not provided.
+    At least one content type with a unique slug is required.
+    Returns the normalized list for immediate UI feedback.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Get company
+    company = database.get_company(company_id)
+    if not company:
+        logger.error(
+            "Company not found",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    # Build comma-separated content types string
+    # Format: slug1:label1,slug2:label2
+    content_types_parts = []
+    normalized_list = []
+    
+    for item in content_types_update.content_types:
+        content_types_parts.append(f"{item.slug}:{item.label}")
+        normalized_list.append({
+            "slug": item.slug,
+            "label": item.label
+        })
+    
+    content_types_str = ",".join(content_types_parts)
+    
+    # Save to database
+    try:
+        success = database.update_company_content_types(company_id, content_types_str)
+        if not success:
+            logger.error(
+                "Failed to update company content types in database",
+                company_id=company_id,
+                content_types=content_types_str,
+                user=username
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update content types"
+            )
+        
+        logger.info(
+            "Updated company content types",
+            company_id=company_id,
+            content_types=content_types_str,
+            user=username
+        )
+        
+        return {
+            "success": True,
+            "content_types": normalized_list,
+            "content_types_str": content_types_str
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to update company content types",
+            error=str(exc),
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update content types"
+        )

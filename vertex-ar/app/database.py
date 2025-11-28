@@ -1592,6 +1592,50 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to update company storage: {exc}")
             return False
+    
+    def set_company_yandex_folder(self, company_id: str, folder_path: str) -> bool:
+        """
+        Set Yandex Disk folder path for a company.
+        
+        Args:
+            company_id: Company ID
+            folder_path: Yandex Disk folder path
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self._execute(
+                "UPDATE companies SET yandex_disk_folder_id = ? WHERE id = ?",
+                (folder_path, company_id)
+            )
+            logger.info(f"Set Yandex Disk folder for company {company_id}: {folder_path}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to set Yandex Disk folder: {exc}")
+            return False
+    
+    def update_company_content_types(self, company_id: str, content_types: str) -> bool:
+        """
+        Update content types for a company.
+        
+        Args:
+            company_id: Company ID
+            content_types: Comma-separated content types string
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self._execute(
+                "UPDATE companies SET content_types = ? WHERE id = ?",
+                (content_types, company_id)
+            )
+            logger.info(f"Updated content types for company {company_id}: {content_types}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to update content types: {exc}")
+            return False
 
     # Storage connection methods
     def create_storage_connection(self, connection_id: str, name: str, storage_type: str, config: Dict[str, Any]) -> bool:
