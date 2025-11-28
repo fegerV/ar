@@ -1,7 +1,7 @@
 # 📚 Vertex AR Documentation
 
 **Version:** 1.6.0  
-**Last Updated:** November 2024  
+**Last Updated:** November 2025  
 **Documentation Coverage:** 100% of active modules  
 **Status:** ✅ Production Ready
 
@@ -240,4 +240,4 @@ Documentation is distributed under the [MIT License](../LICENSE).
 ---
 
 **Documentation maintained by the Vertex AR team**  
-**Last major update:** Documentation centralization (November 2024)
+**Last major update:** Documentation centralization (November 2025)
