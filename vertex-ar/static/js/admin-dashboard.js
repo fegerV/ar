@@ -19,7 +19,9 @@ const AdminDashboard = {
         refreshInterval: 30000,
         isLoading: false,
         lastUpdate: null,
-        statusFilter: null  // New: for lifecycle status filtering
+        statusFilter: null,
+        companyConfigs: {},
+        yandexFolders: []
     },
     
     // State persistence using localStorage instead of cookies
@@ -84,6 +86,12 @@ function initializeDashboard() {
     loadStorageOptions();
     loadBackupStats();
     loadNotifications();
+    
+    // Load config for current company
+    const currentCompanyId = AdminDashboard.state.currentCompany?.id;
+    if (currentCompanyId) {
+        loadCompanyConfig(currentCompanyId);
+    }
     
     addLog('Админ панель загружена', 'info');
     
@@ -163,6 +171,30 @@ function initializeEventListeners() {
         companyInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 createCompany();
+            }
+        });
+    }
+    
+    // Yandex folder select change listener
+    const yandexFolderSelect = document.getElementById('yandexFolderSelect');
+    const saveYandexFolderBtn = document.getElementById('saveYandexFolderBtn');
+    if (yandexFolderSelect && saveYandexFolderBtn) {
+        yandexFolderSelect.addEventListener('change', function() {
+            saveYandexFolderBtn.disabled = !this.value;
+        });
+    }
+    
+    // Content type input listeners
+    const newContentTypeInput = document.getElementById('newContentTypeInput');
+    const addContentTypeBtn = document.getElementById('addContentTypeBtn');
+    if (newContentTypeInput && addContentTypeBtn) {
+        newContentTypeInput.addEventListener('input', function() {
+            addContentTypeBtn.disabled = !this.value.trim();
+        });
+        newContentTypeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addContentType();
             }
         });
     }
@@ -849,6 +881,9 @@ async function switchCompany() {
             showToast(`Переключились на компанию: ${companyName}`, 'success');
             addLog(`Выбрана компания: ${companyName}`, 'info');
             
+            // Load company config (Yandex folder and content types)
+            await loadCompanyConfig(companyId);
+            
             // Reload data for new company
             loadRecords();
             loadStatistics();
@@ -929,6 +964,301 @@ async function confirmDeleteCompany() {
         addLog(`Ошибка сети при удалении компании: ${error.message}`, 'error');
     } finally {
         hideLoading();
+    }
+}
+
+// Yandex Disk Folder Management
+async function loadYandexFolders() {
+    const select = document.getElementById('yandexFolderSelect');
+    if (!select) return;
+    
+    try {
+        showLoading('Загрузка папок Yandex Disk...');
+        
+        const response = await fetch('/api/yandex-disk/folders', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const folders = await response.json();
+            AdminDashboard.state.yandexFolders = folders;
+            
+            select.innerHTML = '<option value="">Выберите папку...</option>';
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder.path || folder.name;
+                option.textContent = folder.name;
+                select.appendChild(option);
+            });
+            
+            showToast('Папки загружены успешно', 'success');
+            addLog('Загружены папки Yandex Disk', 'info');
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка загрузки папок: ${error.detail || 'Неизвестная ошибка'}`, 'error');
+            addLog(`Ошибка загрузки папок Yandex Disk: ${error.detail}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading Yandex folders:', error);
+        showToast('Ошибка сети при загрузке папок', 'error');
+        addLog(`Ошибка сети при загрузке папок: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function saveYandexFolder() {
+    const select = document.getElementById('yandexFolderSelect');
+    const saveBtn = document.getElementById('saveYandexFolderBtn');
+    const selectedFolder = select?.value;
+    
+    if (!selectedFolder) {
+        showToast('Выберите папку для сохранения', 'warning');
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    try {
+        if (saveBtn) saveBtn.disabled = true;
+        
+        const response = await fetch(`/api/companies/${companyId}/yandex-disk-folder`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ folder_path: selectedFolder }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (!AdminDashboard.state.companyConfigs[companyId]) {
+                AdminDashboard.state.companyConfigs[companyId] = {};
+            }
+            AdminDashboard.state.companyConfigs[companyId].yandex_folder = selectedFolder;
+            
+            const currentFolderElement = document.getElementById('currentYandexFolder');
+            if (currentFolderElement) {
+                currentFolderElement.textContent = selectedFolder;
+            }
+            
+            showToast('Папка сохранена успешно', 'success');
+            addLog(`Сохранена папка Yandex Disk: ${selectedFolder}`, 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка: ${error.detail || 'Не удалось сохранить папку'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving Yandex folder:', error);
+        showToast('Ошибка сети при сохранении папки', 'error');
+        addLog(`Ошибка сети при сохранении папки: ${error.message}`, 'error');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function loadCompanyConfig(companyId) {
+    if (!companyId) return;
+    
+    try {
+        const response = await fetch(`/api/companies/${companyId}/yandex-disk-folder`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (!AdminDashboard.state.companyConfigs[companyId]) {
+                AdminDashboard.state.companyConfigs[companyId] = {};
+            }
+            AdminDashboard.state.companyConfigs[companyId].yandex_folder = data.folder_path;
+            
+            const currentFolderElement = document.getElementById('currentYandexFolder');
+            if (currentFolderElement) {
+                currentFolderElement.textContent = data.folder_path || 'Не выбрана';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading company config:', error);
+    }
+    
+    try {
+        const response = await fetch(`/api/companies/${companyId}/content-types`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (!AdminDashboard.state.companyConfigs[companyId]) {
+                AdminDashboard.state.companyConfigs[companyId] = {};
+            }
+            AdminDashboard.state.companyConfigs[companyId].content_types = data.content_types || [];
+            
+            updateContentTypesList(data.content_types || []);
+            updateContentTypeSelect(data.content_types || []);
+        }
+    } catch (error) {
+        console.error('Error loading content types:', error);
+    }
+}
+
+// Content Types Management
+function updateContentTypesList(contentTypes) {
+    const listElement = document.getElementById('contentTypesList');
+    if (!listElement) return;
+    
+    if (!contentTypes || contentTypes.length === 0) {
+        listElement.innerHTML = '<p style="text-align: center; opacity: 0.6; padding: 1rem;">Типы контента отсутствуют</p>';
+        return;
+    }
+    
+    listElement.innerHTML = '';
+    contentTypes.forEach(type => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: var(--border-radius); border: 1px solid var(--border-color);';
+        item.innerHTML = `
+            <span style="flex: 1;">${type}</span>
+            <button onclick="removeContentType('${type}')" class="company-btn danger" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">🗑️ Удалить</button>
+        `;
+        listElement.appendChild(item);
+    });
+}
+
+function updateContentTypeSelect(contentTypes) {
+    const select = document.getElementById('contentType');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Выберите тип контента...</option>';
+    
+    if (contentTypes && contentTypes.length > 0) {
+        contentTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            select.appendChild(option);
+        });
+        
+        select.value = contentTypes[0];
+    }
+}
+
+async function addContentType() {
+    const input = document.getElementById('newContentTypeInput');
+    const addBtn = document.getElementById('addContentTypeBtn');
+    const newType = input?.value?.trim();
+    
+    if (!newType) {
+        showToast('Введите тип контента', 'warning');
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    const currentConfig = AdminDashboard.state.companyConfigs[companyId] || {};
+    const currentTypes = currentConfig.content_types || [];
+    
+    if (currentTypes.includes(newType)) {
+        showToast('Такой тип контента уже существует', 'warning');
+        return;
+    }
+    
+    const updatedTypes = [...currentTypes, newType];
+    
+    try {
+        if (addBtn) addBtn.disabled = true;
+        
+        const response = await fetch(`/api/companies/${companyId}/content-types`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content_types: updatedTypes }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (!AdminDashboard.state.companyConfigs[companyId]) {
+                AdminDashboard.state.companyConfigs[companyId] = {};
+            }
+            AdminDashboard.state.companyConfigs[companyId].content_types = updatedTypes;
+            
+            updateContentTypesList(updatedTypes);
+            updateContentTypeSelect(updatedTypes);
+            
+            if (input) input.value = '';
+            
+            showToast('Тип контента добавлен', 'success');
+            addLog(`Добавлен тип контента: ${newType}`, 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка: ${error.detail || 'Не удалось добавить тип'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error adding content type:', error);
+        showToast('Ошибка сети при добавлении типа', 'error');
+        addLog(`Ошибка сети при добавлении типа: ${error.message}`, 'error');
+    } finally {
+        if (addBtn) addBtn.disabled = false;
+    }
+}
+
+async function removeContentType(typeToRemove) {
+    if (!confirm(`Удалить тип контента "${typeToRemove}"?`)) {
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    const currentConfig = AdminDashboard.state.companyConfigs[companyId] || {};
+    const currentTypes = currentConfig.content_types || [];
+    const updatedTypes = currentTypes.filter(t => t !== typeToRemove);
+    
+    try {
+        const response = await fetch(`/api/companies/${companyId}/content-types`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content_types: updatedTypes }),
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (!AdminDashboard.state.companyConfigs[companyId]) {
+                AdminDashboard.state.companyConfigs[companyId] = {};
+            }
+            AdminDashboard.state.companyConfigs[companyId].content_types = updatedTypes;
+            
+            updateContentTypesList(updatedTypes);
+            updateContentTypeSelect(updatedTypes);
+            
+            showToast('Тип контента удалён', 'success');
+            addLog(`Удалён тип контента: ${typeToRemove}`, 'success');
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка: ${error.detail || 'Не удалось удалить тип'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error removing content type:', error);
+        showToast('Ошибка сети при удалении типа', 'error');
+        addLog(`Ошибка сети при удалении типа: ${error.message}`, 'error');
     }
 }
 
@@ -1402,6 +1732,32 @@ function closeAllModals() {
     });
 }
 
+// Toggle order form visibility
+function toggleOrderForm() {
+    const formElement = document.getElementById('orderForm');
+    const btn = document.querySelector('.create-ar-btn');
+    
+    if (!formElement || !btn) return;
+    
+    const isActive = formElement.classList.contains('active');
+    
+    if (isActive) {
+        formElement.classList.remove('active');
+        btn.textContent = '+ Создать AR контент';
+    } else {
+        formElement.classList.add('active');
+        btn.textContent = '− Скрыть форму';
+        
+        const companyId = AdminDashboard.state.currentCompany?.id;
+        const currentConfig = AdminDashboard.state.companyConfigs[companyId] || {};
+        const contentTypes = currentConfig.content_types || [];
+        
+        if (contentTypes.length === 0) {
+            showToast('Предупреждение: Типы контента не настроены. Настройте их в секции управления компаниями.', 'warning');
+        }
+    }
+}
+
 // Order form submission
 async function handleOrderSubmit(e) {
     e.preventDefault();
@@ -1413,6 +1769,7 @@ async function handleOrderSubmit(e) {
     const clientName = document.getElementById('clientName').value.trim();
     const clientPhone = document.getElementById('clientPhone').value.trim();
     const clientEmail = document.getElementById('clientEmail').value.trim();
+    const contentType = document.getElementById('contentType').value.trim();
     const clientPhoto = document.getElementById('clientPhoto').files[0];
     const clientVideo = document.getElementById('clientVideo').files[0];
     const clientNotes = document.getElementById('clientNotes').value.trim();
@@ -1425,6 +1782,19 @@ async function handleOrderSubmit(e) {
     
     if (!clientPhone) {
         showToast('Телефон клиента обязателен', 'error');
+        return;
+    }
+    
+    if (!contentType) {
+        const companyId = AdminDashboard.state.currentCompany?.id;
+        const currentConfig = AdminDashboard.state.companyConfigs[companyId] || {};
+        const contentTypes = currentConfig.content_types || [];
+        
+        if (contentTypes.length === 0) {
+            showToast('Предупреждение: Типы контента не настроены для этой компании. Добавьте типы контента в секции управления компаниями.', 'warning');
+        } else {
+            showToast('Выберите тип контента', 'error');
+        }
         return;
     }
     
@@ -1464,6 +1834,7 @@ async function handleOrderSubmit(e) {
     if (clientEmail) {
         formData.append('email', clientEmail);
     }
+    formData.append('content_type', contentType);
     formData.append('image', clientPhoto);
     formData.append('video', clientVideo);
     if (clientNotes) {
