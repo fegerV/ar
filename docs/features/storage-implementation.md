@@ -268,6 +268,50 @@ Logs: Available through admin panel
 Connection tests: Built into UI
 Storage info: Real-time display
 
+## Company-Specific Storage Configuration
+
+### Overview
+
+Starting in version 1.5.0, Vertex AR supports company-level storage configuration. Each company can use a different storage backend, enabling:
+- Multi-tenant storage isolation
+- Per-company cost management
+- Flexible migration strategies
+- Compliance with data residency requirements
+
+### Company Storage Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `storage_type` | TEXT | Storage backend: `local`, `minio`, or `yandex_disk` |
+| `storage_connection_id` | TEXT | Reference to `storage_connections` table |
+
+### Workflow
+
+When an order is created:
+1. System retrieves company's `storage_type` and `storage_connection_id`
+2. Initializes appropriate storage adapter with company configuration
+3. Builds paths with company isolation: `{base_path}/companies/{company_id}/...`
+4. Uploads all files (portrait, video, previews, markers) to company's storage
+5. Returns public URLs based on storage type
+
+### Example: Company with Yandex Disk
+
+```json
+{
+  "id": "company-uuid",
+  "name": "Acme Corp",
+  "storage_type": "yandex_disk",
+  "storage_connection_id": "yandex-connection-uuid"
+}
+```
+
+Files for this company are stored at:
+```
+vertex-ar/companies/company-uuid/portraits/{client_id}/{portrait_id}/
+```
+
+**See also:** [Yandex Disk Storage Flow](yandex-disk-storage-flow.md) for complete documentation.
+
 ## Future Enhancements
 
 ### Planned Features
