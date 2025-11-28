@@ -423,3 +423,74 @@ class YandexDiskStorageAdapter(StorageAdapter):
                 order_id=order_id
             )
             return {subdir: False for subdir in subdirs}
+    
+    def list_directories(self, path: str = "", limit: int = 100, offset: int = 0) -> Dict[str, any]:
+        """
+        List directories at the given path on Yandex Disk.
+        
+        Args:
+            path: Path to list directories from (relative to base_path, empty for root)
+            limit: Maximum number of items to return
+            offset: Number of items to skip (for pagination)
+            
+        Returns:
+            Dict with 'items' (list of directory info), 'total' count, 'has_more' flag
+        """
+        try:
+            # Build full path
+            if path:
+                full_path = self._get_full_path(path)
+            else:
+                full_path = self.base_path
+            
+            # Request directory listing from Yandex Disk API
+            response = self._make_request(
+                "GET",
+                "/resources",
+                params={
+                    "path": full_path,
+                    "limit": limit,
+                    "offset": offset,
+                    "fields": "name,path,type,_embedded.items.name,_embedded.items.path,_embedded.items.type,_embedded.total,_embedded.limit,_embedded.offset"
+                }
+            )
+            
+            data = response.json()
+            embedded = data.get("_embedded", {})
+            all_items = embedded.get("items", [])
+            
+            # Filter only directories
+            directories = [
+                {
+                    "name": item["name"],
+                    "path": item["path"],
+                    "type": item["type"]
+                }
+                for item in all_items
+                if item.get("type") == "dir"
+            ]
+            
+            total = len(directories)
+            has_more = (offset + limit) < total
+            
+            logger.info(
+                "Listed Yandex Disk directories",
+                path=full_path,
+                count=len(directories),
+                offset=offset,
+                limit=limit
+            )
+            
+            return {
+                "items": directories,
+                "total": total,
+                "has_more": has_more
+            }
+            
+        except Exception as e:
+            logger.error(
+                "Failed to list Yandex Disk directories",
+                error=str(e),
+                path=path
+            )
+            raise Exception(f"Failed to list directories: {str(e)}")

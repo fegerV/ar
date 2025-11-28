@@ -207,6 +207,67 @@ class CompanyStorageUpdate(BaseModel):
         return v
 
 
+class YandexFolderUpdate(BaseModel):
+    folder_path: str = Field(..., min_length=1, description="Yandex Disk folder path to assign to company")
+    
+    @field_validator('folder_path')
+    @classmethod
+    def validate_folder_path(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Folder path is required')
+        return v.strip()
+
+
+class ContentTypeItem(BaseModel):
+    label: str = Field(..., min_length=1, max_length=100, description="Human-readable label for content type")
+    slug: Optional[str] = Field(None, max_length=100, description="URL-safe slug (auto-generated if not provided)")
+    
+    @field_validator('label')
+    @classmethod
+    def validate_label(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Content type label is required')
+        return v.strip()
+
+
+class CompanyContentTypesUpdate(BaseModel):
+    content_types: List[ContentTypeItem] = Field(..., min_items=1, description="List of content types for the company")
+    
+    @field_validator('content_types')
+    @classmethod
+    def validate_content_types(cls, v: List[ContentTypeItem]) -> List[ContentTypeItem]:
+        if not v:
+            raise ValueError('At least one content type is required')
+        
+        # Auto-generate slugs if not provided
+        seen_slugs = set()
+        for item in v:
+            if not item.slug:
+                # Generate slug from label
+                import re
+                slug = re.sub(r'[^a-z0-9-]+', '-', item.label.lower().strip())
+                slug = re.sub(r'-+', '-', slug).strip('-')
+                item.slug = slug
+            
+            # Check for duplicate slugs
+            if item.slug in seen_slugs:
+                raise ValueError(f'Duplicate slug: {item.slug}')
+            seen_slugs.add(item.slug)
+        
+        return v
+
+
+class YandexDiskFolder(BaseModel):
+    path: str = Field(..., description="Full path on Yandex Disk")
+    name: str = Field(..., description="Folder name")
+
+
+class YandexDiskFoldersResponse(BaseModel):
+    items: List[YandexDiskFolder]
+    total: int
+    has_more: bool
+
+
 class PaginatedCompaniesResponse(BaseModel):
     items: List[CompanyListItem]
     total: int
