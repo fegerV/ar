@@ -156,10 +156,18 @@ class Database:
             try:
                 cursor = self._connection.execute("SELECT id FROM companies WHERE name = 'Vertex AR' LIMIT 1")
                 if not cursor.fetchone():
-                    self._connection.execute(
-                        "INSERT INTO companies (id, name) VALUES (?, ?)",
-                        ("vertex-ar-default", "Vertex AR")
-                    )
+                    # Try with new columns first, fall back to basic columns if they don't exist yet
+                    try:
+                        self._connection.execute(
+                            "INSERT INTO companies (id, name, storage_type, content_types) VALUES (?, ?, ?, ?)",
+                            ("vertex-ar-default", "Vertex AR", "local", "portraits:Portraits")
+                        )
+                    except sqlite3.OperationalError:
+                        # Fall back to basic columns (for initial schema creation)
+                        self._connection.execute(
+                            "INSERT INTO companies (id, name) VALUES (?, ?)",
+                            ("vertex-ar-default", "Vertex AR")
+                        )
                     self._connection.commit()
                     logger.info("Created default company 'Vertex AR'")
             except sqlite3.OperationalError as e:
@@ -432,6 +440,18 @@ class Database:
                 pass
             try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN content_types TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Backfill default content_types for existing companies with NULL values
+            try:
+                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE content_types IS NULL")
+                if cursor.fetchone()[0] > 0:
+                    self._connection.execute(
+                        "UPDATE companies SET content_types = 'portraits:Portraits' WHERE content_types IS NULL"
+                    )
+                    self._connection.commit()
+                    logger.info("Backfilled default content_types for existing companies")
             except sqlite3.OperationalError:
                 pass
 
@@ -1537,6 +1557,66 @@ class Database:
         cursor = self._execute("SELECT * FROM companies ORDER BY name ASC")
         return [dict(row) for row in cursor.fetchall()]
 
+    def update_company(
+        self, 
+        company_id: str, 
+        name: Optional[str] = None,
+        storage_type: Optional[str] = None,
+        storage_connection_id: Optional[str] = None,
+        yandex_disk_folder_id: Optional[str] = None,
+        content_types: Optional[str] = None
+    ) -> bool:
+        """
+        Update company fields.
+        
+        Args:
+            company_id: Company ID
+            name: Company name (optional)
+            storage_type: Storage type (optional)
+            storage_connection_id: Storage connection ID (optional)
+            yandex_disk_folder_id: Yandex Disk folder ID (optional)
+            content_types: Content types CSV string (optional)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            updates = []
+            params: List[Any] = []
+            
+            if name is not None:
+                updates.append("name = ?")
+                params.append(name)
+            
+            if storage_type is not None:
+                updates.append("storage_type = ?")
+                params.append(storage_type)
+            
+            if storage_connection_id is not None:
+                updates.append("storage_connection_id = ?")
+                params.append(storage_connection_id)
+            
+            if yandex_disk_folder_id is not None:
+                updates.append("yandex_disk_folder_id = ?")
+                params.append(yandex_disk_folder_id)
+            
+            if content_types is not None:
+                updates.append("content_types = ?")
+                params.append(content_types)
+            
+            if not updates:
+                return False
+            
+            params.append(company_id)
+            query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
+            
+            self._execute(query, tuple(params))
+            logger.info(f"Updated company {company_id}")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to update company: {exc}")
+            return False
+
     def delete_company(self, company_id: str) -> bool:
         """Delete company and all related data (clients, portraits, videos)."""
         try:
@@ -1553,7 +1633,8 @@ class Database:
     def get_companies_with_client_count(self) -> List[Dict[str, Any]]:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
-            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, COUNT(cl.id) as client_count
+            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
+                   c.yandex_disk_folder_id, c.content_types, COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             GROUP BY c.id
@@ -1636,6 +1717,63 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to update content types: {exc}")
             return False
+    
+    @staticmethod
+    def serialize_content_types(content_types: List[Dict[str, str]]) -> str:
+        """
+        Serialize content types list to CSV format for database storage.
+        
+        Args:
+            content_types: List of dicts with 'slug' and 'label' keys
+            
+        Returns:
+            CSV string in format "slug1:label1,slug2:label2"
+            
+        Example:
+            >>> Database.serialize_content_types([{"slug": "portraits", "label": "Portraits"}])
+            'portraits:Portraits'
+        """
+        if not content_types:
+            return "portraits:Portraits"
+        
+        parts = []
+        for ct in content_types:
+            slug = ct.get('slug', '').strip()
+            label = ct.get('label', '').strip()
+            if slug and label:
+                parts.append(f"{slug}:{label}")
+        
+        return ",".join(parts) if parts else "portraits:Portraits"
+    
+    @staticmethod
+    def deserialize_content_types(content_types_str: Optional[str]) -> List[Dict[str, str]]:
+        """
+        Deserialize content types CSV string from database to list of dicts.
+        
+        Args:
+            content_types_str: CSV string in format "slug1:label1,slug2:label2"
+            
+        Returns:
+            List of dicts with 'slug' and 'label' keys
+            
+        Example:
+            >>> Database.deserialize_content_types('portraits:Portraits,diplomas:Diplomas')
+            [{'slug': 'portraits', 'label': 'Portraits'}, {'slug': 'diplomas', 'label': 'Diplomas'}]
+        """
+        if not content_types_str or not content_types_str.strip():
+            return [{"slug": "portraits", "label": "Portraits"}]
+        
+        result = []
+        for item in content_types_str.split(','):
+            item = item.strip()
+            if ':' in item:
+                slug, label = item.split(':', 1)
+                slug = slug.strip()
+                label = label.strip()
+                if slug and label:
+                    result.append({"slug": slug, "label": label})
+        
+        return result if result else [{"slug": "portraits", "label": "Portraits"}]
 
     # Storage connection methods
     def create_storage_connection(self, connection_id: str, name: str, storage_type: str, config: Dict[str, Any]) -> bool:
