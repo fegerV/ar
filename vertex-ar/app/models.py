@@ -218,6 +218,24 @@ class YandexFolderUpdate(BaseModel):
         return v.strip()
 
 
+class CompanyYandexFolderUpdate(BaseModel):
+    """Alias for YandexFolderUpdate to match naming convention."""
+    yandex_disk_folder_id: str = Field(..., min_length=1, description="Yandex Disk folder ID/path")
+    
+    @field_validator('yandex_disk_folder_id')
+    @classmethod
+    def validate_folder_id(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Yandex Disk folder ID is required')
+        return v.strip()
+
+
+class CompanyContentType(BaseModel):
+    """Response model for a single content type."""
+    slug: str = Field(..., description="URL-safe slug")
+    label: str = Field(..., description="Human-readable label")
+
+
 class ContentTypeItem(BaseModel):
     label: str = Field(..., min_length=1, max_length=100, description="Human-readable label for content type")
     slug: Optional[str] = Field(None, max_length=100, description="URL-safe slug (auto-generated if not provided)")
@@ -231,7 +249,7 @@ class ContentTypeItem(BaseModel):
 
 
 class CompanyContentTypesUpdate(BaseModel):
-    content_types: List[ContentTypeItem] = Field(..., min_items=1, description="List of content types for the company")
+    content_types: List[ContentTypeItem] = Field(..., min_length=1, description="List of content types for the company")
     
     @field_validator('content_types')
     @classmethod
@@ -355,7 +373,7 @@ class PaginatedClientsResponse(BaseModel):
 
 
 class BulkIdsRequest(BaseModel):
-    ids: List[str] = Field(..., min_items=1, description="List of IDs to process")
+    ids: List[str] = Field(..., min_length=1, description="List of IDs to process")
 
 
 # Project models
