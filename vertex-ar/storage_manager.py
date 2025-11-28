@@ -204,9 +204,15 @@ class StorageManager:
         
         storage_type = company.get('storage_type', 'local')
         storage_connection_id = company.get('storage_connection_id')
+        yandex_disk_folder_id = company.get('yandex_disk_folder_id')
         
         # Create adapter based on company configuration
-        adapter = self._create_adapter_for_company(storage_type, storage_connection_id, content_type)
+        adapter = self._create_adapter_for_company(
+            storage_type, 
+            storage_connection_id, 
+            content_type,
+            yandex_disk_folder_id
+        )
         
         # Cache the adapter
         if company_id not in self._company_adapters:
@@ -218,12 +224,19 @@ class StorageManager:
             company_id=company_id,
             content_type=content_type,
             storage_type=storage_type,
-            storage_connection_id=storage_connection_id
+            storage_connection_id=storage_connection_id,
+            yandex_disk_folder_id=yandex_disk_folder_id
         )
         
         return adapter
     
-    def _create_adapter_for_company(self, storage_type: str, storage_connection_id: Optional[str], content_type: str) -> StorageAdapter:
+    def _create_adapter_for_company(
+        self, 
+        storage_type: str, 
+        storage_connection_id: Optional[str], 
+        content_type: str,
+        yandex_disk_folder_id: Optional[str] = None
+    ) -> StorageAdapter:
         """Create storage adapter for company-specific configuration."""
         if storage_type == "local":
             return LocalStorageAdapter(self.storage_root)
@@ -256,7 +269,17 @@ class StorageManager:
                     logger.error(f"Yandex Disk token not configured for connection {storage_connection_id}, falling back to local")
                     return LocalStorageAdapter(self.storage_root)
                 
-                base_path = config.get("base_path", f"vertex-ar/{content_type}")
+                # Honor yandex_disk_folder_id as base path if provided
+                if yandex_disk_folder_id:
+                    base_path = yandex_disk_folder_id
+                    logger.info(
+                        "Using company-specific Yandex Disk folder",
+                        folder_id=yandex_disk_folder_id,
+                        content_type=content_type
+                    )
+                else:
+                    base_path = config.get("base_path", f"vertex-ar/{content_type}")
+                
                 return YandexDiskStorageAdapter(
                     oauth_token=token,
                     base_path=base_path
@@ -284,6 +307,47 @@ class StorageManager:
         if company_id:
             return self.get_company_adapter(company_id, content_type)
         return self.get_adapter(content_type)
+    
+    def get_storage_type_for_content(self, company_id: Optional[str], content_type: str) -> str:
+        """
+        Get the storage type configured for a specific company and content type.
+        
+        Args:
+            company_id: Company ID (optional)
+            content_type: Type of content (portraits, videos, etc.)
+            
+        Returns:
+            Storage type string ('local', 'minio', 'yandex_disk')
+        """
+        if company_id:
+            from app.main import get_current_app
+            app = get_current_app()
+            database = app.state.database
+            
+            company = database.get_company(company_id)
+            if company:
+                return company.get('storage_type', 'local')
+        
+        return self.config.get_storage_type(content_type)
+    
+    def get_public_url_for_company(self, company_id: Optional[str], file_path: str, content_type: str = "portraits") -> str:
+        """
+        Get public URL for a file using company-specific adapter.
+        
+        Args:
+            company_id: Company ID (optional)
+            file_path: Path to the file in storage
+            content_type: Type of content
+            
+        Returns:
+            Public URL string
+        """
+        if company_id:
+            adapter = self.get_company_adapter(company_id, content_type)
+        else:
+            adapter = self.get_adapter(content_type)
+        
+        return adapter.get_public_url(file_path)
 
 
 # Global storage manager instance

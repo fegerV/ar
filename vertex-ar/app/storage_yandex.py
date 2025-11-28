@@ -5,7 +5,7 @@ Stores photos, videos, previews, and NFT files on Yandex Disk.
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import quote
 
 import requests
@@ -56,10 +56,12 @@ class YandexDiskStorageAdapter(StorageAdapter):
         """Ensure directory exists on Yandex Disk."""
         try:
             self._make_request("PUT", "/resources", params={"path": dir_path})
+            logger.info("Created directory on Yandex Disk", directory=dir_path)
         except requests.exceptions.HTTPError as e:
             # Directory might already exist
             if e.response.status_code != 409:  # 409 = Conflict (already exists)
                 raise
+            logger.debug("Directory already exists on Yandex Disk", directory=dir_path)
     
     def _get_full_path(self, file_path: str) -> str:
         """Get full path on Yandex Disk."""
@@ -306,3 +308,118 @@ class YandexDiskStorageAdapter(StorageAdapter):
         except Exception as e:
             logger.error("Yandex Disk connection test failed", error=str(e))
             return False
+    
+    def ensure_directory(self, dir_path: str) -> bool:
+        """
+        Public method to ensure a directory exists on Yandex Disk.
+        
+        Args:
+            dir_path: Directory path relative to base_path
+            
+        Returns:
+            True if directory exists or was created, False on error
+        """
+        try:
+            full_path = self._get_full_path(dir_path)
+            self._ensure_directory_exists(full_path)
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to ensure directory exists",
+                error=str(e),
+                dir_path=dir_path
+            )
+            return False
+    
+    def ensure_path(self, path: str) -> bool:
+        """
+        Public method to ensure all directories in a path exist on Yandex Disk.
+        Creates parent directories recursively if needed.
+        
+        Args:
+            path: Full path with nested directories (e.g., 'folder/subfolder/file.txt')
+            
+        Returns:
+            True if all directories exist or were created, False on error
+        """
+        try:
+            # Split path and build directory hierarchy
+            parts = path.split('/')
+            # Remove filename if present (if last part has extension)
+            if '.' in parts[-1]:
+                parts = parts[:-1]
+            
+            # Create each directory level
+            current_path = ""
+            for part in parts:
+                if not part:  # Skip empty parts from double slashes
+                    continue
+                current_path = f"{current_path}/{part}" if current_path else part
+                full_path = self._get_full_path(current_path)
+                self._ensure_directory_exists(full_path)
+            
+            logger.info("Ensured path exists on Yandex Disk", path=path)
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to ensure path exists",
+                error=str(e),
+                path=path
+            )
+            return False
+    
+    def ensure_order_structure(self, folder_id: str, content_type: str, order_id: str) -> Dict[str, bool]:
+        """
+        Create the required folder structure for an order on Yandex Disk.
+        Structure: {folder_id}/{content_type}/{order_id}/[Image|QR|nft_markers|nft_cache]
+        
+        Args:
+            folder_id: Base folder ID for the company
+            content_type: Content type (e.g., 'portraits', 'videos')
+            order_id: Unique order identifier
+            
+        Returns:
+            Dict with success status for each subdirectory
+        """
+        subdirs = ['Image', 'QR', 'nft_markers', 'nft_cache']
+        results = {}
+        
+        try:
+            # Create base order path
+            base_path = f"{folder_id}/{content_type}/{order_id}"
+            self.ensure_path(base_path)
+            
+            # Create subdirectories
+            for subdir in subdirs:
+                subdir_path = f"{base_path}/{subdir}"
+                success = self.ensure_path(subdir_path)
+                results[subdir] = success
+                
+                if success:
+                    logger.info(
+                        "Created order subdirectory",
+                        folder_id=folder_id,
+                        content_type=content_type,
+                        order_id=order_id,
+                        subdir=subdir
+                    )
+                else:
+                    logger.warning(
+                        "Failed to create order subdirectory",
+                        folder_id=folder_id,
+                        content_type=content_type,
+                        order_id=order_id,
+                        subdir=subdir
+                    )
+            
+            return results
+            
+        except Exception as e:
+            logger.error(
+                "Failed to create order structure",
+                error=str(e),
+                folder_id=folder_id,
+                content_type=content_type,
+                order_id=order_id
+            )
+            return {subdir: False for subdir in subdirs}

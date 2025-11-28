@@ -115,7 +115,9 @@ async def create_company(
             company_id, 
             company.name,
             company.storage_type,
-            company.storage_connection_id
+            company.storage_connection_id,
+            company.yandex_disk_folder_id,
+            company.content_types
         )
         created_company = database.get_company(company_id)
         
@@ -124,6 +126,8 @@ async def create_company(
             name=created_company["name"],
             storage_type=created_company["storage_type"],
             storage_connection_id=created_company.get("storage_connection_id"),
+            yandex_disk_folder_id=created_company.get("yandex_disk_folder_id"),
+            content_types=created_company.get("content_types"),
             created_at=created_company["created_at"],
         )
     except Exception as exc:
@@ -151,6 +155,8 @@ async def list_companies(
                 name=c["name"],
                 storage_type=c.get("storage_type", "local"),
                 storage_connection_id=c.get("storage_connection_id"),
+                yandex_disk_folder_id=c.get("yandex_disk_folder_id"),
+                content_types=c.get("content_types"),
                 created_at=c["created_at"],
                 client_count=c.get("client_count", 0),
             )
@@ -190,6 +196,8 @@ async def get_company(
         name=company["name"],
         storage_type=company.get("storage_type", "local"),
         storage_connection_id=company.get("storage_connection_id"),
+        yandex_disk_folder_id=company.get("yandex_disk_folder_id"),
+        content_types=company.get("content_types"),
         created_at=company["created_at"],
     )
 
@@ -257,5 +265,7 @@ async def select_company(
         name=company["name"],
         storage_type=company.get("storage_type", "local"),
         storage_connection_id=company.get("storage_connection_id"),
+        yandex_disk_folder_id=company.get("yandex_disk_folder_id"),
+        content_types=company.get("content_types"),
         created_at=company["created_at"],
     )
