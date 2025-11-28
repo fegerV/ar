@@ -426,6 +426,14 @@ class Database:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN storage_type TEXT NOT NULL DEFAULT 'local'")
             except sqlite3.OperationalError:
                 pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN yandex_disk_folder_id TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN content_types TEXT")
+            except sqlite3.OperationalError:
+                pass
 
             # Add foreign key constraint for storage_connection_id
             try:
@@ -1488,12 +1496,20 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     # Company methods
-    def create_company(self, company_id: str, name: str, storage_type: str = "local", storage_connection_id: Optional[str] = None) -> None:
+    def create_company(
+        self, 
+        company_id: str, 
+        name: str, 
+        storage_type: str = "local", 
+        storage_connection_id: Optional[str] = None,
+        yandex_disk_folder_id: Optional[str] = None,
+        content_types: Optional[str] = None
+    ) -> None:
         """Create a new company."""
         try:
             self._execute(
-                "INSERT INTO companies (id, name, storage_type, storage_connection_id) VALUES (?, ?, ?, ?)",
-                (company_id, name, storage_type, storage_connection_id),
+                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types) VALUES (?, ?, ?, ?, ?, ?)",
+                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types),
             )
             logger.info(f"Created company: {name} with storage: {storage_type}")
         except sqlite3.IntegrityError as exc:
@@ -1545,13 +1561,32 @@ class Database:
         """)
         return [dict(row) for row in cursor.fetchall()]
 
-    def update_company_storage(self, company_id: str, storage_type: str, storage_connection_id: Optional[str] = None) -> bool:
+    def update_company_storage(
+        self, 
+        company_id: str, 
+        storage_type: str, 
+        storage_connection_id: Optional[str] = None,
+        yandex_disk_folder_id: Optional[str] = None,
+        content_types: Optional[str] = None
+    ) -> bool:
         """Update company storage configuration."""
         try:
-            self._execute(
-                "UPDATE companies SET storage_type = ?, storage_connection_id = ? WHERE id = ?",
-                (storage_type, storage_connection_id, company_id),
-            )
+            # Build dynamic update query
+            updates = ["storage_type = ?", "storage_connection_id = ?"]
+            params: List[Any] = [storage_type, storage_connection_id]
+            
+            if yandex_disk_folder_id is not None:
+                updates.append("yandex_disk_folder_id = ?")
+                params.append(yandex_disk_folder_id)
+            
+            if content_types is not None:
+                updates.append("content_types = ?")
+                params.append(content_types)
+            
+            params.append(company_id)
+            query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
+            
+            self._execute(query, tuple(params))
             logger.info(f"Updated company {company_id} storage to {storage_type}")
             return True
         except Exception as exc:

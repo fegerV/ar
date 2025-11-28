@@ -547,6 +547,8 @@ async def update_company_storage(
             company_id=company_id,
             storage_type=storage_update.storage_type,
             storage_connection_id=storage_update.storage_connection_id,
+            yandex_disk_folder_id=storage_update.yandex_disk_folder_id,
+            content_types=storage_update.content_types,
         )
         
         if not success:

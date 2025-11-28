@@ -79,6 +79,8 @@ class CompanyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     storage_type: str = Field(default="local", description="Storage type")
     storage_connection_id: Optional[str] = Field(default=None, description="Storage connection ID for remote storage")
+    yandex_disk_folder_id: Optional[str] = Field(default=None, description="Yandex Disk folder ID for storing orders")
+    content_types: Optional[str] = Field(default=None, description="Comma-separated list of content types for this company")
     
     @field_validator('name')
     @classmethod
@@ -98,6 +100,8 @@ class CompanyResponse(BaseModel):
     name: str
     storage_type: str
     storage_connection_id: Optional[str] = None
+    yandex_disk_folder_id: Optional[str] = None
+    content_types: Optional[str] = None
     created_at: str
 
 
@@ -109,6 +113,8 @@ class CompanyUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     storage_type: Optional[str] = Field(None, description="Storage type")
     storage_connection_id: Optional[str] = Field(None, description="Storage connection ID for remote storage")
+    yandex_disk_folder_id: Optional[str] = Field(None, description="Yandex Disk folder ID for storing orders")
+    content_types: Optional[str] = Field(None, description="Comma-separated list of content types for this company")
     
     @field_validator('name')
     @classmethod
@@ -190,6 +196,8 @@ class StorageOptionResponse(BaseModel):
 class CompanyStorageUpdate(BaseModel):
     storage_type: str
     storage_connection_id: Optional[str] = None
+    yandex_disk_folder_id: Optional[str] = None
+    content_types: Optional[str] = None
     
     @field_validator('storage_type')
     @classmethod
