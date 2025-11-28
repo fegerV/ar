@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp": "2025-11-28T07:40:48.706753",
+    "iteration": 0,
+    "cpu_percent": 0.0,
+    "memory_mb": 146.5390625,
+    "open_files": 2,
+    "threads": 1
+  },
+  {
+    "timestamp": "2025-11-28T07:40:49.208902",
+    "iteration": 1,
+    "cpu_percent": 0.0,
+    "memory_mb": 146.83203125,
+    "open_files": 2,
+    "threads": 1
+  },
+  {
+    "timestamp": "2025-11-28T07:40:49.711429",
+    "iteration": 2,
+    "cpu_percent": 0.0,
+    "memory_mb": 146.83203125,
+    "open_files": 2,
+    "threads": 1
+  },
+  {
+    "timestamp": "2025-11-28T07:40:50.213661",
+    "iteration": 3,
+    "cpu_percent": 0.0,
+    "memory_mb": 146.83203125,
+    "open_files": 2,
+    "threads": 1
+  },
+  {
+    "timestamp": "2025-11-28T07:40:50.716285",
+    "iteration": 4,
+    "cpu_percent": 0.0,
+    "memory_mb": 146.83203125,
+    "open_files": 2,
+    "threads": 1
+  }
+]

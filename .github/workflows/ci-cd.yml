@@ -121,12 +121,11 @@ jobs:
 
     - name: Run unit tests
       run: |
-        cd vertex-ar
-        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+        pytest test_files/unit/ -v --cov=vertex-ar/app --cov-report=xml --cov-report=html
 
     - name: Run integration tests
       run: |
-        pytest test_files/test_*.py -v --cov=app --cov-append --cov-report=xml
+        pytest test_files/integration/ -v --cov=vertex-ar/app --cov-append --cov-report=xml
 
     - name: Run performance tests
       run: |
@@ -134,13 +133,13 @@ jobs:
         pip install -e .
         python -c "import uvicorn; from app.main import create_app; uvicorn.run(create_app(), host='127.0.0.1', port=8000)" &
         sleep 5
-        python ../test_files/test_comprehensive_performance.py --quick || true
-        python ../test_files/test_portraits_load.py --quick || true
+        python ../test_files/performance/test_comprehensive_performance.py --quick || true
+        python ../test_files/performance/test_portraits_load.py --quick || true
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
-        file: ./vertex-ar/coverage.xml
+        file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
 
@@ -150,10 +149,9 @@ jobs:
       with:
         name: test-results
         path: |
-          vertex-ar/htmlcov/
-          vertex-ar/test_reports/
-          test_files/performance_report.json
-          test_files/load_test_report.json
+          htmlcov/
+          test_reports/
+          test_files/performance/*.json
 
   security:
     name: Security Scan
