@@ -743,6 +743,42 @@
                 <button onclick="createCompany()" class="company-btn">Создать</button>
                 <button onclick="showDeleteCompanyModal()" class="company-btn danger">Удалить</button>
             </div>
+            
+            <!-- Yandex Disk Folder Management -->
+            <div class="yandex-folder-section" style="margin-top: 1.5rem; padding: 1rem; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">📂 Папка Yandex Disk</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <strong style="min-width: 150px;">Текущая папка:</strong>
+                        <span id="currentYandexFolder" style="color: var(--primary-color); font-weight: 500;">Не выбрана</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        <select id="yandexFolderSelect" class="company-select" style="flex: 1; min-width: 200px;">
+                            <option value="">Выберите папку...</option>
+                        </select>
+                        <button onclick="loadYandexFolders()" class="company-btn" title="Обновить список папок">🔄 Обновить</button>
+                        <button id="saveYandexFolderBtn" onclick="saveYandexFolder()" class="company-btn" disabled>💾 Сохранить</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content Types Management -->
+            <div class="content-types-section" style="margin-top: 1.5rem; padding: 1rem; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">🏷️ Типы контента</h3>
+                <div style="padding: 0.75rem; background: var(--bg-color); border-radius: var(--border-radius); margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-color); opacity: 0.9;">
+                    <strong>Информация:</strong> Типы контента используются для организации файлов в папки Yandex Disk. 
+                    Каждый тип соответствует названию подпапки (например, "Портреты" → папка "Портреты", "Дипломы AR" → папка "Дипломы AR").
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        <input type="text" id="newContentTypeInput" class="company-input" placeholder="Новый тип контента..." style="flex: 1; min-width: 200px;">
+                        <button id="addContentTypeBtn" onclick="addContentType()" class="company-btn" disabled>➕ Добавить</button>
+                    </div>
+                    <div id="contentTypesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                        <p style="text-align: center; opacity: 0.6; padding: 1rem;">Типы контента появятся здесь</p>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Create Order Section -->
@@ -762,6 +798,12 @@
                     <div class="form-group">
                         <label for="clientEmail">Email клиента</label>
                         <input type="email" id="clientEmail" name="client_email" placeholder="example@domain.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="contentType">Тип контента *</label>
+                        <select id="contentType" name="content_type" required>
+                            <option value="">Выберите тип контента...</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="clientPhoto">Фото клиента *</label>
