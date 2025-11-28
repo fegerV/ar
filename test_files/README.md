@@ -75,7 +75,8 @@ test_files/
 │   ├── test_storage_integration.py
 │   ├── test_ui_improvements.py
 │   ├── test_web_health_check.py
-│   └── test_yandex_integration.py
+│   ├── test_yandex_integration.py
+│   └── test_yandex_disk_storage_flow.py  # ⭐ NEW: Yandex Disk storage flow tests
 │
 ├── performance/                       # Performance and load tests
 │   ├── __init__.py
@@ -114,6 +115,8 @@ test_files/
   - May use test database
   - May make HTTP requests
   - Test complete workflows
+- **New Tests:**
+  - `test_yandex_disk_storage_flow.py` - Company storage configuration, Yandex Disk integration, order workflows with Yandex/local fallback
 - **Run with:** `pytest test_files/integration/`
 
 ### Performance Tests (`performance/`)

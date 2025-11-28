@@ -17,12 +17,18 @@ Vertex AR поддерживает автоматическую синхрони
 
 ### 1. Получение OAuth токена
 
-Для работы с Яндекс Диском нужен OAuth токен:
+Для работы с Яндекс Диском нужен OAuth токен с правами:
+- `cloud_api:disk.read` - чтение файлов и структуры папок
+- `cloud_api:disk.write` - загрузка и изменение файлов
+- `cloud_api:disk.info` (рекомендуется) - информация о квоте
+
+**Шаги для получения токена:**
 
 1. Перейдите на [OAuth-страницу Яндекса](https://oauth.yandex.ru/)
 2. Зарегистрируйте приложение
-3. Получите права доступа к Яндекс Диску
-4. Сохраните OAuth токен
+3. Выберите необходимые права доступа (scopes)
+4. Завершите OAuth-процесс и получите токен
+5. Сохраните токен в безопасном месте
 
 ### 2. Конфигурация
 
@@ -377,6 +383,68 @@ curl -X POST "http://localhost:8000/backups/restore" \
 
 ---
 
+## Использование Яндекс Диска для хранения контента (v1.5.0+)
+
+Начиная с версии 1.5.0, Яндекс Диск можно использовать не только для бэкапов, но и для хранения AR-контента компаний.
+
+### Настройка компании с Яндекс Диском
+
+1. **Создайте подключение к хранилищу:**
+```bash
+curl -X POST "http://localhost:8000/api/storage-management/connections" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Primary Yandex Disk",
+    "type": "yandex_disk",
+    "config": {
+      "oauth_token": "YOUR_OAUTH_TOKEN",
+      "base_path": "vertex-ar",
+      "enabled": true
+    }
+  }'
+```
+
+2. **Создайте или обновите компанию:**
+```bash
+curl -X POST "http://localhost:8000/companies" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Corp",
+    "storage_type": "yandex_disk",
+    "storage_connection_id": "CONNECTION_UUID"
+  }'
+```
+
+### Структура хранения на Яндекс Диске
+
+Файлы организованы по следующей структуре:
+```
+{base_path}/
+└── companies/
+    └── {company_id}/
+        └── portraits/
+            └── {client_id}/
+                └── {portrait_id}/
+                    ├── {portrait_id}.jpg
+                    ├── {portrait_id}_preview.jpg
+                    ├── {video_id}.mp4
+                    ├── {video_id}_preview.jpg
+                    └── nft_markers/
+```
+
+### Преимущества
+
+- ✅ Изоляция данных каждой компании
+- ✅ Неограниченное масштабирование
+- ✅ Автоматическое управление путями
+- ✅ Fallback на локальное хранение при сбоях
+
+**Подробная документация:** [Yandex Disk Storage Flow](../features/yandex-disk-storage-flow.md)
+
+---
+
 ## Заключение
 
 Интеграция с облачными хранилищами обеспечивает:
@@ -384,5 +452,6 @@ curl -X POST "http://localhost:8000/backups/restore" \
 - ✅ Возможность восстановления при полном отказе сервера
 - ✅ Долгосрочное хранение бэкапов
 - ✅ Легкий доступ к бэкапам из любой точки
+- ✅ Хранение AR-контента в облаке (v1.5.0+)
 
 Рекомендуется настроить автоматическую синхронизацию хотя бы с одним облачным провайдером.
