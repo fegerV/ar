@@ -147,22 +147,22 @@ run_tests() {
     
     case $test_type in
         "all")
-            python -m pytest vertex-ar/tests test_files -v --tb=short --disable-warnings
-            ;;
-        "quick")
-            python -m pytest vertex-ar/tests test_files -v -m "not slow" --tb=short --disable-warnings
-            ;;
-        "unit")
-            python -m pytest vertex-ar/tests -v -m "unit" --tb=short --disable-warnings
-            ;;
-        "integration")
             python -m pytest test_files -v --tb=short --disable-warnings
             ;;
+        "quick")
+            python -m pytest test_files -v -m "not slow" --tb=short --disable-warnings
+            ;;
+        "unit")
+            python -m pytest test_files/unit -v -m "unit" --tb=short --disable-warnings
+            ;;
+        "integration")
+            python -m pytest test_files/integration -v --tb=short --disable-warnings
+            ;;
         "api")
-            python -m pytest -v -m "api" --tb=short --disable-warnings vertex-ar/tests/test_api.py test_files/test_api_*.py
+            python -m pytest test_files -v -m "api" --tb=short --disable-warnings
             ;;
         "coverage")
-            python -m pytest vertex-ar/tests test_files --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
+            python -m pytest test_files --cov=vertex-ar/app --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
             print_success "Coverage report generated: htmlcov/index.html"
             
             # Try to open the report

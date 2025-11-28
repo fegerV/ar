@@ -1,0 +1,69 @@
+Unify test layout: relocate all tests to test_files/ with clear categorization
+
+## Summary
+Implemented unified test structure by relocating all tests from various locations
+into test_files/ with clear categorization by type (unit/integration/performance).
+
+## Directory Structure
+```
+test_files/
+├── unit/               # 14 unit tests (from vertex-ar/tests/)
+├── integration/        # 44 integration tests (from vertex-ar/, scripts/, test_files/)
+├── performance/        # 4 performance tests
+├── assets/             # 9 test data files
+├── conftest.py         # Shared pytest configuration
+└── README.md           # Updated documentation
+```
+
+## Changes Made
+
+### Files Relocated
+- Moved 14 unit tests: vertex-ar/tests/* → test_files/unit/
+- Moved 12 integration tests: vertex-ar/test_*.py → test_files/integration/
+- Moved 3 integration tests: scripts/test_*.py → test_files/integration/
+- Moved 30+ integration tests: test_files/test_*.py → test_files/integration/
+- Moved 4 performance tests: test_files/test_*performance*.py → test_files/performance/
+- Moved 9 test assets: test_files/test_*.{jpg,png,mp4,json} → test_files/assets/
+
+### Directories Removed
+- Deleted vertex-ar/tests/ (after copying to test_files/unit/)
+- Removed all standalone test_*.py from vertex-ar/
+- Removed all test_*.py from scripts/
+
+### Configuration Updates
+- pytest.ini: testpaths → test_files, coverage → vertex-ar/app
+- vertex-ar/pyproject.toml: testpaths → ../test_files, coverage omit → */test_files/*
+- .github/workflows/ci-cd.yml: updated all test paths to test_files/{unit,integration,performance}
+- scripts/quick_test.sh: updated all test paths and coverage target
+- test_files/run_tests.sh: updated TEST_PATHS and added performance option
+
+### New Files
+- test_files/conftest.py: shared path setup for all tests
+- test_files/__init__.py: package initialization
+- test_files/{unit,integration,performance}/__init__.py: category markers
+- test_files/README.md: complete rewrite documenting new structure
+- TEST_LAYOUT_MIGRATION.md: detailed migration documentation
+
+## Benefits
+- Clear organization by test type
+- Single location for all tests
+- Shared configuration eliminates redundant sys.path setup
+- Better test discovery
+- Consistent tooling and CI/CD
+- Easier to navigate and maintain
+
+## Testing
+- ✅ All tests successfully discovered by pytest
+- ✅ Unit tests run successfully
+- ✅ Integration tests run successfully
+- ✅ No tests remain in old locations
+- ✅ All tooling updated and tested
+
+## Acceptance Criteria Met
+✅ No Python tests remain under vertex-ar/ or scripts/
+✅ All tests in test_files/ with clear substructure
+✅ All tooling (pytest configs, scripts, GitHub Actions) updated
+✅ Imports succeed via shared conftest.py
+✅ Tests execute successfully from repository root
+
+Closes ticket: Unify test layout

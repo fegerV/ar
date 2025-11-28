@@ -47,7 +47,7 @@ print_status "Running Vertex AR test suite..."
 echo
 
 # Set test file paths
-TEST_PATHS="vertex-ar/tests test_files"
+TEST_PATHS="test_files"
 
 # Run tests with different options based on arguments
 case "${1:-all}" in
@@ -57,7 +57,7 @@ case "${1:-all}" in
         ;;
     "coverage")
         print_status "Running tests with coverage report..."
-        python -m pytest $TEST_PATHS --cov=vertex-ar --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
+        python -m pytest $TEST_PATHS --cov=vertex-ar/app --cov-report=term-missing --cov-report=html:htmlcov --disable-warnings
         print_success "Coverage report generated in htmlcov/index.html"
         ;;
     "verbose")
@@ -74,11 +74,15 @@ case "${1:-all}" in
         ;;
     "unit")
         print_status "Running unit tests only..."
-        python -m pytest vertex-ar/tests -v --disable-warnings
+        python -m pytest test_files/unit -v --disable-warnings
         ;;
     "integration")
         print_status "Running integration tests only..."
-        python -m pytest test_files -v --disable-warnings
+        python -m pytest test_files/integration -v --disable-warnings
+        ;;
+    "performance")
+        print_status "Running performance tests only..."
+        python -m pytest test_files/performance -v --disable-warnings
         ;;
     "all"|*)
         print_status "Running all tests..."

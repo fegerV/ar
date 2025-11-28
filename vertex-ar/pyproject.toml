@@ -1,5 +1,5 @@
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["../test_files"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -74,7 +74,7 @@ ignore_missing_imports = true
 [tool.coverage.run]
 source = ["app"]
 omit = [
-    "*/tests/*",
+    "*/test_files/*",
     "*/test_*.py",
     "*/__pycache__/*",
     "*/venv/*",
