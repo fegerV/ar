@@ -744,7 +744,129 @@
                         </p>
                         </div>
                         </section>
+
+                        <!-- Email Templates Section -->
+                        <section class="settings-section">
+                            <h2>📧 Email шаблоны</h2>
+                            
+                            <div id="emailTemplatesAlert"></div>
+                            
+                            <div class="btn-group" style="margin-bottom: 1.5rem;">
+                                <button id="createTemplateBtn" class="btn btn-primary">
+                                    ➕ Создать шаблон
+                                </button>
+                            </div>
+                            
+                            <div id="templatesTableContainer">
+                                <table id="templatesTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--border-color);">
+                                            <th style="padding: 12px; text-align: left;">Тип</th>
+                                            <th style="padding: 12px; text-align: left;">Тема</th>
+                                            <th style="padding: 12px; text-align: center;">Статус</th>
+                                            <th style="padding: 12px; text-align: right;">Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="templatesTableBody">
+                                        <tr>
+                                            <td colspan="4" style="padding: 20px; text-align: center; color: var(--text-color); opacity: 0.6;">
+                                                Загрузка шаблонов...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
                         </div>
+                        </div>
+
+                        <!-- Email Template Modal -->
+                        <div id="templateModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto;">
+                            <div style="max-width: 900px; margin: 50px auto; background: var(--light-color); border-radius: var(--border-radius); padding: 2rem; position: relative;">
+                                <button id="closeTemplateModal" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-color);">×</button>
+                                
+                                <h2 id="modalTitle" style="margin-bottom: 1.5rem;">Создать email шаблон</h2>
+                                
+                                <form id="templateForm">
+                                    <input type="hidden" id="templateId">
+                                    
+                                    <div class="form-group">
+                                        <label for="templateType">Тип шаблона *</label>
+                                        <select id="templateType" required>
+                                            <option value="">Выберите тип</option>
+                                            <option value="subscription_end">Окончание подписки (клиентам)</option>
+                                            <option value="system_error">Системная ошибка (администраторам)</option>
+                                            <option value="admin_report">Отчет (администраторам)</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="templateSubject">Тема письма *</label>
+                                        <input type="text" id="templateSubject" placeholder="Введите тему письма" maxlength="200" required>
+                                        <small style="color: var(--text-color); opacity: 0.7;">
+                                            Можно использовать переменные: {{variable_name}}
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="templateContent">HTML контент *</label>
+                                        <textarea id="templateContent" style="font-family: monospace; min-height: 300px;" placeholder="Введите HTML контент письма" required></textarea>
+                                        <small style="color: var(--text-color); opacity: 0.7;">
+                                            Используйте {{variable_name}} для подстановки переменных
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Доступные переменные:</label>
+                                        <div id="availableVariables" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 8px;">
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('client_name')">{{client_name}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('project_name')">{{project_name}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('subscription_end_date')">{{subscription_end_date}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('days_remaining')">{{days_remaining}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('error_message')">{{error_message}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('error_timestamp')">{{error_timestamp}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('service_name')">{{service_name}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('report_period')">{{report_period}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('report_date')">{{report_date}}</button>
+                                            <button type="button" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="insertVariable('admin_name')">{{admin_name}}</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>
+                                            <input type="checkbox" id="templateIsActive" checked> Активен
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="btn-group">
+                                        <button type="submit" class="btn btn-success">💾 Сохранить</button>
+                                        <button type="button" id="previewTemplateBtn" class="btn btn-primary">👁️ Предпросмотр</button>
+                                        <button type="button" id="cancelTemplateBtn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Preview Modal -->
+                        <div id="previewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1001; overflow-y: auto;">
+                            <div style="max-width: 800px; margin: 50px auto; background: var(--light-color); border-radius: var(--border-radius); padding: 2rem; position: relative;">
+                                <button id="closePreviewModal" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-color);">×</button>
+                                
+                                <h2 style="margin-bottom: 1rem;">Предпросмотр письма</h2>
+                                
+                                <div style="margin-bottom: 1rem; padding: 1rem; background: var(--bg-color); border-radius: var(--border-radius);">
+                                    <strong>Тема:</strong>
+                                    <p id="previewSubject" style="margin: 0.5rem 0 0 0;"></p>
+                                </div>
+                                
+                                <div style="padding: 1rem; background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius); overflow: auto;">
+                                    <iframe id="previewContent" style="width: 100%; min-height: 500px; border: none;"></iframe>
+                                </div>
+                                
+                                <div class="btn-group" style="margin-top: 1rem;">
+                                    <button id="closePreviewBtn" class="btn btn-secondary">Закрыть</button>
+                                </div>
+                            </div>
                         </div>
 
                         <script>
@@ -1418,11 +1540,279 @@
         document.getElementById('saveYandexSmtp').addEventListener('click', saveYandexSmtp);
         document.getElementById('testYandexSmtp').addEventListener('click', testYandexSmtp);
 
+        // Email Templates Management
+        let currentEditingTemplateId = null;
+
+        function showTemplateAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('emailTemplatesAlert');
+            alertContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function getTemplateTypeLabel(type) {
+            const labels = {
+                'subscription_end': 'Окончание подписки',
+                'system_error': 'Системная ошибка',
+                'admin_report': 'Отчет'
+            };
+            return labels[type] || type;
+        }
+
+        async function loadEmailTemplates() {
+            try {
+                const response = await fetch('/api/admin/email-templates', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load templates');
+                }
+
+                const templates = await response.json();
+                const tbody = document.getElementById('templatesTableBody');
+
+                if (templates.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-color); opacity: 0.6;">Шаблоны не найдены</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = templates.map(template => `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px;">${getTemplateTypeLabel(template.template_type)}</td>
+                        <td style="padding: 12px;">${template.subject}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <span class="status-indicator ${template.is_active ? 'status-connected' : 'status-disconnected'}">
+                                ${template.is_active ? '✓ Активен' : '○ Неактивен'}
+                            </span>
+                        </td>
+                        <td style="padding: 12px; text-align: right;">
+                            <button onclick="editTemplate('${template.id}')" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin-right: 5px;">
+                                ✏️ Редактировать
+                            </button>
+                            <button onclick="toggleTemplate('${template.id}')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; margin-right: 5px;">
+                                ${template.is_active ? '⏸️ Деактивировать' : '▶️ Активировать'}
+                            </button>
+                            <button onclick="deleteTemplate('${template.id}')" class="btn btn-danger" style="padding: 6px 12px; font-size: 0.85rem;">
+                                🗑️ Удалить
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                showTemplateAlert('Ошибка загрузки шаблонов: ' + error.message, 'error');
+            }
+        }
+
+        function openTemplateModal(templateId = null) {
+            currentEditingTemplateId = templateId;
+            const modal = document.getElementById('templateModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const form = document.getElementById('templateForm');
+
+            form.reset();
+
+            if (templateId) {
+                modalTitle.textContent = 'Редактировать email шаблон';
+                loadTemplateData(templateId);
+            } else {
+                modalTitle.textContent = 'Создать email шаблон';
+                document.getElementById('templateId').value = '';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function closeTemplateModal() {
+            document.getElementById('templateModal').style.display = 'none';
+            currentEditingTemplateId = null;
+        }
+
+        async function loadTemplateData(templateId) {
+            try {
+                const response = await fetch(`/api/admin/email-templates/${templateId}`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load template');
+                }
+
+                const template = await response.json();
+                document.getElementById('templateId').value = template.id;
+                document.getElementById('templateType').value = template.template_type;
+                document.getElementById('templateSubject').value = template.subject;
+                document.getElementById('templateContent').value = template.html_content;
+                document.getElementById('templateIsActive').checked = template.is_active;
+            } catch (error) {
+                console.error('Error loading template:', error);
+                showTemplateAlert('Ошибка загрузки шаблона: ' + error.message, 'error');
+                closeTemplateModal();
+            }
+        }
+
+        async function saveTemplate(event) {
+            event.preventDefault();
+
+            const templateId = document.getElementById('templateId').value;
+            const isEdit = !!templateId;
+
+            const data = {
+                template_type: document.getElementById('templateType').value,
+                subject: document.getElementById('templateSubject').value,
+                html_content: document.getElementById('templateContent').value,
+                is_active: document.getElementById('templateIsActive').checked
+            };
+
+            try {
+                const url = isEdit 
+                    ? `/api/admin/email-templates/${templateId}`
+                    : '/api/admin/email-templates';
+                
+                const method = isEdit ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save template');
+                }
+
+                showTemplateAlert(isEdit ? 'Шаблон успешно обновлен!' : 'Шаблон успешно создан!', 'success');
+                closeTemplateModal();
+                loadEmailTemplates();
+            } catch (error) {
+                console.error('Error saving template:', error);
+                showTemplateAlert('Ошибка сохранения шаблона: ' + error.message, 'error');
+            }
+        }
+
+        async function editTemplate(templateId) {
+            openTemplateModal(templateId);
+        }
+
+        async function deleteTemplate(templateId) {
+            if (!confirm('Вы уверены, что хотите удалить этот шаблон?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/email-templates/${templateId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete template');
+                }
+
+                showTemplateAlert('Шаблон успешно удален!', 'success');
+                loadEmailTemplates();
+            } catch (error) {
+                console.error('Error deleting template:', error);
+                showTemplateAlert('Ошибка удаления шаблона: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleTemplate(templateId) {
+            try {
+                const response = await fetch(`/api/admin/email-templates/${templateId}/toggle`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to toggle template');
+                }
+
+                const result = await response.json();
+                showTemplateAlert(result.message, 'success');
+                loadEmailTemplates();
+            } catch (error) {
+                console.error('Error toggling template:', error);
+                showTemplateAlert('Ошибка изменения статуса: ' + error.message, 'error');
+            }
+        }
+
+        function insertVariable(varName) {
+            const textarea = document.getElementById('templateContent');
+            const variable = `{{${varName}}}`;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            textarea.value = text.substring(0, start) + variable + text.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + variable.length;
+            textarea.focus();
+        }
+
+        async function previewTemplate() {
+            const subject = document.getElementById('templateSubject').value;
+            const content = document.getElementById('templateContent').value;
+
+            if (!subject || !content) {
+                showTemplateAlert('Заполните тему и контент для предпросмотра', 'error');
+                return;
+            }
+
+            const sampleVariables = {
+                'client_name': 'Иван Иванов',
+                'project_name': 'AR Проект Demo',
+                'subscription_end_date': '31.12.2024',
+                'days_remaining': '7',
+                'error_message': 'Connection timeout',
+                'error_timestamp': '2024-01-15 10:30:00',
+                'service_name': 'Database Service',
+                'report_period': 'Январь 2024',
+                'report_date': '15.01.2024',
+                'admin_name': 'Администратор'
+            };
+
+            let previewSubject = subject;
+            let previewContent = content;
+
+            for (const [key, value] of Object.entries(sampleVariables)) {
+                const regex = new RegExp(`{{${key}}}`, 'g');
+                previewSubject = previewSubject.replace(regex, value);
+                previewContent = previewContent.replace(regex, value);
+            }
+
+            document.getElementById('previewSubject').textContent = previewSubject;
+            const iframe = document.getElementById('previewContent');
+            iframe.contentDocument.open();
+            iframe.contentDocument.write(previewContent);
+            iframe.contentDocument.close();
+
+            document.getElementById('previewModal').style.display = 'block';
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').style.display = 'none';
+        }
+
+        // Event listeners for email templates
+        document.getElementById('createTemplateBtn').addEventListener('click', () => openTemplateModal());
+        document.getElementById('closeTemplateModal').addEventListener('click', closeTemplateModal);
+        document.getElementById('cancelTemplateBtn').addEventListener('click', closeTemplateModal);
+        document.getElementById('templateForm').addEventListener('submit', saveTemplate);
+        document.getElementById('previewTemplateBtn').addEventListener('click', previewTemplate);
+        document.getElementById('closePreviewModal').addEventListener('click', closePreviewModal);
+        document.getElementById('closePreviewBtn').addEventListener('click', closePreviewModal);
+
         // Load current configuration on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadCurrentConfig();
             loadBackupSettings();
             loadYandexSettings();
+            loadEmailTemplates();
         });
     </script>
 </body>

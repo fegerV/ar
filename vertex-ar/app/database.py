@@ -547,6 +547,35 @@ class Database:
             except sqlite3.OperationalError:
                 pass
 
+            # Create email_templates table for managing HTML email templates
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS email_templates (
+                    id TEXT PRIMARY KEY,
+                    template_type TEXT NOT NULL CHECK (template_type IN ('subscription_end', 'system_error', 'admin_report')),
+                    subject TEXT NOT NULL,
+                    html_content TEXT NOT NULL,
+                    variables_used TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            # Create indexes for email_templates table
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_type ON email_templates(template_type)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_active ON email_templates(is_active)")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Seed default email templates
+            self._seed_default_email_templates()
+
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
             cursor = self._connection.execute(query, parameters)
@@ -2565,6 +2594,308 @@ class Database:
             return cursor.rowcount > 0
         
         return False
+
+    def _seed_default_email_templates(self) -> None:
+        """Seed default email templates if they don't exist."""
+        try:
+            cursor = self._execute("SELECT COUNT(*) FROM email_templates")
+            count = cursor.fetchone()[0]
+            if count > 0:
+                return
+            
+            import uuid
+            from datetime import datetime
+            
+            now = datetime.now()
+            
+            # Default template for subscription_end
+            subscription_end_template = {
+                'id': str(uuid.uuid4()),
+                'template_type': 'subscription_end',
+                'subject': 'Уведомление об окончании подписки / Subscription Expiration Notice',
+                'html_content': '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #667eea; border-radius: 5px; }
+        .warning { color: #ff6b6b; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Уведомление об окончании подписки</h1>
+            <h2>Subscription Expiration Notice</h2>
+        </div>
+        <div class="content">
+            <p><strong>Уважаемый(ая) {{client_name}},</strong></p>
+            <p><strong>Dear {{client_name}},</strong></p>
+            
+            <div class="info-box">
+                <p class="warning">Ваша подписка на проект истекает!</p>
+                <p class="warning">Your subscription is expiring!</p>
+                <ul>
+                    <li><strong>Проект / Project:</strong> {{project_name}}</li>
+                    <li><strong>Дата окончания / End Date:</strong> {{subscription_end_date}}</li>
+                    <li><strong>Осталось дней / Days Remaining:</strong> {{days_remaining}}</li>
+                </ul>
+            </div>
+            
+            <p>Пожалуйста, свяжитесь с нами для продления подписки.</p>
+            <p>Please contact us to renew your subscription.</p>
+            
+            <p style="margin-top: 30px;">
+                <strong>С уважением,<br>Best regards,<br>Команда Vertex AR</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2024 Vertex AR. Все права защищены / All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>''',
+                'variables_used': '["client_name", "project_name", "subscription_end_date", "days_remaining"]',
+                'is_active': 1,
+                'created_at': now,
+                'updated_at': now
+            }
+            
+            # Default template for system_error
+            system_error_template = {
+                'id': str(uuid.uuid4()),
+                'template_type': 'system_error',
+                'subject': '⚠️ Системная ошибка - {{service_name}}',
+                'html_content': '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #ff6b6b; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #fff3cd; padding: 30px; border-radius: 0 0 10px 10px; }
+        .error-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #ff6b6b; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Системная ошибка</h1>
+            <h2>System Error Alert</h2>
+        </div>
+        <div class="content">
+            <p><strong>Администратор {{admin_name}},</strong></p>
+            <p>В системе произошла ошибка, требующая вашего внимания.</p>
+            
+            <div class="error-box">
+                <p><strong>Сервис:</strong> {{service_name}}</p>
+                <p><strong>Время:</strong> {{error_timestamp}}</p>
+                <p><strong>Ошибка:</strong></p>
+                <p>{{error_message}}</p>
+            </div>
+            
+            <p><strong>Пожалуйста, проверьте систему как можно скорее.</strong></p>
+        </div>
+        <div class="footer">
+            <p>Vertex AR - Автоматическое уведомление системы мониторинга</p>
+        </div>
+    </div>
+</body>
+</html>''',
+                'variables_used': '["admin_name", "service_name", "error_timestamp", "error_message"]',
+                'is_active': 1,
+                'created_at': now,
+                'updated_at': now
+            }
+            
+            # Default template for admin_report
+            admin_report_template = {
+                'id': str(uuid.uuid4()),
+                'template_type': 'admin_report',
+                'subject': '📊 Отчет системы - {{report_period}}',
+                'html_content': '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .report-box { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #11998e; border-radius: 5px; }
+        .stat { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Системный отчет</h1>
+            <h2>System Report</h2>
+        </div>
+        <div class="content">
+            <p><strong>Администратор {{admin_name}},</strong></p>
+            <p>Предоставляем отчет за период: <strong>{{report_period}}</strong></p>
+            
+            <div class="report-box">
+                <p><strong>Дата формирования:</strong> {{report_date}}</p>
+                <p>Подробный отчет прикреплен к этому письму или доступен в панели администратора.</p>
+            </div>
+            
+            <p style="margin-top: 30px;">
+                <strong>С уважением,<br>Vertex AR Monitoring System</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2024 Vertex AR. Автоматический отчет.</p>
+        </div>
+    </div>
+</body>
+</html>''',
+                'variables_used': '["admin_name", "report_period", "report_date"]',
+                'is_active': 1,
+                'created_at': now,
+                'updated_at': now
+            }
+            
+            # Insert templates
+            for template in [subscription_end_template, system_error_template, admin_report_template]:
+                self._execute(
+                    """
+                    INSERT INTO email_templates (id, template_type, subject, html_content, variables_used, is_active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (template['id'], template['template_type'], template['subject'], template['html_content'],
+                     template['variables_used'], template['is_active'], template['created_at'], template['updated_at'])
+                )
+            
+            logger.info("Seeded 3 default email templates")
+            
+        except Exception as e:
+            logger.error(f"Error seeding default email templates: {e}")
+
+    def get_email_templates(self, template_type: Optional[str] = None, is_active: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """Get email templates, optionally filtered by type and active status."""
+        query = "SELECT * FROM email_templates WHERE 1=1"
+        params = []
+        
+        if template_type:
+            query += " AND template_type = ?"
+            params.append(template_type)
+        
+        if is_active is not None:
+            query += " AND is_active = ?"
+            params.append(1 if is_active else 0)
+        
+        query += " ORDER BY created_at DESC"
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_email_template(self, template_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single email template by ID."""
+        cursor = self._execute("SELECT * FROM email_templates WHERE id = ?", (template_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def get_active_template_by_type(self, template_type: str) -> Optional[Dict[str, Any]]:
+        """Get active email template by type."""
+        cursor = self._execute(
+            "SELECT * FROM email_templates WHERE template_type = ? AND is_active = 1 ORDER BY created_at DESC LIMIT 1",
+            (template_type,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def create_email_template(
+        self,
+        template_id: str,
+        template_type: str,
+        subject: str,
+        html_content: str,
+        variables_used: Optional[str] = None,
+        is_active: bool = True
+    ) -> bool:
+        """Create a new email template."""
+        from datetime import datetime
+        now = datetime.now()
+        
+        cursor = self._execute(
+            """
+            INSERT INTO email_templates (id, template_type, subject, html_content, variables_used, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (template_id, template_type, subject, html_content, variables_used, 1 if is_active else 0, now, now)
+        )
+        return cursor.rowcount > 0
+
+    def update_email_template(
+        self,
+        template_id: str,
+        subject: Optional[str] = None,
+        html_content: Optional[str] = None,
+        variables_used: Optional[str] = None,
+        is_active: Optional[bool] = None
+    ) -> bool:
+        """Update an email template."""
+        from datetime import datetime
+        
+        updates = []
+        params = []
+        
+        if subject is not None:
+            updates.append("subject = ?")
+            params.append(subject)
+        
+        if html_content is not None:
+            updates.append("html_content = ?")
+            params.append(html_content)
+        
+        if variables_used is not None:
+            updates.append("variables_used = ?")
+            params.append(variables_used)
+        
+        if is_active is not None:
+            updates.append("is_active = ?")
+            params.append(1 if is_active else 0)
+        
+        if not updates:
+            return False
+        
+        updates.append("updated_at = ?")
+        params.append(datetime.now())
+        params.append(template_id)
+        
+        cursor = self._execute(
+            f"UPDATE email_templates SET {', '.join(updates)} WHERE id = ?",
+            tuple(params)
+        )
+        return cursor.rowcount > 0
+
+    def delete_email_template(self, template_id: str) -> bool:
+        """Delete an email template."""
+        cursor = self._execute("DELETE FROM email_templates WHERE id = ?", (template_id,))
+        return cursor.rowcount > 0
+
+    def toggle_email_template(self, template_id: str) -> bool:
+        """Toggle email template active status."""
+        cursor = self._execute(
+            "UPDATE email_templates SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END, updated_at = ? WHERE id = ?",
+            (datetime.now(), template_id)
+        )
+        return cursor.rowcount > 0
 
 
 def ensure_default_admin_user(database: "Database") -> None:
