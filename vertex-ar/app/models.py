@@ -750,3 +750,69 @@ class PaginatedNotificationHistoryResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# Email Template models
+class EmailTemplateCreate(BaseModel):
+    template_type: str = Field(..., description="Template type: subscription_end, system_error, admin_report")
+    subject: str = Field(..., min_length=1, max_length=200, description="Email subject")
+    html_content: str = Field(..., min_length=10, description="HTML content of the email")
+    variables_used: Optional[str] = Field(None, description="JSON array of variable names used in template")
+    is_active: bool = Field(True, description="Whether template is active")
+    
+    @field_validator('template_type')
+    @classmethod
+    def validate_template_type(cls, v: str) -> str:
+        valid_types = ['subscription_end', 'system_error', 'admin_report']
+        if v not in valid_types:
+            raise ValueError(f'template_type must be one of: {", ".join(valid_types)}')
+        return v
+    
+    @field_validator('html_content')
+    @classmethod
+    def validate_html_content(cls, v: str) -> str:
+        dangerous_tags = ['<script', '<iframe', 'javascript:', 'onerror=', 'onload=']
+        v_lower = v.lower()
+        for tag in dangerous_tags:
+            if tag in v_lower:
+                raise ValueError(f'HTML content contains potentially dangerous tag or attribute: {tag}')
+        return v
+
+
+class EmailTemplateUpdate(BaseModel):
+    subject: Optional[str] = Field(None, min_length=1, max_length=200, description="Email subject")
+    html_content: Optional[str] = Field(None, min_length=10, description="HTML content of the email")
+    variables_used: Optional[str] = Field(None, description="JSON array of variable names used in template")
+    is_active: Optional[bool] = Field(None, description="Whether template is active")
+    
+    @field_validator('html_content')
+    @classmethod
+    def validate_html_content(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        dangerous_tags = ['<script', '<iframe', 'javascript:', 'onerror=', 'onload=']
+        v_lower = v.lower()
+        for tag in dangerous_tags:
+            if tag in v_lower:
+                raise ValueError(f'HTML content contains potentially dangerous tag or attribute: {tag}')
+        return v
+
+
+class EmailTemplateResponse(BaseModel):
+    id: str
+    template_type: str
+    subject: str
+    html_content: str
+    variables_used: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+
+class EmailTemplatePreviewRequest(BaseModel):
+    variables: Dict[str, str] = Field(..., description="Variable values to substitute in template")
+
+
+class EmailTemplatePreviewResponse(BaseModel):
+    subject: str
+    html_content: str
