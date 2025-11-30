@@ -494,3 +494,58 @@ async def update_alert_settings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update alert settings: {str(e)}"
         )
+
+
+@router.get("/email-stats")
+async def get_email_stats(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """
+    Get comprehensive email service statistics.
+    
+    Returns:
+        - Queue depth and pending/failed counts
+        - Failure rate over last hour
+        - Retry histogram
+        - Recent errors
+        - Prometheus metrics snapshot
+    """
+    try:
+        from app.email_service import email_service
+        
+        stats = await email_service.get_stats()
+        prometheus_metrics = await email_service.get_prometheus_metrics_snapshot()
+        
+        return {
+            "success": True,
+            "data": {
+                "service": {
+                    "enabled": stats["enabled"],
+                    "processing": stats["processing"],
+                },
+                "queue": stats["queue"],
+                "performance": {
+                    "failure_rate_1h_percent": stats["failure_rate_1h"],
+                    "recent_attempts_1h": stats["recent_attempts_1h"],
+                },
+                "retry_histogram": stats["retry_histogram"],
+                "errors": {
+                    "last_error": stats["last_error"],
+                    "recent_errors": stats["recent_errors"],
+                },
+                "prometheus_metrics": prometheus_metrics,
+            },
+            "message": "Email service statistics retrieved successfully"
+        }
+        
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email service not available"
+        )
+    except Exception as e:
+        logger.error(f"Error getting email stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get email stats: {str(e)}"
+        )

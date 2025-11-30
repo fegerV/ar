@@ -13,6 +13,13 @@ from logging_setup import get_logger
 
 logger = get_logger(__name__)
 
+# Import email service metrics (registered automatically on import)
+try:
+    from app.email_service import email_service
+except ImportError:
+    logger.warning("Email service not available for metrics export")
+    email_service = None
+
 # Create a custom registry for our metrics
 registry = CollectorRegistry()
 
