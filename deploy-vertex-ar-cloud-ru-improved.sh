@@ -634,6 +634,21 @@ MINIO_PUBLIC_URL=
 # Redis (Optional)
 REDIS_URL=redis://localhost:6379/0
 REDIS_PASSWORD=
+
+# Uvicorn Runtime Tuning
+# Auto-calculated workers: (2 * CPU cores) + 1
+# UVICORN_WORKERS=$NUM_WORKERS
+UVICORN_KEEPALIVE_TIMEOUT=5
+UVICORN_TIMEOUT_KEEP_ALIVE=5
+UVICORN_LIMIT_CONCURRENCY=0
+UVICORN_BACKLOG=2048
+UVICORN_PROXY_HEADERS=true
+UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN=30
+
+# Web Server Health Check Tuning
+WEB_HEALTH_CHECK_TIMEOUT=5
+WEB_HEALTH_CHECK_USE_HEAD=false
+WEB_HEALTH_CHECK_COOLDOWN=30
 EOF
     
     # Set secure permissions
@@ -641,7 +656,7 @@ EOF
     chmod 600 "$ENV_FILE"
     
     print_success ".env file created with secure permissions (600)"
-    log_message "INFO: .env file created with generated credentials"
+    log_message "INFO: .env file created with generated credentials and uvicorn tuning"
 }
 
 validate_production_secrets() {
@@ -763,16 +778,52 @@ setup_supervisor() {
     
     SUPERVISOR_CONF="/etc/supervisor/conf.d/vertex-ar.conf"
     
-    # Determine number of workers (2x CPU cores + 1, max 8)
-    NUM_WORKERS=$(( $(nproc) * 2 + 1 ))
-    if [ "$NUM_WORKERS" -gt 8 ]; then
-        NUM_WORKERS=8
+    # Load .env to get tuning settings
+    ENV_FILE="$APP_DIR/vertex-ar/.env"
+    if [ -f "$ENV_FILE" ]; then
+        set +u
+        source "$ENV_FILE"
+        set -u
     fi
+    
+    # Determine number of workers (defaults to 2x CPU cores + 1 if not set in .env)
+    if [ -z "${UVICORN_WORKERS:-}" ]; then
+        NUM_WORKERS=$(( $(nproc) * 2 + 1 ))
+        # Cap at 8 workers to prevent resource exhaustion on large machines
+        if [ "$NUM_WORKERS" -gt 8 ]; then
+            NUM_WORKERS=8
+        fi
+    else
+        NUM_WORKERS="$UVICORN_WORKERS"
+    fi
+    
+    # Get other uvicorn settings from .env or use defaults
+    KEEPALIVE_TIMEOUT="${UVICORN_TIMEOUT_KEEP_ALIVE:-5}"
+    LIMIT_CONCURRENCY="${UVICORN_LIMIT_CONCURRENCY:-0}"
+    BACKLOG="${UVICORN_BACKLOG:-2048}"
+    PROXY_HEADERS="${UVICORN_PROXY_HEADERS:-true}"
+    GRACEFUL_SHUTDOWN="${UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN:-30}"
+    
+    # Build uvicorn command with tuning flags
+    UVICORN_CMD="$VENV_DIR/bin/uvicorn app.main:app --host 127.0.0.1 --port $APP_PORT"
+    UVICORN_CMD="$UVICORN_CMD --workers $NUM_WORKERS"
+    UVICORN_CMD="$UVICORN_CMD --timeout-keep-alive $KEEPALIVE_TIMEOUT"
+    UVICORN_CMD="$UVICORN_CMD --backlog $BACKLOG"
+    
+    if [ "$LIMIT_CONCURRENCY" != "0" ]; then
+        UVICORN_CMD="$UVICORN_CMD --limit-concurrency $LIMIT_CONCURRENCY"
+    fi
+    
+    if [ "$PROXY_HEADERS" = "true" ]; then
+        UVICORN_CMD="$UVICORN_CMD --proxy-headers"
+    fi
+    
+    UVICORN_CMD="$UVICORN_CMD --timeout-graceful-shutdown $GRACEFUL_SHUTDOWN"
     
     cat > "$SUPERVISOR_CONF" << EOF
 [program:vertex-ar]
 directory=$APP_DIR/vertex-ar
-command=$VENV_DIR/bin/uvicorn main:app --host 127.0.0.1 --port $APP_PORT --workers $NUM_WORKERS --timeout-keep-alive 30
+command=$UVICORN_CMD
 user=$APP_USER
 autostart=true
 autorestart=true
@@ -781,7 +832,7 @@ stdout_logfile=$LOG_DIR/access.log
 environment=PATH="$VENV_DIR/bin",HOME="$APP_HOME"
 numprocs=1
 priority=999
-stopwaitsecs=30
+stopwaitsecs=$GRACEFUL_SHUTDOWN
 killasgroup=true
 stopasgroup=true
 
@@ -804,7 +855,8 @@ EOF
     
     # Check status
     if supervisorctl status vertex-ar | grep -q "RUNNING"; then
-        print_success "Supervisor configured and application running ($NUM_WORKERS workers)"
+        print_success "Supervisor configured and application running"
+        print_success "Workers: $NUM_WORKERS, Keep-alive: ${KEEPALIVE_TIMEOUT}s, Backlog: $BACKLOG"
     else
         print_error "Application failed to start"
         print_error "Check logs: tail -f $LOG_DIR/error.log"

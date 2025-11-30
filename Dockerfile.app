@@ -39,4 +39,14 @@ COPY vertex-ar/ .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use shell form to allow environment variable expansion
+# Default workers calculated at runtime based on CPU count
+CMD uvicorn app.main:app \
+    --host ${APP_HOST:-0.0.0.0} \
+    --port ${APP_PORT:-8000} \
+    --workers ${UVICORN_WORKERS:-$(python -c "import psutil; print((2 * (psutil.cpu_count() or 1)) + 1)")} \
+    --timeout-keep-alive ${UVICORN_TIMEOUT_KEEP_ALIVE:-5} \
+    --backlog ${UVICORN_BACKLOG:-2048} \
+    $(if [ "${UVICORN_LIMIT_CONCURRENCY:-0}" != "0" ]; then echo "--limit-concurrency ${UVICORN_LIMIT_CONCURRENCY}"; fi) \
+    $(if [ "${UVICORN_PROXY_HEADERS:-true}" = "true" ]; then echo "--proxy-headers"; fi) \
+    --timeout-graceful-shutdown ${UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN:-30}
