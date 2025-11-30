@@ -282,6 +282,31 @@ def create_app() -> FastAPI:
             asyncio.create_task(project_lifecycle_scheduler.start_lifecycle_scheduler())
             logger.info("Lifecycle scheduler started")
     
+    # Start email queue processor
+    @app.on_event("startup")
+    async def start_email_queue_processor():
+        """Start email queue processor."""
+        try:
+            import asyncio
+            from app.email_service import email_service
+            
+            async def email_queue_loop():
+                """Process email queue periodically."""
+                while True:
+                    try:
+                        await email_service.process_queue()
+                    except Exception as e:
+                        logger.error("Error processing email queue", error=str(e), exc_info=e)
+                    
+                    # Process every 30 seconds
+                    await asyncio.sleep(30)
+            
+            asyncio.create_task(email_queue_loop())
+            logger.info("Email queue processor started")
+            
+        except Exception as e:
+            logger.error("Failed to start email queue processor", error=str(e), exc_info=e)
+    
     # Start notification center services
     @app.on_event("startup")
     async def start_notification_services():
