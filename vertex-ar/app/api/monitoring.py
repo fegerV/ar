@@ -21,6 +21,17 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 
+def _check_smtp_configured() -> bool:
+    """Check if SMTP is configured in database."""
+    try:
+        from app.notification_config import get_notification_config
+        notification_config = get_notification_config()
+        smtp_config = notification_config.get_smtp_config(actor="api_monitoring")
+        return smtp_config is not None
+    except Exception:
+        return False
+
+
 class AlertTestRequest(BaseModel):
     """Request model for testing alerts."""
     message: Optional[str] = "This is a test alert from Vertex AR monitoring system"
@@ -75,7 +86,7 @@ async def get_monitoring_status(
         },
         "channels": {
             "telegram": bool(settings.TELEGRAM_BOT_TOKEN),
-            "email": bool(settings.SMTP_USERNAME and settings.ADMIN_EMAILS)
+            "email": _check_smtp_configured()
         },
         "recent_alerts": recent_alerts
     }
@@ -432,7 +443,7 @@ async def get_alert_settings(
     try:
         return {
             "success": True,
-            "email_enabled": bool(settings.SMTP_USERNAME and settings.ADMIN_EMAILS),
+            "email_enabled": _check_smtp_configured(),
             "telegram_enabled": bool(settings.TELEGRAM_BOT_TOKEN),
             "cpu_threshold": int(settings.CPU_THRESHOLD),
             "memory_threshold": int(settings.MEMORY_THRESHOLD),

@@ -282,10 +282,13 @@ For questions or support, please contact your system administrator.
                     telegram_success = await alert_manager.send_telegram_alert(prefix + message)
                     success = success and telegram_success
             
-            # Send via Email
-            if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+            # Send via Email (checks DB config internally)
+            try:
                 email_success = await alert_manager.send_email_alert(subject, report_text)
                 success = success and email_success
+            except Exception as email_error:
+                logger.debug(f"Email report not sent: {email_error}")
+                success = False
             
             if success:
                 logger.info("Weekly report sent successfully")

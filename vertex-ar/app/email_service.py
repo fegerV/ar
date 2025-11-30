@@ -272,7 +272,15 @@ class EmailService:
         self._init_metrics()
         
         self.queue = EmailQueue()
-        self.enabled = bool(settings.SMTP_USERNAME and settings.SMTP_PASSWORD)
+        # Check if SMTP is configured via database (encrypted storage)
+        try:
+            from app.notification_config import get_notification_config
+            notification_config = get_notification_config()
+            self.enabled = notification_config.get_smtp_config(actor="email_service_init") is not None
+        except Exception as e:
+            logger.warning(f"Could not check SMTP config from database: {e}")
+            self.enabled = False
+        
         self.processing = False
         
         # Failure rate tracking (rolling window)
@@ -359,35 +367,24 @@ class EmailService:
         
         Raises exception on failure.
         """
-        # Get SMTP config from database or fallback to settings
+        # Get SMTP config from database (encrypted storage only)
         try:
             from app.notification_config import get_notification_config
             notification_config = get_notification_config()
-            smtp_config = notification_config.get_smtp_config()
+            smtp_config = notification_config.get_smtp_config(actor="email_service")
             
-            if smtp_config:
-                smtp_host = smtp_config['host']
-                smtp_port = smtp_config['port']
-                smtp_username = smtp_config['username']
-                smtp_password = smtp_config['password']
-                use_tls = smtp_config['use_tls']
-                use_ssl = smtp_config['use_ssl']
-            else:
-                # Fallback to environment variables
-                smtp_host = settings.SMTP_SERVER
-                smtp_port = settings.SMTP_PORT
-                smtp_username = settings.SMTP_USERNAME
-                smtp_password = settings.SMTP_PASSWORD
-                use_tls = True
-                use_ssl = False
+            if not smtp_config:
+                raise ValueError("SMTP configuration not available in database")
+            
+            smtp_host = smtp_config['host']
+            smtp_port = smtp_config['port']
+            smtp_username = smtp_config['username']
+            smtp_password = smtp_config['password']
+            use_tls = smtp_config['use_tls']
+            use_ssl = smtp_config['use_ssl']
         except Exception as e:
-            logger.warning(f"Could not get SMTP config from database: {e}, using settings")
-            smtp_host = settings.SMTP_SERVER
-            smtp_port = settings.SMTP_PORT
-            smtp_username = settings.SMTP_USERNAME
-            smtp_password = settings.SMTP_PASSWORD
-            use_tls = True
-            use_ssl = False
+            logger.error(f"Failed to get SMTP config from database: {e}")
+            raise
         
         # Build MIME message
         msg = MIMEMultipart('alternative')

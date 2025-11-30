@@ -74,10 +74,41 @@ class Settings:
         # Email notifications
         self.SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
         self.SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-        self.SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-        self.SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-        self.EMAIL_FROM = os.getenv("EMAIL_FROM", self.SMTP_USERNAME)
+        self.EMAIL_FROM = os.getenv("EMAIL_FROM")
         self.ADMIN_EMAILS = [email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()]
+        
+        # SECURITY: Check for deprecated env-based SMTP credentials
+        # These should be stored encrypted in the database via admin UI
+        _env_smtp_username = os.getenv("SMTP_USERNAME")
+        _env_smtp_password = os.getenv("SMTP_PASSWORD")
+        
+        if _env_smtp_username or _env_smtp_password:
+            import sys
+            from logging_setup import get_logger
+            _logger = get_logger(__name__)
+            
+            warning_msg = (
+                "CRITICAL SECURITY WARNING: SMTP credentials detected in environment variables!\n"
+                "  Environment-based SMTP_USERNAME and SMTP_PASSWORD are deprecated and insecure.\n"
+                "  ACTION REQUIRED:\n"
+                "    1. Access the admin notification settings UI at /admin/notification-settings\n"
+                "    2. Configure SMTP credentials through the secure encrypted storage interface\n"
+                "    3. Remove SMTP_USERNAME and SMTP_PASSWORD from your .env file and environment\n"
+                "  See docs/EMAIL_MIGRATION.md for detailed migration instructions."
+            )
+            
+            _logger.critical(warning_msg)
+            
+            # In production, refuse to start with env-based credentials
+            environment = os.getenv("ENVIRONMENT", "development").lower()
+            if environment == "production":
+                _logger.critical("FATAL: Cannot start in production with env-based SMTP credentials")
+                sys.exit(1)
+        
+        # Do NOT expose SMTP credentials on settings object
+        # Runtime code must fetch from encrypted database via NotificationConfig
+        self.SMTP_USERNAME = None
+        self.SMTP_PASSWORD = None
         
         # Monitoring and alerting
         self.ALERTING_ENABLED = os.getenv("ALERTING_ENABLED", "true").lower() == "true"
