@@ -442,6 +442,10 @@ class Database:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN content_types TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_folder_path TEXT")
+            except sqlite3.OperationalError:
+                pass
             
             # Backfill default content_types for existing companies with NULL values
             try:
@@ -452,6 +456,18 @@ class Database:
                     )
                     self._connection.commit()
                     logger.info("Backfilled default content_types for existing companies")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Backfill default storage_folder_path for existing companies with NULL values
+            try:
+                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_folder_path IS NULL")
+                if cursor.fetchone()[0] > 0:
+                    self._connection.execute(
+                        "UPDATE companies SET storage_folder_path = 'vertex_ar_content' WHERE storage_folder_path IS NULL"
+                    )
+                    self._connection.commit()
+                    logger.info("Backfilled default storage_folder_path for existing companies")
             except sqlite3.OperationalError:
                 pass
 
@@ -1552,13 +1568,14 @@ class Database:
         storage_type: str = "local", 
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None
+        content_types: Optional[str] = None,
+        storage_folder_path: Optional[str] = None
     ) -> None:
         """Create a new company."""
         try:
             self._execute(
-                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types) VALUES (?, ?, ?, ?, ?, ?)",
-                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types),
+                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path),
             )
             logger.info(f"Created company: {name} with storage: {storage_type}")
         except sqlite3.IntegrityError as exc:
@@ -1593,7 +1610,8 @@ class Database:
         storage_type: Optional[str] = None,
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None
+        content_types: Optional[str] = None,
+        storage_folder_path: Optional[str] = None
     ) -> bool:
         """
         Update company fields.
@@ -1605,6 +1623,7 @@ class Database:
             storage_connection_id: Storage connection ID (optional)
             yandex_disk_folder_id: Yandex Disk folder ID (optional)
             content_types: Content types CSV string (optional)
+            storage_folder_path: Storage folder path (optional)
             
         Returns:
             True if successful, False otherwise
@@ -1632,6 +1651,10 @@ class Database:
             if content_types is not None:
                 updates.append("content_types = ?")
                 params.append(content_types)
+            
+            if storage_folder_path is not None:
+                updates.append("storage_folder_path = ?")
+                params.append(storage_folder_path)
             
             if not updates:
                 return False
@@ -1663,7 +1686,7 @@ class Database:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
-                   c.yandex_disk_folder_id, c.content_types, COUNT(cl.id) as client_count
+                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path, COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             GROUP BY c.id
