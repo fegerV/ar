@@ -184,6 +184,18 @@ class Settings:
         # Email default sender
         self.EMAIL_DEFAULT_FROM = os.getenv("EMAIL_DEFAULT_FROM", "")
         
+        # Email queue worker settings
+        self.EMAIL_QUEUE_WORKERS = int(os.getenv("EMAIL_QUEUE_WORKERS", "3"))
+        
+        # Yandex Disk storage tuning
+        self.YANDEX_REQUEST_TIMEOUT = int(os.getenv("YANDEX_REQUEST_TIMEOUT", "30"))  # seconds
+        self.YANDEX_CHUNK_SIZE_MB = int(os.getenv("YANDEX_CHUNK_SIZE_MB", "10"))  # megabytes
+        self.YANDEX_UPLOAD_CONCURRENCY = int(os.getenv("YANDEX_UPLOAD_CONCURRENCY", "3"))  # parallel chunks
+        self.YANDEX_DIRECTORY_CACHE_TTL = int(os.getenv("YANDEX_DIRECTORY_CACHE_TTL", "300"))  # seconds (5 min)
+        self.YANDEX_DIRECTORY_CACHE_SIZE = int(os.getenv("YANDEX_DIRECTORY_CACHE_SIZE", "1000"))  # max entries
+        self.YANDEX_SESSION_POOL_CONNECTIONS = int(os.getenv("YANDEX_SESSION_POOL_CONNECTIONS", "10"))
+        self.YANDEX_SESSION_POOL_MAXSIZE = int(os.getenv("YANDEX_SESSION_POOL_MAXSIZE", "20"))
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)

@@ -69,9 +69,19 @@ class StorageManager:
             yandex_config = self.config.get_yandex_config(content_type)
             base_path = yandex_config.get("base_path", f"vertex-ar/{content_type}")
             
+            # Get tuning parameters from settings
+            from app.config import settings
+            
             return YandexDiskStorageAdapter(
                 oauth_token=token,
-                base_path=base_path
+                base_path=base_path,
+                timeout=settings.YANDEX_REQUEST_TIMEOUT,
+                chunk_size_mb=settings.YANDEX_CHUNK_SIZE_MB,
+                upload_concurrency=settings.YANDEX_UPLOAD_CONCURRENCY,
+                cache_ttl=settings.YANDEX_DIRECTORY_CACHE_TTL,
+                cache_size=settings.YANDEX_DIRECTORY_CACHE_SIZE,
+                pool_connections=settings.YANDEX_SESSION_POOL_CONNECTIONS,
+                pool_maxsize=settings.YANDEX_SESSION_POOL_MAXSIZE
             )
         
         else:
@@ -280,9 +290,19 @@ class StorageManager:
                 else:
                     base_path = config.get("base_path", f"vertex-ar/{content_type}")
                 
+                # Get tuning parameters from settings
+                from app.config import settings
+                
                 return YandexDiskStorageAdapter(
                     oauth_token=token,
-                    base_path=base_path
+                    base_path=base_path,
+                    timeout=settings.YANDEX_REQUEST_TIMEOUT,
+                    chunk_size_mb=settings.YANDEX_CHUNK_SIZE_MB,
+                    upload_concurrency=settings.YANDEX_UPLOAD_CONCURRENCY,
+                    cache_ttl=settings.YANDEX_DIRECTORY_CACHE_TTL,
+                    cache_size=settings.YANDEX_DIRECTORY_CACHE_SIZE,
+                    pool_connections=settings.YANDEX_SESSION_POOL_CONNECTIONS,
+                    pool_maxsize=settings.YANDEX_SESSION_POOL_MAXSIZE
                 )
         
         else:
@@ -348,6 +368,68 @@ class StorageManager:
             adapter = self.get_adapter(content_type)
         
         return adapter.get_public_url(file_path)
+    
+    async def flush_directory_cache(self, company_id: Optional[str] = None, content_type: Optional[str] = None):
+        """
+        Flush directory cache for Yandex Disk adapters.
+        Useful when storage configuration changes or directory structure is modified externally.
+        
+        Args:
+            company_id: Optional company ID to flush cache for specific company adapter
+            content_type: Optional content type to flush cache for specific adapter
+        """
+        adapters_to_flush = []
+        
+        if company_id and content_type:
+            # Flush specific company adapter
+            if company_id in self._company_adapters and content_type in self._company_adapters[company_id]:
+                adapters_to_flush.append(self._company_adapters[company_id][content_type])
+        elif company_id:
+            # Flush all adapters for company
+            if company_id in self._company_adapters:
+                adapters_to_flush.extend(self._company_adapters[company_id].values())
+        elif content_type:
+            # Flush global adapter for content type
+            if content_type in self.adapters:
+                adapters_to_flush.append(self.adapters[content_type])
+        else:
+            # Flush all adapters
+            adapters_to_flush.extend(self.adapters.values())
+            for company_adapters in self._company_adapters.values():
+                adapters_to_flush.extend(company_adapters.values())
+        
+        # Clear cache for each Yandex adapter
+        for adapter in adapters_to_flush:
+            if isinstance(adapter, YandexDiskStorageAdapter):
+                await adapter.clear_directory_cache()
+                logger.info(
+                    "Flushed Yandex Disk directory cache",
+                    adapter_type=type(adapter).__name__,
+                    company_id=company_id,
+                    content_type=content_type
+                )
+    
+    def get_yandex_cache_stats(self) -> Dict[str, Dict[str, int]]:
+        """
+        Get directory cache statistics for all Yandex Disk adapters.
+        
+        Returns:
+            Dictionary mapping adapter identifiers to cache stats
+        """
+        stats = {}
+        
+        # Get stats from global adapters
+        for content_type, adapter in self.adapters.items():
+            if isinstance(adapter, YandexDiskStorageAdapter):
+                stats[f"global_{content_type}"] = adapter.get_cache_stats()
+        
+        # Get stats from company adapters
+        for company_id, company_adapters in self._company_adapters.items():
+            for content_type, adapter in company_adapters.items():
+                if isinstance(adapter, YandexDiskStorageAdapter):
+                    stats[f"company_{company_id}_{content_type}"] = adapter.get_cache_stats()
+        
+        return stats
 
 
 # Global storage manager instance
