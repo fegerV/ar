@@ -205,6 +205,24 @@ class Settings:
         self.YANDEX_SESSION_POOL_CONNECTIONS = int(os.getenv("YANDEX_SESSION_POOL_CONNECTIONS", "10"))
         self.YANDEX_SESSION_POOL_MAXSIZE = int(os.getenv("YANDEX_SESSION_POOL_MAXSIZE", "20"))
         
+        # Uvicorn runtime tuning
+        import psutil
+        cpu_count = psutil.cpu_count() or 1
+        # Default workers: (2 * cpu_count) + 1 for optimal performance
+        default_workers = (2 * cpu_count) + 1
+        self.UVICORN_WORKERS = int(os.getenv("UVICORN_WORKERS", str(default_workers)))
+        self.UVICORN_KEEPALIVE_TIMEOUT = int(os.getenv("UVICORN_KEEPALIVE_TIMEOUT", "5"))  # seconds
+        self.UVICORN_TIMEOUT_KEEP_ALIVE = int(os.getenv("UVICORN_TIMEOUT_KEEP_ALIVE", "5"))  # seconds
+        self.UVICORN_LIMIT_CONCURRENCY = int(os.getenv("UVICORN_LIMIT_CONCURRENCY", "0"))  # 0 = unlimited
+        self.UVICORN_BACKLOG = int(os.getenv("UVICORN_BACKLOG", "2048"))  # connection queue size
+        self.UVICORN_PROXY_HEADERS = os.getenv("UVICORN_PROXY_HEADERS", "true").lower() == "true"
+        self.UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN = int(os.getenv("UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN", "30"))  # seconds
+        
+        # Web server health check tuning
+        self.WEB_HEALTH_CHECK_TIMEOUT = int(os.getenv("WEB_HEALTH_CHECK_TIMEOUT", "5"))  # seconds
+        self.WEB_HEALTH_CHECK_USE_HEAD = os.getenv("WEB_HEALTH_CHECK_USE_HEAD", "false").lower() == "true"
+        self.WEB_HEALTH_CHECK_COOLDOWN = int(os.getenv("WEB_HEALTH_CHECK_COOLDOWN", "30"))  # seconds between checks
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)

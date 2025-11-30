@@ -98,7 +98,17 @@ LOGS_ROOT=/opt/vertex-ar/data/logs
 
 ---
 
-## 5. Gunicorn + Uvicorn workers
+## 5. Uvicorn Runtime Configuration
+
+### Worker Tuning
+
+Vertex AR supports comprehensive uvicorn runtime tuning. The deployment automatically calculates optimal worker count based on CPU cores:
+
+**Default Formula:** `workers = (2 × CPU_cores) + 1`
+
+See [Uvicorn Tuning Guide](uvicorn-tuning.md) for detailed configuration options.
+
+### Systemd Service
 
 Создайте файл `/etc/systemd/system/vertex-ar.service`:
 ```ini
@@ -111,15 +121,23 @@ User=vertexar
 Group=vertexar
 WorkingDirectory=/opt/vertex-ar/src/vertex-ar
 Environment="PATH=/opt/vertex-ar/venv/bin"
-ExecStart=/opt/vertex-ar/venv/bin/gunicorn app.main:app \
-  --workers 4 --worker-class uvicorn.workers.UvicornWorker \
-  --bind 127.0.0.1:9000 --timeout 120
+EnvironmentFile=/opt/vertex-ar/src/vertex-ar/.env
+ExecStart=/opt/vertex-ar/venv/bin/uvicorn app.main:app \
+  --host 127.0.0.1 --port 9000 \
+  --workers ${UVICORN_WORKERS} \
+  --timeout-keep-alive ${UVICORN_TIMEOUT_KEEP_ALIVE:-5} \
+  --backlog ${UVICORN_BACKLOG:-2048} \
+  --proxy-headers \
+  --timeout-graceful-shutdown ${UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN:-30}
 Restart=always
 RestartSec=5
+TimeoutStopSec=${UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN:-30}
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+**Note:** Configure uvicorn settings in `.env` file (see [Configuration Reference](#uvicorn-environment-variables)).
 
 Активируйте службу:
 ```bash
@@ -128,6 +146,29 @@ sudo systemctl enable vertex-ar.service
 sudo systemctl start vertex-ar.service
 sudo systemctl status vertex-ar.service
 ```
+
+### Uvicorn Environment Variables
+
+Add to your `.env` file:
+
+```bash
+# Worker Configuration (auto-calculated if not set)
+UVICORN_WORKERS=9  # (2 × 4 cores) + 1
+
+# Connection Management
+UVICORN_TIMEOUT_KEEP_ALIVE=5
+UVICORN_LIMIT_CONCURRENCY=0  # 0 = unlimited
+UVICORN_BACKLOG=2048
+UVICORN_PROXY_HEADERS=true
+UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN=30
+
+# Health Check Tuning
+WEB_HEALTH_CHECK_TIMEOUT=5
+WEB_HEALTH_CHECK_USE_HEAD=false
+WEB_HEALTH_CHECK_COOLDOWN=30
+```
+
+See **[Uvicorn Tuning Guide](uvicorn-tuning.md)** for comprehensive tuning scenarios and best practices.
 
 ---
 

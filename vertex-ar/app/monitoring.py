@@ -685,6 +685,9 @@ class SystemMonitor:
         """
         Check web server health with multiple fallback attempts and process diagnostics.
         
+        Respects WEB_HEALTH_CHECK_TIMEOUT and WEB_HEALTH_CHECK_USE_HEAD settings
+        to minimize monitoring overhead on production systems.
+        
         Returns detailed diagnostics including:
         - Which URLs were attempted and their results
         - Process and port status from psutil/socket
@@ -703,13 +706,18 @@ class SystemMonitor:
             "status": "unknown",
             "attempts": [],
             "process_info": {},
-            "port_info": {}
+            "port_info": {},
+            "check_method": "HEAD" if settings.WEB_HEALTH_CHECK_USE_HEAD else "GET"
         }
+        
+        # Get timeout from settings
+        check_timeout = getattr(settings, 'WEB_HEALTH_CHECK_TIMEOUT', 5)
+        use_head = getattr(settings, 'WEB_HEALTH_CHECK_USE_HEAD', False)
         
         # Build list of URLs to try
         urls_to_try = []
         
-        # 1. Try INTERNAL_HEALTH_URL if configured
+        # 1. Try INTERNAL_HEALTH_URL if configured (preferred for monitoring)
         if settings.INTERNAL_HEALTH_URL:
             urls_to_try.append(("internal", settings.INTERNAL_HEALTH_URL.rstrip('/') + "/health"))
         
@@ -736,12 +744,19 @@ class SystemMonitor:
                 "success": False,
                 "error": None,
                 "response_time_ms": None,
-                "status_code": None
+                "status_code": None,
+                "method": "HEAD" if use_head else "GET"
             }
             
             try:
                 start_time = time.time()
-                response = requests.get(url, timeout=5, verify=False)  # Skip SSL verification for localhost
+                
+                # Use HEAD request if enabled (lighter weight for monitoring)
+                if use_head:
+                    response = requests.head(url, timeout=check_timeout, verify=False, allow_redirects=True)
+                else:
+                    response = requests.get(url, timeout=check_timeout, verify=False)
+                
                 response_time = (time.time() - start_time) * 1000
                 
                 attempt["success"] = response.status_code == 200

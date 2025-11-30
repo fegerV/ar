@@ -25,7 +25,7 @@ Implemented a comprehensive fallback and diagnostic system that:
 
 ## Configuration
 
-### New Environment Variables
+### Health Check Environment Variables
 
 Added to `.env.example`:
 
@@ -34,6 +34,20 @@ Added to `.env.example`:
 # Used for web server health monitoring when BASE_URL points to an external domain
 # If blank, system will auto-build from APP_HOST/APP_PORT (e.g., http://localhost:8000)
 INTERNAL_HEALTH_URL=
+
+# Health check request timeout in seconds (default: 5)
+# Max time to wait for /health endpoint response
+WEB_HEALTH_CHECK_TIMEOUT=5
+
+# Use HEAD requests for health checks (default: false)
+# HEAD requests are lighter than GET (no response body)
+# Enable to reduce monitoring load on high-traffic systems
+WEB_HEALTH_CHECK_USE_HEAD=false
+
+# Cooldown between health checks in seconds (default: 30)
+# Minimum time between consecutive health check attempts
+# Prevents monitoring from overwhelming the server
+WEB_HEALTH_CHECK_COOLDOWN=30
 ```
 
 ### Configuration in `app/config.py`
@@ -42,6 +56,11 @@ INTERNAL_HEALTH_URL=
 self.INTERNAL_HEALTH_URL = os.getenv("INTERNAL_HEALTH_URL", "")
 self.APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
 self.APP_PORT = int(os.getenv("APP_PORT", "8000"))
+
+# Web server health check tuning
+self.WEB_HEALTH_CHECK_TIMEOUT = int(os.getenv("WEB_HEALTH_CHECK_TIMEOUT", "5"))
+self.WEB_HEALTH_CHECK_USE_HEAD = os.getenv("WEB_HEALTH_CHECK_USE_HEAD", "false").lower() == "true"
+self.WEB_HEALTH_CHECK_COOLDOWN = int(os.getenv("WEB_HEALTH_CHECK_COOLDOWN", "30"))
 ```
 
 ## Implementation Details
@@ -108,6 +127,7 @@ Checks if the configured port is accepting connections:
   "response_time_ms": 45.23,
   "status": "operational",
   "status_code": 200,
+  "check_method": "GET",
   "successful_url": "http://localhost:8000/health",
   "successful_url_type": "localhost",
   "attempts": [
@@ -117,7 +137,8 @@ Checks if the configured port is accepting connections:
       "success": false,
       "error": "SSL/TLS error: certificate verify failed",
       "response_time_ms": null,
-      "status_code": null
+      "status_code": null,
+      "method": "GET"
     },
     {
       "type": "localhost",
@@ -125,7 +146,8 @@ Checks if the configured port is accepting connections:
       "success": true,
       "error": null,
       "response_time_ms": 45.23,
-      "status_code": 200
+      "status_code": 200,
+      "method": "GET"
     }
   ],
   "process_info": {
@@ -140,6 +162,10 @@ Checks if the configured port is accepting connections:
   }
 }
 ```
+
+**New Fields:**
+- `check_method`: The HTTP method used for health checks ("GET" or "HEAD")
+- `method` in each attempt: Shows which method was used for that specific attempt
 
 ## Status Determination
 
