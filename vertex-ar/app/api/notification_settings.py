@@ -255,11 +255,7 @@ async def test_notification_settings(
 
 
 async def _test_email_notification(settings: Dict[str, Any]) -> Dict[str, Any]:
-    """Test email notification settings."""
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    
+    """Test email notification settings using EmailService."""
     try:
         if not settings.get('smtp_host') or not settings.get('smtp_username'):
             return {
@@ -268,51 +264,49 @@ async def _test_email_notification(settings: Dict[str, Any]) -> Dict[str, Any]:
                 'error': 'Missing SMTP host or username'
             }
         
-        # Decrypt password
-        password = encryption_manager.decrypt(
-            settings['smtp_password_encrypted']
-        ) if settings.get('smtp_password_encrypted') else None
-        
-        if not password:
+        # Check if password is configured
+        if not settings.get('smtp_password_encrypted'):
             return {
                 'success': False,
                 'message': 'Email password not configured',
                 'error': 'Missing SMTP password'
             }
         
-        # Create test message
-        msg = MIMEMultipart()
-        msg['From'] = settings.get('smtp_from_email') or settings['smtp_username']
-        msg['To'] = settings.get('smtp_from_email') or settings['smtp_username']
-        msg['Subject'] = "[Vertex AR] Test Email Notification"
+        # Get email service
+        from app.email_service import email_service
         
-        body = MIMEText(
+        # Determine recipient
+        recipient = settings.get('smtp_from_email') or settings['smtp_username']
+        
+        # Create test message
+        subject = "[Vertex AR] Test Email Notification"
+        body = (
             f"This is a test email from Vertex AR notification system.\n\n"
             f"Sent at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-            f"If you received this email, your email notification settings are working correctly.",
-            'plain'
-        )
-        msg.attach(body)
-        
-        # Send email
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,
-            _send_email_sync,
-            settings['smtp_host'],
-            settings.get('smtp_port', 587),
-            settings['smtp_username'],
-            password,
-            bool(settings.get('smtp_use_tls', 1)),
-            bool(settings.get('smtp_use_ssl', 0)),
-            msg
+            f"If you received this email, your email notification settings are working correctly."
         )
         
-        return {
-            'success': True,
-            'message': f'Test email sent successfully to {msg["To"]}',
-            'recipient': msg['To']
-        }
+        # Send email via EmailService (urgent=True for immediate test)
+        success = await email_service.send_email(
+            to_addresses=[recipient],
+            subject=subject,
+            body=body,
+            priority=1,  # High priority for tests
+            urgent=True  # Bypass persistent queue for immediate delivery
+        )
+        
+        if success:
+            return {
+                'success': True,
+                'message': f'Test email sent successfully to {recipient}',
+                'recipient': recipient
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Failed to send test email',
+                'error': 'Email service returned failure'
+            }
         
     except Exception as e:
         logger.error(f"Email test failed: {e}")
@@ -321,28 +315,6 @@ async def _test_email_notification(settings: Dict[str, Any]) -> Dict[str, Any]:
             'message': 'Failed to send test email',
             'error': str(e)
         }
-
-
-def _send_email_sync(
-    host: str,
-    port: int,
-    username: str,
-    password: str,
-    use_tls: bool,
-    use_ssl: bool,
-    msg: Any
-) -> None:
-    """Synchronous email sending for thread pool execution."""
-    if use_ssl:
-        server = smtplib.SMTP_SSL(host, port)
-    else:
-        server = smtplib.SMTP(host, port)
-        if use_tls:
-            server.starttls()
-    
-    server.login(username, password)
-    server.send_message(msg)
-    server.quit()
 
 
 async def _test_telegram_notification(settings: Dict[str, Any]) -> Dict[str, Any]:
