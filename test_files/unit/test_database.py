@@ -316,3 +316,121 @@ class TestDatabase:
         
         # Verify deletion
         assert temp_db.get_ar_content("content1") is None
+    
+    def test_monitoring_settings_operations(self, temp_db):
+        """Test monitoring settings persistence and retrieval."""
+        # Get initial settings (should be auto-seeded)
+        settings = temp_db.get_monitoring_settings()
+        
+        # Verify default settings exist
+        assert settings is not None
+        assert settings["cpu_threshold"] == 80.0
+        assert settings["memory_threshold"] == 85.0
+        assert settings["disk_threshold"] == 90.0
+        assert settings["health_check_interval"] == 60
+        assert settings["consecutive_failures"] == 3
+        assert settings["dedup_window_seconds"] == 300
+        assert settings["health_check_cooldown_seconds"] == 30
+        assert settings["alert_recovery_minutes"] == 60
+        assert settings["is_active"] == 1
+        
+        # Update some thresholds
+        updated = temp_db.update_monitoring_settings(
+            cpu_threshold=85.0,
+            memory_threshold=90.0,
+            disk_threshold=95.0
+        )
+        assert updated is True
+        
+        # Verify updates
+        new_settings = temp_db.get_monitoring_settings()
+        assert new_settings["cpu_threshold"] == 85.0
+        assert new_settings["memory_threshold"] == 90.0
+        assert new_settings["disk_threshold"] == 95.0
+        # Other fields unchanged
+        assert new_settings["health_check_interval"] == 60
+        assert new_settings["consecutive_failures"] == 3
+        
+        # Update concurrency settings
+        updated = temp_db.update_monitoring_settings(
+            max_runtime_seconds=120,
+            health_check_cooldown_seconds=45,
+            alert_recovery_minutes=90
+        )
+        assert updated is True
+        
+        # Verify concurrency settings
+        final_settings = temp_db.get_monitoring_settings()
+        assert final_settings["max_runtime_seconds"] == 120
+        assert final_settings["health_check_cooldown_seconds"] == 45
+        assert final_settings["alert_recovery_minutes"] == 90
+        # Thresholds still updated
+        assert final_settings["cpu_threshold"] == 85.0
+        assert final_settings["memory_threshold"] == 90.0
+        assert final_settings["disk_threshold"] == 95.0
+    
+    def test_monitoring_settings_comprehensive_update(self, temp_db):
+        """Test updating all monitoring settings at once."""
+        # Get initial settings
+        initial = temp_db.get_monitoring_settings()
+        assert initial is not None
+        
+        # Update all fields
+        updated = temp_db.update_monitoring_settings(
+            cpu_threshold=75.0,
+            memory_threshold=80.0,
+            disk_threshold=85.0,
+            health_check_interval=120,
+            consecutive_failures=5,
+            dedup_window_seconds=600,
+            max_runtime_seconds=180,
+            health_check_cooldown_seconds=60,
+            alert_recovery_minutes=120
+        )
+        assert updated is True
+        
+        # Verify all updates
+        new_settings = temp_db.get_monitoring_settings()
+        assert new_settings["cpu_threshold"] == 75.0
+        assert new_settings["memory_threshold"] == 80.0
+        assert new_settings["disk_threshold"] == 85.0
+        assert new_settings["health_check_interval"] == 120
+        assert new_settings["consecutive_failures"] == 5
+        assert new_settings["dedup_window_seconds"] == 600
+        assert new_settings["max_runtime_seconds"] == 180
+        assert new_settings["health_check_cooldown_seconds"] == 60
+        assert new_settings["alert_recovery_minutes"] == 120
+        
+        # Verify timestamp was updated
+        assert new_settings["updated_at"] != initial["updated_at"]
+    
+    def test_monitoring_settings_validation(self, temp_db):
+        """Test monitoring settings with edge cases."""
+        # Update with None values (should be ignored)
+        updated = temp_db.update_monitoring_settings(
+            cpu_threshold=None,
+            memory_threshold=None
+        )
+        # Should return False since no valid updates
+        assert updated is False
+        
+        # Settings should remain unchanged
+        settings = temp_db.get_monitoring_settings()
+        assert settings["cpu_threshold"] == 80.0  # default
+        assert settings["memory_threshold"] == 85.0  # default
+        
+        # Update with extreme but valid values
+        updated = temp_db.update_monitoring_settings(
+            cpu_threshold=99.9,
+            memory_threshold=1.0,
+            max_runtime_seconds=1,
+            health_check_cooldown_seconds=0
+        )
+        assert updated is True
+        
+        # Verify extreme values were stored
+        settings = temp_db.get_monitoring_settings()
+        assert settings["cpu_threshold"] == 99.9
+        assert settings["memory_threshold"] == 1.0
+        assert settings["max_runtime_seconds"] == 1
+        assert settings["health_check_cooldown_seconds"] == 0

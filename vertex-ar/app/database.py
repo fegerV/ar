@@ -623,6 +623,30 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
+            # Create monitoring_settings table for persisted monitoring configuration
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS monitoring_settings (
+                    id TEXT PRIMARY KEY,
+                    cpu_threshold REAL NOT NULL DEFAULT 80.0,
+                    memory_threshold REAL NOT NULL DEFAULT 85.0,
+                    disk_threshold REAL NOT NULL DEFAULT 90.0,
+                    health_check_interval INTEGER NOT NULL DEFAULT 60,
+                    consecutive_failures INTEGER NOT NULL DEFAULT 3,
+                    dedup_window_seconds INTEGER NOT NULL DEFAULT 300,
+                    max_runtime_seconds INTEGER DEFAULT NULL,
+                    health_check_cooldown_seconds INTEGER NOT NULL DEFAULT 30,
+                    alert_recovery_minutes INTEGER NOT NULL DEFAULT 60,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            
+            # Seed default monitoring settings if none exist
+            self._seed_default_monitoring_settings()
+            
             # Seed default email templates
             self._seed_default_email_templates()
 
@@ -2838,6 +2862,161 @@ class Database:
             
         except Exception as e:
             logger.error(f"Error seeding default email templates: {e}")
+
+    def _seed_default_monitoring_settings(self) -> None:
+        """Seed default monitoring settings if they don't exist."""
+        try:
+            cursor = self._execute("SELECT COUNT(*) FROM monitoring_settings")
+            count = cursor.fetchone()[0]
+            if count > 0:
+                return
+            
+            import uuid
+            from datetime import datetime
+            from app.config import settings
+            
+            now = datetime.now()
+            
+            # Create default monitoring settings based on current config
+            default_settings = {
+                'id': str(uuid.uuid4()),
+                'cpu_threshold': getattr(settings, 'CPU_THRESHOLD', 80.0),
+                'memory_threshold': getattr(settings, 'MEMORY_THRESHOLD', 85.0),
+                'disk_threshold': getattr(settings, 'DISK_THRESHOLD', 90.0),
+                'health_check_interval': getattr(settings, 'HEALTH_CHECK_INTERVAL', 60),
+                'consecutive_failures': getattr(settings, 'MONITORING_CONSECUTIVE_FAILURES', 3),
+                'dedup_window_seconds': getattr(settings, 'MONITORING_DEDUP_WINDOW', 300),
+                'max_runtime_seconds': getattr(settings, 'MONITORING_MAX_RUNTIME', None),
+                'health_check_cooldown_seconds': getattr(settings, 'HEALTH_CHECK_COOLDOWN', 30),
+                'alert_recovery_minutes': getattr(settings, 'ALERT_RECOVERY_MINUTES', 60),
+                'is_active': 1,
+                'created_at': now,
+                'updated_at': now
+            }
+            
+            self._execute(
+                """
+                INSERT INTO monitoring_settings 
+                (id, cpu_threshold, memory_threshold, disk_threshold, health_check_interval, 
+                 consecutive_failures, dedup_window_seconds, max_runtime_seconds, 
+                 health_check_cooldown_seconds, alert_recovery_minutes, is_active, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    default_settings['id'],
+                    default_settings['cpu_threshold'],
+                    default_settings['memory_threshold'],
+                    default_settings['disk_threshold'],
+                    default_settings['health_check_interval'],
+                    default_settings['consecutive_failures'],
+                    default_settings['dedup_window_seconds'],
+                    default_settings['max_runtime_seconds'],
+                    default_settings['health_check_cooldown_seconds'],
+                    default_settings['alert_recovery_minutes'],
+                    default_settings['is_active'],
+                    default_settings['created_at'],
+                    default_settings['updated_at']
+                )
+            )
+            
+            logger.info("Seeded default monitoring settings")
+            
+        except Exception as e:
+            logger.error(f"Error seeding default monitoring settings: {e}")
+
+    # ============================================================
+    # Monitoring Settings Methods
+    # ============================================================
+
+    def get_monitoring_settings(self) -> Optional[Dict[str, Any]]:
+        """Get active monitoring settings."""
+        cursor = self._execute(
+            "SELECT * FROM monitoring_settings WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def update_monitoring_settings(
+        self,
+        cpu_threshold: Optional[float] = None,
+        memory_threshold: Optional[float] = None,
+        disk_threshold: Optional[float] = None,
+        health_check_interval: Optional[int] = None,
+        consecutive_failures: Optional[int] = None,
+        dedup_window_seconds: Optional[int] = None,
+        max_runtime_seconds: Optional[int] = None,
+        health_check_cooldown_seconds: Optional[int] = None,
+        alert_recovery_minutes: Optional[int] = None
+    ) -> bool:
+        """Update monitoring settings."""
+        from datetime import datetime
+        
+        # Get the active settings row
+        current = self.get_monitoring_settings()
+        if not current:
+            # No settings exist, create default first
+            self._seed_default_monitoring_settings()
+            current = self.get_monitoring_settings()
+            if not current:
+                return False
+        
+        updates = []
+        params = []
+        
+        if cpu_threshold is not None:
+            updates.append("cpu_threshold = ?")
+            params.append(cpu_threshold)
+        
+        if memory_threshold is not None:
+            updates.append("memory_threshold = ?")
+            params.append(memory_threshold)
+        
+        if disk_threshold is not None:
+            updates.append("disk_threshold = ?")
+            params.append(disk_threshold)
+        
+        if health_check_interval is not None:
+            updates.append("health_check_interval = ?")
+            params.append(health_check_interval)
+        
+        if consecutive_failures is not None:
+            updates.append("consecutive_failures = ?")
+            params.append(consecutive_failures)
+        
+        if dedup_window_seconds is not None:
+            updates.append("dedup_window_seconds = ?")
+            params.append(dedup_window_seconds)
+        
+        if max_runtime_seconds is not None:
+            updates.append("max_runtime_seconds = ?")
+            params.append(max_runtime_seconds)
+        
+        if health_check_cooldown_seconds is not None:
+            updates.append("health_check_cooldown_seconds = ?")
+            params.append(health_check_cooldown_seconds)
+        
+        if alert_recovery_minutes is not None:
+            updates.append("alert_recovery_minutes = ?")
+            params.append(alert_recovery_minutes)
+        
+        if not updates:
+            return False
+        
+        updates.append("updated_at = ?")
+        params.append(datetime.now())
+        params.append(current['id'])
+        
+        cursor = self._execute(
+            f"UPDATE monitoring_settings SET {', '.join(updates)} WHERE id = ?",
+            tuple(params)
+        )
+        return cursor.rowcount > 0
+
+    # ============================================================
+    # Email Templates Methods
+    # ============================================================
 
     def get_email_templates(self, template_type: Optional[str] = None, is_active: Optional[bool] = None) -> List[Dict[str, Any]]:
         """Get email templates, optionally filtered by type and active status."""

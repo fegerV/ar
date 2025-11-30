@@ -72,23 +72,48 @@ class MonitoringStatusResponse(BaseModel):
 async def get_monitoring_status(
     _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
-    """Get current monitoring system status."""
+    """Get current monitoring system status with runtime settings."""
+    from app.main import database
+    
     recent_alerts = system_monitor.get_recent_alerts(hours=24)
+    
+    # Get persisted settings
+    db_settings = database.get_monitoring_settings() if database else None
+    
+    # Get runtime settings (what's currently active in the monitor)
+    runtime_settings = {
+        "cpu_threshold": system_monitor.alert_thresholds.get("cpu"),
+        "memory_threshold": system_monitor.alert_thresholds.get("memory"),
+        "disk_threshold": system_monitor.alert_thresholds.get("disk"),
+        "health_check_interval": system_monitor.check_interval,
+        "consecutive_failures": system_monitor.consecutive_failure_threshold,
+        "dedup_window_seconds": system_monitor.dedup_window,
+        "max_runtime_seconds": system_monitor.max_runtime_seconds,
+        "health_check_cooldown_seconds": system_monitor.health_check_cooldown,
+        "alert_recovery_minutes": system_monitor.alert_recovery_minutes,
+    }
     
     return {
         "enabled": settings.ALERTING_ENABLED,
         "status": "Активен" if settings.ALERTING_ENABLED else "Отключен",
-        "check_interval": settings.HEALTH_CHECK_INTERVAL,
+        "check_interval": system_monitor.check_interval,
         "thresholds": {
-            "cpu": settings.CPU_THRESHOLD,
-            "memory": settings.MEMORY_THRESHOLD,
-            "disk": settings.DISK_THRESHOLD
+            "cpu": system_monitor.alert_thresholds.get("cpu"),
+            "memory": system_monitor.alert_thresholds.get("memory"),
+            "disk": system_monitor.alert_thresholds.get("disk")
         },
         "channels": {
             "telegram": bool(settings.TELEGRAM_BOT_TOKEN),
             "email": _check_smtp_configured()
         },
-        "recent_alerts": recent_alerts
+        "recent_alerts": recent_alerts,
+        "runtime_settings": runtime_settings,
+        "persisted_settings": db_settings,
+        "lock_status": {
+            "is_locked": system_monitor._monitoring_lock.locked(),
+            "last_check_start": system_monitor._last_check_start.isoformat() if system_monitor._last_check_start else None,
+            "last_check_end": system_monitor._last_check_end.isoformat() if system_monitor._last_check_end else None,
+        }
     }
 
 
@@ -344,13 +369,17 @@ async def update_alert_thresholds(
     request: ThresholdUpdateRequest,
     _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
-    """Update alert thresholds (runtime only, not persisted)."""
+    """Update alert thresholds and persist to database."""
+    from app.main import database
+    
     try:
         updated = []
+        db_updates = {}
         
         if request.cpu_threshold is not None:
             if 0 <= request.cpu_threshold <= 100:
                 system_monitor.alert_thresholds["cpu"] = request.cpu_threshold
+                db_updates["cpu_threshold"] = request.cpu_threshold
                 updated.append(f"CPU: {request.cpu_threshold}%")
             else:
                 raise HTTPException(
@@ -361,6 +390,7 @@ async def update_alert_thresholds(
         if request.memory_threshold is not None:
             if 0 <= request.memory_threshold <= 100:
                 system_monitor.alert_thresholds["memory"] = request.memory_threshold
+                db_updates["memory_threshold"] = request.memory_threshold
                 updated.append(f"Memory: {request.memory_threshold}%")
             else:
                 raise HTTPException(
@@ -371,6 +401,7 @@ async def update_alert_thresholds(
         if request.disk_threshold is not None:
             if 0 <= request.disk_threshold <= 100:
                 system_monitor.alert_thresholds["disk"] = request.disk_threshold
+                db_updates["disk_threshold"] = request.disk_threshold
                 updated.append(f"Disk: {request.disk_threshold}%")
             else:
                 raise HTTPException(
@@ -378,10 +409,17 @@ async def update_alert_thresholds(
                     detail="Disk threshold must be between 0 and 100"
                 )
         
+        # Persist to database
+        if db_updates and database:
+            success = database.update_monitoring_settings(**db_updates)
+            if not success:
+                logger.warning("Failed to persist threshold updates to database")
+        
         return {
             "success": True,
-            "message": f"Thresholds updated: {', '.join(updated)}",
-            "current_thresholds": system_monitor.alert_thresholds
+            "message": f"Thresholds updated and persisted: {', '.join(updated)}",
+            "current_thresholds": system_monitor.alert_thresholds,
+            "persisted": bool(db_updates and database)
         }
         
     except HTTPException:
@@ -467,36 +505,49 @@ async def update_alert_settings(
     request: AlertSettingsRequest,
     _: str = Depends(get_require_admin()),
 ) -> Dict[str, Any]:
-    """Update alert settings (runtime only)."""
+    """Update alert settings and persist to database."""
+    from app.main import database
+    
     try:
         updated = []
+        db_updates = {}
         
         if request.cpu_threshold is not None:
             if 0 <= request.cpu_threshold <= 100:
                 system_monitor.alert_thresholds["cpu"] = float(request.cpu_threshold)
+                db_updates["cpu_threshold"] = float(request.cpu_threshold)
                 updated.append(f"CPU threshold: {request.cpu_threshold}%")
         
         if request.memory_threshold is not None:
             if 0 <= request.memory_threshold <= 100:
                 system_monitor.alert_thresholds["memory"] = float(request.memory_threshold)
+                db_updates["memory_threshold"] = float(request.memory_threshold)
                 updated.append(f"Memory threshold: {request.memory_threshold}%")
         
         if request.disk_threshold is not None:
             if 0 <= request.disk_threshold <= 100:
                 system_monitor.alert_thresholds["disk"] = float(request.disk_threshold)
+                db_updates["disk_threshold"] = float(request.disk_threshold)
                 updated.append(f"Disk threshold: {request.disk_threshold}%")
         
         if request.response_threshold is not None:
             updated.append(f"Response threshold: {request.response_threshold}ms")
         
+        # Persist to database
+        if db_updates and database:
+            success = database.update_monitoring_settings(**db_updates)
+            if not success:
+                logger.warning("Failed to persist settings updates to database")
+        
         return {
             "success": True,
-            "message": f"Settings updated: {', '.join(updated) if updated else 'No changes'}",
+            "message": f"Settings updated and persisted: {', '.join(updated) if updated else 'No changes'}",
             "settings": {
                 "cpu_threshold": system_monitor.alert_thresholds.get("cpu"),
                 "memory_threshold": system_monitor.alert_thresholds.get("memory"),
                 "disk_threshold": system_monitor.alert_thresholds.get("disk")
-            }
+            },
+            "persisted": bool(db_updates and database)
         }
         
     except Exception as e:
