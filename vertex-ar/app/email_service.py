@@ -289,9 +289,10 @@ class EmailService:
         body: str,
         html_body: Optional[str] = None,
         priority: int = 5,
+        urgent: bool = False,
     ) -> bool:
         """
-        Queue an email for sending.
+        Queue an email for sending (or send immediately if urgent).
         
         Args:
             to_addresses: List of recipient email addresses
@@ -299,14 +300,39 @@ class EmailService:
             body: Plain text body
             html_body: Optional HTML body
             priority: Priority (1-10, lower = higher priority)
+            urgent: If True, send immediately (for tests/admin), bypassing persistent queue
         
         Returns:
-            True if successfully queued, False otherwise
+            True if successfully queued/sent, False otherwise
         """
         if not self.enabled:
             logger.warning("Email service disabled, cannot send email")
             return False
         
+        # Check if we should use persistent queue
+        if not urgent:
+            # Try to enqueue in persistent queue if available
+            try:
+                from app.services.email_queue import get_email_queue
+                persistent_queue = get_email_queue()
+                
+                if persistent_queue:
+                    # Enqueue to persistent queue
+                    await persistent_queue.enqueue(
+                        to=to_addresses,
+                        subject=subject,
+                        body=body,
+                        html=html_body,
+                    )
+                    logger.info(f"Email enqueued to persistent queue: {subject} to {len(to_addresses)} recipients")
+                    return True
+                else:
+                    # Fallback to in-memory queue if persistent queue not available
+                    logger.debug("Persistent queue not available, falling back to in-memory queue")
+            except Exception as e:
+                logger.warning(f"Error enqueueing to persistent queue: {e}, falling back to in-memory queue")
+        
+        # Fall back to in-memory queue (urgent emails or if persistent queue unavailable)
         message = EmailMessage(
             to_addresses=to_addresses,
             subject=subject,
@@ -323,7 +349,7 @@ class EmailService:
             self.email_queue_depth.set(stats["queue_depth"])
             self.email_pending_count.set(stats["pending"])
             
-            logger.info(f"Email queued: {subject} to {len(to_addresses)} recipients")
+            logger.info(f"Email queued (in-memory): {subject} to {len(to_addresses)} recipients")
         
         return queued
     

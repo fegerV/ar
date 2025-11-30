@@ -282,30 +282,58 @@ def create_app() -> FastAPI:
             asyncio.create_task(project_lifecycle_scheduler.start_lifecycle_scheduler())
             logger.info("Lifecycle scheduler started")
     
-    # Start email queue processor
+    # Start persistent email queue with worker pool
+    @app.on_event("startup")
+    async def start_persistent_email_queue():
+        """Start persistent email queue with worker pool."""
+        try:
+            import asyncio
+            from app.email_service import email_service
+            from app.services import email_queue as eq_module
+            from app.config import settings
+            
+            # Get worker count from settings (default: 3)
+            worker_count = getattr(settings, "EMAIL_QUEUE_WORKERS", 3)
+            
+            # Initialize persistent email queue
+            eq_module.email_queue = eq_module.EmailQueue(
+                email_service=email_service,
+                database=database,
+                worker_count=worker_count,
+            )
+            app.state.email_queue = eq_module.email_queue
+            
+            # Start workers
+            await eq_module.email_queue.start_workers()
+            logger.info(f"Persistent email queue started with {worker_count} workers")
+            
+        except Exception as e:
+            logger.error("Failed to start persistent email queue", error=str(e), exc_info=e)
+    
+    # Start in-memory email queue processor (fallback/urgent emails)
     @app.on_event("startup")
     async def start_email_queue_processor():
-        """Start email queue processor."""
+        """Start in-memory email queue processor for urgent/fallback emails."""
         try:
             import asyncio
             from app.email_service import email_service
             
             async def email_queue_loop():
-                """Process email queue periodically."""
+                """Process in-memory email queue periodically."""
                 while True:
                     try:
                         await email_service.process_queue()
                     except Exception as e:
-                        logger.error("Error processing email queue", error=str(e), exc_info=e)
+                        logger.error("Error processing in-memory email queue", error=str(e), exc_info=e)
                     
                     # Process every 30 seconds
                     await asyncio.sleep(30)
             
             asyncio.create_task(email_queue_loop())
-            logger.info("Email queue processor started")
+            logger.info("In-memory email queue processor started (for urgent/fallback emails)")
             
         except Exception as e:
-            logger.error("Failed to start email queue processor", error=str(e), exc_info=e)
+            logger.error("Failed to start in-memory email queue processor", error=str(e), exc_info=e)
     
     # Start notification center services
     @app.on_event("startup")
@@ -326,6 +354,16 @@ def create_app() -> FastAPI:
             
         except Exception as e:
             logger.error("Failed to start notification services", error=str(e), exc_info=e)
+    
+    @app.on_event("shutdown")
+    async def stop_persistent_email_queue():
+        """Stop persistent email queue workers."""
+        try:
+            if hasattr(app.state, "email_queue"):
+                await app.state.email_queue.stop_workers()
+                logger.info("Persistent email queue stopped")
+        except Exception as e:
+            logger.error("Failed to stop persistent email queue", error=str(e), exc_info=e)
     
     @app.on_event("shutdown")
     async def stop_notification_services():
