@@ -169,6 +169,18 @@ class Settings:
         self.LIFECYCLE_CHECK_INTERVAL_SECONDS = int(os.getenv("LIFECYCLE_CHECK_INTERVAL_SECONDS", "3600"))  # 1 hour
         self.LIFECYCLE_NOTIFICATIONS_ENABLED = os.getenv("LIFECYCLE_NOTIFICATIONS_ENABLED", "true").lower() == "true"
         
+        # Email service retry settings
+        self.EMAIL_RETRY_MAX_ATTEMPTS = int(os.getenv("EMAIL_RETRY_MAX_ATTEMPTS", "5"))
+        # Parse EMAIL_RETRY_DELAYS as comma-separated floats (e.g., "1,2,4,8,16")
+        retry_delays_str = os.getenv("EMAIL_RETRY_DELAYS", "1,2,4,8,16")
+        try:
+            self.EMAIL_RETRY_DELAYS = [float(x.strip()) for x in retry_delays_str.split(",")]
+        except ValueError:
+            self.EMAIL_RETRY_DELAYS = [1, 2, 4, 8, 16]  # Default exponential backoff
+        
+        # Email default sender
+        self.EMAIL_DEFAULT_FROM = os.getenv("EMAIL_DEFAULT_FROM", "")
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)

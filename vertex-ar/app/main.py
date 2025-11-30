@@ -111,6 +111,13 @@ def create_app() -> FastAPI:
     ensure_default_admin_user(app.state.database)
     ensure_default_company(app.state.database)
     
+    # Initialize async email service
+    from app.services import init_email_service
+    from app.notification_config import get_notification_config
+    notification_config = get_notification_config()
+    app.state.email_service = init_email_service(notification_config, database)
+    logger.info("Async email service initialized")
+    
     # Initialize auth components
     from app.auth import AuthSecurityManager, TokenManager
     app.state.auth_security = AuthSecurityManager(
