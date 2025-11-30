@@ -2,10 +2,7 @@
 Alerting system for Vertex AR - handles emergency notifications via email and Telegram.
 """
 import asyncio
-import smtplib
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from typing import Dict, List, Optional, Any
 import aiohttp
 
@@ -118,38 +115,31 @@ class AlertManager:
             return False
     
     async def send_email_alert(self, subject: str, message: str) -> bool:
-        """Send alert via email."""
-        # Get SMTP config from database (encrypted storage only)
-        from app.notification_config import get_notification_config
-        notification_config = get_notification_config()
-        smtp_config = notification_config.get_smtp_config(actor="alerting")
-        
-        if not smtp_config:
-            logger.warning("SMTP configuration not available in database")
-            return False
-        
-        smtp_host = smtp_config['host']
-        smtp_port = smtp_config['port']
-        smtp_username = smtp_config['username']
-        smtp_password = smtp_config['password']
-        from_email = smtp_config['from_email']
-        use_tls = smtp_config['use_tls']
-        use_ssl = smtp_config['use_ssl']
-        
-        # Send to admin emails if configured, otherwise to from_email
-        admin_emails = settings.ADMIN_EMAILS if settings.ADMIN_EMAILS else [from_email]
-        
-        if not smtp_username or not smtp_password or not admin_emails:
-            logger.warning("Email credentials incomplete")
-            return False
-            
+        """Send alert via email using EmailService."""
         try:
-            msg = MIMEMultipart()
-            msg['From'] = from_email
-            msg['To'] = ", ".join(admin_emails)
-            msg['Subject'] = f"[VERTEX AR ALERT] {subject}"
+            # Get email service
+            from app.email_service import email_service
             
-            body = MIMEText(f"""
+            # Get SMTP config to determine recipient and check if configured
+            from app.notification_config import get_notification_config
+            notification_config = get_notification_config()
+            smtp_config = notification_config.get_smtp_config(actor="alerting")
+            
+            if not smtp_config:
+                logger.warning("SMTP configuration not available in database")
+                return False
+            
+            from_email = smtp_config['from_email']
+            
+            # Send to admin emails if configured, otherwise to from_email
+            admin_emails = settings.ADMIN_EMAILS if settings.ADMIN_EMAILS else [from_email]
+            
+            if not admin_emails:
+                logger.warning("No admin email addresses configured")
+                return False
+            
+            # Prepare email body
+            body = f"""
 Vertex AR Emergency Alert
 
 {message}
@@ -157,25 +147,19 @@ Vertex AR Emergency Alert
 ---
 Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 Server: {settings.BASE_URL}
-            """, 'plain')
+            """
             
-            msg.attach(body)
-            
-            # Send email in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, 
-                self._send_email_sync, 
-                smtp_host, 
-                smtp_port, 
-                smtp_username, 
-                smtp_password, 
-                use_tls, 
-                use_ssl, 
-                msg
+            # Send email via EmailService (urgent=True for immediate delivery)
+            success = await email_service.send_email(
+                to_addresses=admin_emails,
+                subject=f"[VERTEX AR ALERT] {subject}",
+                body=body,
+                priority=1,  # High priority for alerts
+                urgent=True  # Bypass persistent queue for immediate delivery
             )
             
-            logger.info(f"Email alert sent to {len(admin_emails)} recipients")
+            if success:
+                logger.info(f"Email alert sent to {len(admin_emails)} recipients")
             
             # Log to notification history
             for recipient in admin_emails:
@@ -189,49 +173,47 @@ Server: {settings.BASE_URL}
                         recipient=recipient,
                         subject=subject,
                         message=message,
-                        status='sent'
+                        status='sent' if success else 'failed',
+                        error_message=None if success else 'Email service returned failure'
                     )
                 except Exception as log_error:
                     logger.error(f"Failed to log notification history: {log_error}")
             
-            return True
+            return success
             
         except Exception as e:
             logger.error(f"Error sending email alert: {e}")
             
             # Log failure to notification history
-            for recipient in admin_emails:
-                try:
-                    from app.database import Database
-                    import uuid
-                    db = Database(settings.DB_PATH)
-                    db.add_notification_history(
-                        history_id=str(uuid.uuid4()),
-                        notification_type='email',
-                        recipient=recipient,
-                        subject=subject,
-                        message=message,
-                        status='failed',
-                        error_message=str(e)
-                    )
-                except Exception as log_error:
-                    logger.error(f"Failed to log notification history: {log_error}")
+            try:
+                # Get admin emails for history logging
+                from app.notification_config import get_notification_config
+                notification_config = get_notification_config()
+                smtp_config = notification_config.get_smtp_config(actor="alerting")
+                
+                from_email = smtp_config.get('from_email') if smtp_config else None
+                admin_emails = settings.ADMIN_EMAILS if settings.ADMIN_EMAILS else ([from_email] if from_email else [])
+                
+                for recipient in admin_emails:
+                    try:
+                        from app.database import Database
+                        import uuid
+                        db = Database(settings.DB_PATH)
+                        db.add_notification_history(
+                            history_id=str(uuid.uuid4()),
+                            notification_type='email',
+                            recipient=recipient,
+                            subject=subject,
+                            message=message,
+                            status='failed',
+                            error_message=str(e)
+                        )
+                    except Exception as log_error:
+                        logger.error(f"Failed to log notification history: {log_error}")
+            except Exception:
+                pass  # Best effort logging
             
             return False
-    
-    def _send_email_sync(self, host: str, port: int, username: str, password: str, 
-                         use_tls: bool, use_ssl: bool, msg: MIMEMultipart) -> None:
-        """Synchronous email sending for thread pool execution."""
-        if use_ssl:
-            server = smtplib.SMTP_SSL(host, port)
-        else:
-            server = smtplib.SMTP(host, port)
-            if use_tls:
-                server.starttls()
-        
-        server.login(username, password)
-        server.send_message(msg)
-        server.quit()
     
     def should_send_alert(self, alert_type: str) -> bool:
         """Check if alert should be sent (cooldown logic)."""

@@ -405,14 +405,13 @@ Vertex AR Team
             logger.error(f"Error sending expiry notification for portrait {portrait.get('id')}: {e}")
     
     async def send_client_email(self, recipient: str, subject: str, message: str) -> bool:
-        """Send transactional email to client."""
+        """Send transactional email to client using EmailService."""
         try:
-            # Use the existing email alert system with custom recipient
-            from app.notification_config import get_notification_config
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
+            # Get email service
+            from app.email_service import email_service
             
+            # Check if SMTP is configured
+            from app.notification_config import get_notification_config
             notification_config = get_notification_config()
             smtp_config = notification_config.get_smtp_config(actor="lifecycle_scheduler")
             
@@ -420,41 +419,17 @@ Vertex AR Team
                 logger.warning("SMTP configuration not available in database")
                 return False
             
-            smtp_host = smtp_config['host']
-            smtp_port = smtp_config['port']
-            smtp_username = smtp_config['username']
-            smtp_password = smtp_config['password']
-            from_email = smtp_config['from_email']
-            use_tls = smtp_config['use_tls']
-            use_ssl = smtp_config['use_ssl']
-            
-            if not smtp_username or not smtp_password:
-                logger.warning("Email credentials incomplete")
-                return False
-            
-            msg = MIMEMultipart()
-            msg['From'] = from_email
-            msg['To'] = recipient
-            msg['Subject'] = subject
-            
-            body = MIMEText(message, 'plain', 'utf-8')
-            msg.attach(body)
-            
-            # Send email in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                self._send_email_sync,
-                smtp_host,
-                smtp_port,
-                smtp_username,
-                smtp_password,
-                use_tls,
-                use_ssl,
-                msg
+            # Send email via EmailService (not urgent, will use persistent queue)
+            success = await email_service.send_email(
+                to_addresses=[recipient],
+                subject=subject,
+                body=message,
+                priority=3,  # Medium priority for lifecycle notifications
+                urgent=False  # Use persistent queue for reliable delivery
             )
             
-            logger.info(f"Client email sent to {recipient}")
+            if success:
+                logger.info(f"Client email queued successfully for {recipient}")
             
             # Log to notification history
             try:
@@ -466,12 +441,13 @@ Vertex AR Team
                     recipient=recipient,
                     subject=subject,
                     message=message,
-                    status='sent'
+                    status='sent' if success else 'failed',
+                    error_message=None if success else 'Email service returned failure'
                 )
             except Exception as log_error:
                 logger.error(f"Failed to log notification history: {log_error}")
             
-            return True
+            return success
             
         except Exception as e:
             logger.error(f"Error sending client email to {recipient}: {e}")
@@ -493,20 +469,6 @@ Vertex AR Team
                 logger.error(f"Failed to log notification history: {log_error}")
             
             return False
-    
-    def _send_email_sync(self, host: str, port: int, username: str, password: str,
-                         use_tls: bool, use_ssl: bool, msg: Any) -> None:
-        """Synchronous email sending for thread pool execution."""
-        if use_ssl:
-            server = smtplib.SMTP_SSL(host, port)
-        else:
-            server = smtplib.SMTP(host, port)
-            if use_tls:
-                server.starttls()
-        
-        server.login(username, password)
-        server.send_message(msg)
-        server.quit()
     
     async def get_scheduler_status(self) -> Dict[str, Any]:
         """Get current scheduler status and statistics."""
