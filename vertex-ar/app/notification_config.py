@@ -3,12 +3,38 @@ Notification configuration loader.
 Loads notification settings from database and provides them to the notification system.
 """
 from typing import Optional, Dict, Any
+from datetime import datetime
 from app.database import Database
 from app.config import settings
 from app.encryption import encryption_manager
 from logging_setup import get_logger
 
 logger = get_logger(__name__)
+
+
+def _sanitize_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize config dict for logging by masking sensitive values.
+    
+    Args:
+        config: Configuration dictionary
+        
+    Returns:
+        Sanitized copy with masked secrets
+    """
+    if not config:
+        return {}
+    
+    sanitized = config.copy()
+    sensitive_keys = ['password', 'token', 'secret', 'key']
+    
+    for key in sanitized:
+        key_lower = key.lower()
+        if any(sensitive in key_lower for sensitive in sensitive_keys):
+            if sanitized[key]:
+                sanitized[key] = "***REDACTED***"
+    
+    return sanitized
 
 
 class NotificationConfig:
@@ -54,16 +80,51 @@ class NotificationConfig:
             logger.error(f"Error loading notification settings from database: {e}")
             return None
     
-    def get_smtp_config(self) -> Optional[Dict[str, Any]]:
-        """Get SMTP configuration."""
+    def get_smtp_config(self, actor: str = "system") -> Optional[Dict[str, Any]]:
+        """
+        Get SMTP configuration with security logging and guardrails.
+        
+        Args:
+            actor: Identifier of the actor requesting config (for audit trail)
+            
+        Returns:
+            SMTP configuration dict or None if not properly configured
+        """
+        # Log access attempt with timestamp
+        logger.info(
+            "SMTP config accessed",
+            actor=actor,
+            timestamp=datetime.utcnow().isoformat(),
+        )
+        
         settings_data = self.get_settings()
         if not settings_data:
+            logger.warning(
+                "SMTP config unavailable: no notification settings in database",
+                actor=actor,
+            )
+            return None
+        
+        # SECURITY GUARDRAIL: Require encrypted database entries
+        if not settings_data.get('smtp_password_encrypted'):
+            logger.error(
+                "SMTP config rejected: missing encrypted password in database",
+                actor=actor,
+                has_host=bool(settings_data.get('smtp_host')),
+                has_username=bool(settings_data.get('smtp_username')),
+            )
             return None
         
         if not settings_data.get('smtp_host') or not settings_data.get('smtp_username'):
+            logger.warning(
+                "SMTP config incomplete",
+                actor=actor,
+                has_host=bool(settings_data.get('smtp_host')),
+                has_username=bool(settings_data.get('smtp_username')),
+            )
             return None
         
-        return {
+        config = {
             'host': settings_data['smtp_host'],
             'port': settings_data.get('smtp_port', 587),
             'username': settings_data['smtp_username'],
@@ -72,6 +133,15 @@ class NotificationConfig:
             'use_tls': bool(settings_data.get('smtp_use_tls', 1)),
             'use_ssl': bool(settings_data.get('smtp_use_ssl', 0)),
         }
+        
+        # Log successful retrieval with sanitized config
+        logger.info(
+            "SMTP config retrieved successfully",
+            actor=actor,
+            config=_sanitize_config(config),
+        )
+        
+        return config
     
     def get_telegram_config(self) -> Optional[Dict[str, Any]]:
         """Get Telegram configuration."""

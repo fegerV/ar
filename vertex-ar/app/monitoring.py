@@ -798,27 +798,39 @@ class SystemMonitor:
         """Check health of external services."""
         external_services = {}
 
-        # Check email service if configured
-        if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-            try:
-                import smtplib
-                import socket
+        # Check email service if configured in database
+        try:
+            from app.notification_config import get_notification_config
+            notification_config = get_notification_config()
+            smtp_config = notification_config.get_smtp_config(actor="monitoring")
+            
+            if smtp_config:
+                try:
+                    import smtplib
+                    import socket
 
-                start_time = time.time()
-                with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=5) as server:
-                    server.starttls()
-                    # Don't actually login, just check if server responds
-                response_time = (time.time() - start_time) * 1000
+                    start_time = time.time()
+                    smtp_host = smtp_config.get('host', settings.SMTP_SERVER)
+                    smtp_port = smtp_config.get('port', settings.SMTP_PORT)
+                    
+                    with smtplib.SMTP(smtp_host, smtp_port, timeout=5) as server:
+                        if smtp_config.get('use_tls', True):
+                            server.starttls()
+                        # Don't actually login, just check if server responds
+                    response_time = (time.time() - start_time) * 1000
 
-                external_services["email"] = {
-                    "healthy": True,
-                    "response_time_ms": round(response_time, 2),
-                    "status": "operational",
-                }
-            except Exception as e:
-                logger.error(f"Email service health check failed: {e}")
-                external_services["email"] = {"healthy": False, "response_time_ms": None, "status": "failed", "error": str(e)}
-        else:
+                    external_services["email"] = {
+                        "healthy": True,
+                        "response_time_ms": round(response_time, 2),
+                        "status": "operational",
+                    }
+                except Exception as e:
+                    logger.error(f"Email service health check failed: {e}")
+                    external_services["email"] = {"healthy": False, "response_time_ms": None, "status": "failed", "error": str(e)}
+            else:
+                external_services["email"] = {"healthy": True, "response_time_ms": None, "status": "not_configured"}
+        except Exception as e:
+            logger.warning(f"Could not check SMTP config: {e}")
             external_services["email"] = {"healthy": True, "response_time_ms": None, "status": "not_configured"}
 
         # Check Telegram bot if configured

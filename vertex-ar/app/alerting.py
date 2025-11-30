@@ -119,34 +119,28 @@ class AlertManager:
     
     async def send_email_alert(self, subject: str, message: str) -> bool:
         """Send alert via email."""
-        # Try to get settings from database first
+        # Get SMTP config from database (encrypted storage only)
         from app.notification_config import get_notification_config
         notification_config = get_notification_config()
-        smtp_config = notification_config.get_smtp_config()
+        smtp_config = notification_config.get_smtp_config(actor="alerting")
         
-        if smtp_config:
-            smtp_host = smtp_config['host']
-            smtp_port = smtp_config['port']
-            smtp_username = smtp_config['username']
-            smtp_password = smtp_config['password']
-            from_email = smtp_config['from_email']
-            use_tls = smtp_config['use_tls']
-            use_ssl = smtp_config['use_ssl']
-            # Send to from_email as recipient for now (can be extended later)
-            admin_emails = [from_email]
-        else:
-            # Fallback to environment variables
-            smtp_host = settings.SMTP_SERVER
-            smtp_port = settings.SMTP_PORT
-            smtp_username = settings.SMTP_USERNAME
-            smtp_password = settings.SMTP_PASSWORD
-            from_email = settings.EMAIL_FROM
-            use_tls = True
-            use_ssl = False
-            admin_emails = settings.ADMIN_EMAILS
+        if not smtp_config:
+            logger.warning("SMTP configuration not available in database")
+            return False
+        
+        smtp_host = smtp_config['host']
+        smtp_port = smtp_config['port']
+        smtp_username = smtp_config['username']
+        smtp_password = smtp_config['password']
+        from_email = smtp_config['from_email']
+        use_tls = smtp_config['use_tls']
+        use_ssl = smtp_config['use_ssl']
+        
+        # Send to admin emails if configured, otherwise to from_email
+        admin_emails = settings.ADMIN_EMAILS if settings.ADMIN_EMAILS else [from_email]
         
         if not smtp_username or not smtp_password or not admin_emails:
-            logger.warning("Email credentials not configured")
+            logger.warning("Email credentials incomplete")
             return False
             
         try:
@@ -270,10 +264,13 @@ Server: {settings.BASE_URL}
             telegram_success = await self.send_telegram_alert(formatted_message)
             success = success and telegram_success
         
-        # Send email alert
-        if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+        # Send email alert (checks DB config internally)
+        try:
             email_success = await self.send_email_alert(subject, formatted_message)
             success = success and email_success
+        except Exception as e:
+            logger.error(f"Failed to send email alert: {e}")
+            success = False
         
         # Store in database notifications with enhanced features
         try:
@@ -385,13 +382,14 @@ Server: {settings.BASE_URL}
         else:
             results["telegram"] = False
             
-        # Test Email
-        if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+        # Test Email (checks DB config internally)
+        try:
             results["email"] = await self.send_email_alert(
                 "Test Alert", 
                 "This is a test message from Vertex AR alert system"
             )
-        else:
+        except Exception as e:
+            logger.warning(f"Email test failed: {e}")
             results["email"] = False
         
         logger.info(f"Alert system test results: {results}")

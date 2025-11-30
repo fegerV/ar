@@ -198,10 +198,12 @@ class VideoAnimationScheduler:
             if settings.TELEGRAM_BOT_TOKEN:
                 await alert_manager.send_telegram_alert(message)
             
-            # Send via Email
-            if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+            # Send via Email (checks DB config internally)
+            try:
                 subject = f"Vertex AR Video Activated - {video['id']}"
                 await alert_manager.send_email_alert(subject, message)
+            except Exception as email_error:
+                logger.debug(f"Email notification not sent: {email_error}")
                 
         except Exception as e:
             logger.error(f"Error sending activation notification: {e}")
@@ -224,10 +226,12 @@ class VideoAnimationScheduler:
             if settings.TELEGRAM_BOT_TOKEN:
                 await alert_manager.send_telegram_alert(message)
             
-            # Send via Email
-            if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+            # Send via Email (checks DB config internally)
+            try:
                 subject = f"Vertex AR Video Deactivated - {video['id']}"
                 await alert_manager.send_email_alert(subject, message)
+            except Exception as email_error:
+                logger.debug(f"Email notification not sent: {email_error}")
                 
         except Exception as e:
             logger.error(f"Error sending deactivation notification: {e}")
@@ -250,10 +254,12 @@ class VideoAnimationScheduler:
             if settings.TELEGRAM_BOT_TOKEN:
                 await alert_manager.send_telegram_alert(message)
             
-            # Send via Email
-            if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+            # Send via Email (checks DB config internally)
+            try:
                 subject = f"Vertex AR Video Rotated - {video['id']}"
                 await alert_manager.send_email_alert(subject, message)
+            except Exception as email_error:
+                logger.debug(f"Email notification not sent: {email_error}")
                 
         except Exception as e:
             logger.error(f"Error sending rotation notification: {e}")
@@ -275,10 +281,12 @@ class VideoAnimationScheduler:
             if settings.TELEGRAM_BOT_TOKEN:
                 await alert_manager.send_telegram_alert(message)
             
-            # Send via Email
-            if settings.SMTP_USERNAME and settings.ADMIN_EMAILS:
+            # Send via Email (checks DB config internally)
+            try:
                 subject = f"Vertex AR Videos Archived - {archived_count} videos"
                 await alert_manager.send_email_alert(subject, message)
+            except Exception as email_error:
+                logger.debug(f"Email notification not sent: {email_error}")
                 
         except Exception as e:
             logger.error(f"Error sending archive notification: {e}")
