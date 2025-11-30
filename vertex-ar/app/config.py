@@ -122,6 +122,9 @@ class Settings:
         # Alert deduplication and stability settings
         self.MONITORING_CONSECUTIVE_FAILURES = int(os.getenv("MONITORING_CONSECUTIVE_FAILURES", "3"))  # failures before alert
         self.MONITORING_DEDUP_WINDOW = int(os.getenv("MONITORING_DEDUP_WINDOW", "300"))  # seconds (5 minutes)
+        self.MONITORING_MAX_RUNTIME = int(os.getenv("MONITORING_MAX_RUNTIME", "0")) if os.getenv("MONITORING_MAX_RUNTIME") else None  # seconds, None = no limit
+        self.HEALTH_CHECK_COOLDOWN = int(os.getenv("HEALTH_CHECK_COOLDOWN", "30"))  # seconds between checks
+        self.ALERT_RECOVERY_MINUTES = int(os.getenv("ALERT_RECOVERY_MINUTES", "60"))  # minutes before alert can re-fire
         
         # Notification center settings
         self.NOTIFICATION_SYNC_INTERVAL = int(os.getenv("NOTIFICATION_SYNC_INTERVAL", "300"))  # 5 minutes

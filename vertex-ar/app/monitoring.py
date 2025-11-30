@@ -40,6 +40,77 @@ class SystemMonitor:
         self.consecutive_failure_threshold = getattr(settings, 'MONITORING_CONSECUTIVE_FAILURES', 3)
         # Deduplication window in seconds
         self.dedup_window = getattr(settings, 'MONITORING_DEDUP_WINDOW', settings.NOTIFICATION_DEDUP_WINDOW)
+        # Health check cooldown and max runtime
+        self.health_check_cooldown = getattr(settings, 'HEALTH_CHECK_COOLDOWN', 30)
+        self.max_runtime_seconds = getattr(settings, 'MONITORING_MAX_RUNTIME', None)
+        self.alert_recovery_minutes = getattr(settings, 'ALERT_RECOVERY_MINUTES', 60)
+        # Lock to prevent overlapping health checks
+        self._monitoring_lock = asyncio.Lock()
+        self._last_check_start: Optional[datetime] = None
+        self._last_check_end: Optional[datetime] = None
+        # Load persisted settings from database if available
+        self._load_persisted_settings()
+
+    def _load_persisted_settings(self) -> None:
+        """Load monitoring settings from database, falling back to config if not available."""
+        try:
+            from app.database import Database
+            from app.config import settings as app_settings
+            
+            # Try to get database instance from app state or create temp connection
+            try:
+                from app.main import database as db_instance
+                if db_instance:
+                    db_settings = db_instance.get_monitoring_settings()
+                    if db_settings:
+                        self.alert_thresholds["cpu"] = db_settings.get("cpu_threshold", self.alert_thresholds["cpu"])
+                        self.alert_thresholds["memory"] = db_settings.get("memory_threshold", self.alert_thresholds["memory"])
+                        self.alert_thresholds["disk"] = db_settings.get("disk_threshold", self.alert_thresholds["disk"])
+                        self.check_interval = db_settings.get("health_check_interval", self.check_interval)
+                        self.consecutive_failure_threshold = db_settings.get("consecutive_failures", self.consecutive_failure_threshold)
+                        self.dedup_window = db_settings.get("dedup_window_seconds", self.dedup_window)
+                        self.max_runtime_seconds = db_settings.get("max_runtime_seconds", self.max_runtime_seconds)
+                        self.health_check_cooldown = db_settings.get("health_check_cooldown_seconds", self.health_check_cooldown)
+                        self.alert_recovery_minutes = db_settings.get("alert_recovery_minutes", self.alert_recovery_minutes)
+                        logger.info("Loaded monitoring settings from database", settings=db_settings)
+            except Exception as e:
+                logger.debug(f"Could not load database settings during init (will use config): {e}")
+        except Exception as e:
+            logger.warning(f"Error loading persisted monitoring settings: {e}")
+
+    def reload_settings(self) -> bool:
+        """
+        Reload monitoring settings from database.
+        
+        Returns:
+            True if settings were reloaded successfully, False otherwise
+        """
+        try:
+            from app.main import database as db_instance
+            if not db_instance:
+                return False
+            
+            db_settings = db_instance.get_monitoring_settings()
+            if not db_settings:
+                return False
+            
+            # Update settings
+            self.alert_thresholds["cpu"] = db_settings.get("cpu_threshold", self.alert_thresholds["cpu"])
+            self.alert_thresholds["memory"] = db_settings.get("memory_threshold", self.alert_thresholds["memory"])
+            self.alert_thresholds["disk"] = db_settings.get("disk_threshold", self.alert_thresholds["disk"])
+            self.check_interval = db_settings.get("health_check_interval", self.check_interval)
+            self.consecutive_failure_threshold = db_settings.get("consecutive_failures", self.consecutive_failure_threshold)
+            self.dedup_window = db_settings.get("dedup_window_seconds", self.dedup_window)
+            self.max_runtime_seconds = db_settings.get("max_runtime_seconds", self.max_runtime_seconds)
+            self.health_check_cooldown = db_settings.get("health_check_cooldown_seconds", self.health_check_cooldown)
+            self.alert_recovery_minutes = db_settings.get("alert_recovery_minutes", self.alert_recovery_minutes)
+            
+            logger.info("Reloaded monitoring settings from database", settings=db_settings)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error reloading monitoring settings: {e}")
+            return False
 
     def _should_escalate_alert(self, alert_key: str) -> bool:
         """
@@ -1288,19 +1359,66 @@ class SystemMonitor:
         return health_data
 
     async def start_monitoring(self):
-        """Start continuous background monitoring."""
+        """Start continuous background monitoring with overlap protection."""
         if not self.enabled:
             logger.info("System monitoring is disabled")
             return
 
-        logger.info(f"Starting system monitoring with {self.check_interval}s interval")
+        logger.info(
+            f"Starting system monitoring with {self.check_interval}s interval, "
+            f"cooldown: {self.health_check_cooldown}s, max_runtime: {self.max_runtime_seconds}s"
+        )
 
         while True:
             try:
-                await self.check_system_health()
+                # Check if we should skip this iteration due to cooldown
+                if self._last_check_end:
+                    time_since_last = (datetime.utcnow() - self._last_check_end).total_seconds()
+                    if time_since_last < self.health_check_cooldown:
+                        remaining = self.health_check_cooldown - time_since_last
+                        logger.debug(f"Health check cooldown active, waiting {remaining:.1f}s")
+                        await asyncio.sleep(remaining)
+                
+                # Try to acquire lock (non-blocking check if already running)
+                if self._monitoring_lock.locked():
+                    logger.warning("Previous health check still running, skipping this iteration")
+                    await asyncio.sleep(self.check_interval)
+                    continue
+                
+                async with self._monitoring_lock:
+                    self._last_check_start = datetime.utcnow()
+                    
+                    # Run health check with timeout if max_runtime is set
+                    if self.max_runtime_seconds:
+                        try:
+                            await asyncio.wait_for(
+                                self.check_system_health(),
+                                timeout=self.max_runtime_seconds
+                            )
+                        except asyncio.TimeoutError:
+                            logger.error(
+                                f"Health check exceeded max runtime of {self.max_runtime_seconds}s, "
+                                "check may be incomplete"
+                            )
+                            # Send alert about monitoring timeout
+                            await alert_manager.send_alert(
+                                "monitoring_timeout",
+                                "Monitoring Timeout",
+                                f"Health check exceeded max runtime of {self.max_runtime_seconds}s",
+                                "medium"
+                            )
+                    else:
+                        await self.check_system_health()
+                    
+                    self._last_check_end = datetime.utcnow()
+                    check_duration = (self._last_check_end - self._last_check_start).total_seconds()
+                    logger.debug(f"Health check completed in {check_duration:.1f}s")
+                
                 await asyncio.sleep(self.check_interval)
+                
             except Exception as e:
-                logger.error(f"Error in monitoring loop: {e}")
+                logger.error(f"Error in monitoring loop: {e}", exc_info=True)
+                self._last_check_end = datetime.utcnow()
                 await asyncio.sleep(self.check_interval)
 
     def get_recent_alerts(self, hours: int = 24) -> List[Dict[str, Any]]:

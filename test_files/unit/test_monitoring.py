@@ -437,5 +437,189 @@ class TestMultipleURLAttempts(unittest.TestCase):
         self.assertEqual(len(result["attempts"]), 1)
 
 
+class TestMonitoringPersistence(unittest.TestCase):
+    """Test persistent monitoring settings and concurrency guards."""
+    
+    @patch('app.monitoring.settings')
+    def test_load_persisted_settings_no_database(self, mock_settings):
+        """Test initialization when database is not available."""
+        from app.monitoring import SystemMonitor
+        
+        # Configure mock settings
+        mock_settings.ALERTING_ENABLED = True
+        mock_settings.HEALTH_CHECK_INTERVAL = 60
+        mock_settings.CPU_THRESHOLD = 80.0
+        mock_settings.MEMORY_THRESHOLD = 85.0
+        mock_settings.DISK_THRESHOLD = 90.0
+        mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        mock_settings.MONITORING_DEDUP_WINDOW = 300
+        mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        mock_settings.HEALTH_CHECK_COOLDOWN = 30
+        mock_settings.MONITORING_MAX_RUNTIME = None
+        mock_settings.ALERT_RECOVERY_MINUTES = 60
+        
+        monitor = SystemMonitor()
+        
+        # Verify defaults are loaded from settings
+        self.assertEqual(monitor.alert_thresholds["cpu"], 80.0)
+        self.assertEqual(monitor.alert_thresholds["memory"], 85.0)
+        self.assertEqual(monitor.alert_thresholds["disk"], 90.0)
+        self.assertEqual(monitor.check_interval, 60)
+        self.assertEqual(monitor.consecutive_failure_threshold, 3)
+        self.assertEqual(monitor.dedup_window, 300)
+        self.assertEqual(monitor.health_check_cooldown, 30)
+        self.assertIsNone(monitor.max_runtime_seconds)
+        self.assertEqual(monitor.alert_recovery_minutes, 60)
+    
+    @patch('app.monitoring.settings')
+    @patch('app.main.database')
+    def test_load_persisted_settings_from_database(self, mock_db, mock_settings):
+        """Test loading settings from database."""
+        from app.monitoring import SystemMonitor
+        
+        # Configure mock settings
+        mock_settings.ALERTING_ENABLED = True
+        mock_settings.HEALTH_CHECK_INTERVAL = 60
+        mock_settings.CPU_THRESHOLD = 80.0
+        mock_settings.MEMORY_THRESHOLD = 85.0
+        mock_settings.DISK_THRESHOLD = 90.0
+        mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        mock_settings.MONITORING_DEDUP_WINDOW = 300
+        mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        
+        # Mock database with persisted settings
+        mock_db.get_monitoring_settings.return_value = {
+            'cpu_threshold': 75.0,
+            'memory_threshold': 80.0,
+            'disk_threshold': 85.0,
+            'health_check_interval': 90,
+            'consecutive_failures': 5,
+            'dedup_window_seconds': 600,
+            'max_runtime_seconds': 120,
+            'health_check_cooldown_seconds': 45,
+            'alert_recovery_minutes': 90
+        }
+        
+        monitor = SystemMonitor()
+        
+        # Verify persisted settings are loaded
+        self.assertEqual(monitor.alert_thresholds["cpu"], 75.0)
+        self.assertEqual(monitor.alert_thresholds["memory"], 80.0)
+        self.assertEqual(monitor.alert_thresholds["disk"], 85.0)
+        self.assertEqual(monitor.check_interval, 90)
+        self.assertEqual(monitor.consecutive_failure_threshold, 5)
+        self.assertEqual(monitor.dedup_window, 600)
+        self.assertEqual(monitor.max_runtime_seconds, 120)
+        self.assertEqual(monitor.health_check_cooldown, 45)
+        self.assertEqual(monitor.alert_recovery_minutes, 90)
+    
+    @patch('app.monitoring.settings')
+    def test_lock_initialization(self, mock_settings):
+        """Test that monitoring lock is properly initialized."""
+        import asyncio
+        from app.monitoring import SystemMonitor
+        
+        # Configure mock settings
+        mock_settings.ALERTING_ENABLED = True
+        mock_settings.HEALTH_CHECK_INTERVAL = 60
+        mock_settings.CPU_THRESHOLD = 80.0
+        mock_settings.MEMORY_THRESHOLD = 85.0
+        mock_settings.DISK_THRESHOLD = 90.0
+        mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        mock_settings.MONITORING_DEDUP_WINDOW = 300
+        mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        
+        monitor = SystemMonitor()
+        
+        # Verify lock exists and is not locked initially
+        self.assertIsInstance(monitor._monitoring_lock, asyncio.Lock)
+        self.assertFalse(monitor._monitoring_lock.locked())
+        self.assertIsNone(monitor._last_check_start)
+        self.assertIsNone(monitor._last_check_end)
+    
+    @patch('app.monitoring.settings')
+    @patch('app.main.database')
+    def test_reload_settings(self, mock_db, mock_settings):
+        """Test reloading settings from database."""
+        from app.monitoring import SystemMonitor
+        
+        # Configure mock settings
+        mock_settings.ALERTING_ENABLED = True
+        mock_settings.HEALTH_CHECK_INTERVAL = 60
+        mock_settings.CPU_THRESHOLD = 80.0
+        mock_settings.MEMORY_THRESHOLD = 85.0
+        mock_settings.DISK_THRESHOLD = 90.0
+        mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        mock_settings.MONITORING_DEDUP_WINDOW = 300
+        mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        
+        # Initial database state
+        mock_db.get_monitoring_settings.return_value = {
+            'cpu_threshold': 80.0,
+            'memory_threshold': 85.0,
+            'disk_threshold': 90.0,
+            'health_check_interval': 60,
+            'consecutive_failures': 3,
+            'dedup_window_seconds': 300,
+            'max_runtime_seconds': None,
+            'health_check_cooldown_seconds': 30,
+            'alert_recovery_minutes': 60
+        }
+        
+        monitor = SystemMonitor()
+        
+        # Update database settings
+        mock_db.get_monitoring_settings.return_value = {
+            'cpu_threshold': 85.0,
+            'memory_threshold': 90.0,
+            'disk_threshold': 95.0,
+            'health_check_interval': 120,
+            'consecutive_failures': 5,
+            'dedup_window_seconds': 600,
+            'max_runtime_seconds': 180,
+            'health_check_cooldown_seconds': 60,
+            'alert_recovery_minutes': 120
+        }
+        
+        # Reload settings
+        success = monitor.reload_settings()
+        
+        # Verify settings were updated
+        self.assertTrue(success)
+        self.assertEqual(monitor.alert_thresholds["cpu"], 85.0)
+        self.assertEqual(monitor.alert_thresholds["memory"], 90.0)
+        self.assertEqual(monitor.alert_thresholds["disk"], 95.0)
+        self.assertEqual(monitor.check_interval, 120)
+        self.assertEqual(monitor.consecutive_failure_threshold, 5)
+        self.assertEqual(monitor.dedup_window, 600)
+        self.assertEqual(monitor.max_runtime_seconds, 180)
+        self.assertEqual(monitor.health_check_cooldown, 60)
+        self.assertEqual(monitor.alert_recovery_minutes, 120)
+    
+    @patch('app.monitoring.settings')
+    @patch('app.main.database', None)
+    def test_reload_settings_no_database(self, mock_settings):
+        """Test reload_settings when database is not available."""
+        from app.monitoring import SystemMonitor
+        
+        # Configure mock settings
+        mock_settings.ALERTING_ENABLED = True
+        mock_settings.HEALTH_CHECK_INTERVAL = 60
+        mock_settings.CPU_THRESHOLD = 80.0
+        mock_settings.MEMORY_THRESHOLD = 85.0
+        mock_settings.DISK_THRESHOLD = 90.0
+        mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        mock_settings.MONITORING_DEDUP_WINDOW = 300
+        mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        
+        monitor = SystemMonitor()
+        
+        # Try to reload (should fail gracefully)
+        success = monitor.reload_settings()
+        
+        # Verify failure is handled
+        self.assertFalse(success)
+
+
 if __name__ == '__main__':
     unittest.main()
