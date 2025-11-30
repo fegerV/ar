@@ -589,6 +589,40 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
+            # Create email_queue table for persistent email queue
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS email_queue (
+                    id TEXT PRIMARY KEY,
+                    recipient_to TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    html TEXT,
+                    template_id TEXT,
+                    variables TEXT,
+                    status TEXT NOT NULL CHECK (status IN ('pending', 'sending', 'sent', 'failed')) DEFAULT 'pending',
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    last_error TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            
+            # Create indexes for email_queue table
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_created_at ON email_queue(created_at)")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status_created ON email_queue(status, created_at)")
+            except sqlite3.OperationalError:
+                pass
+            
             # Seed default email templates
             self._seed_default_email_templates()
 
@@ -2919,6 +2953,185 @@ class Database:
             (datetime.now(), template_id)
         )
         return cursor.rowcount > 0
+
+    # ============================================================
+    # Email Queue Methods
+    # ============================================================
+
+    def create_email_job(self, job) -> str:
+        """
+        Create a new email job in the queue.
+        
+        Args:
+            job: EmailQueueJob instance
+        
+        Returns:
+            Job ID
+        """
+        job_dict = job.to_dict()
+        
+        cursor = self._execute(
+            """
+            INSERT INTO email_queue (id, recipient_to, subject, body, html, template_id, variables, status, attempts, last_error, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                job_dict["id"],
+                job_dict["to"],
+                job_dict["subject"],
+                job_dict["body"],
+                job_dict.get("html"),
+                job_dict.get("template_id"),
+                job_dict.get("variables"),
+                job_dict["status"],
+                job_dict["attempts"],
+                job_dict.get("last_error"),
+                job_dict["created_at"],
+                job_dict["updated_at"],
+            )
+        )
+        
+        return job_dict["id"]
+
+    def update_email_job(self, job) -> bool:
+        """
+        Update an existing email job.
+        
+        Args:
+            job: EmailQueueJob instance with updated fields
+        
+        Returns:
+            True if updated, False otherwise
+        """
+        job_dict = job.to_dict()
+        
+        cursor = self._execute(
+            """
+            UPDATE email_queue
+            SET status = ?, attempts = ?, last_error = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                job_dict["status"],
+                job_dict["attempts"],
+                job_dict.get("last_error"),
+                job_dict["updated_at"],
+                job_dict["id"],
+            )
+        )
+        
+        return cursor.rowcount > 0
+
+    def get_next_pending_email_job(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the next pending email job from the queue.
+        
+        Returns:
+            Job dictionary or None if no pending jobs
+        """
+        cursor = self._execute(
+            """
+            SELECT * FROM email_queue
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def get_all_pending_email_jobs(self) -> List[Dict[str, Any]]:
+        """
+        Get all pending email jobs from the queue.
+        
+        Returns:
+            List of job dictionaries
+        """
+        cursor = self._execute(
+            """
+            SELECT * FROM email_queue
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_failed_email_jobs(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get failed email jobs.
+        
+        Args:
+            limit: Maximum number of jobs to return
+        
+        Returns:
+            List of job dictionaries
+        """
+        cursor = self._execute(
+            """
+            SELECT * FROM email_queue
+            WHERE status = 'failed'
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_email_queue_stats(self) -> Dict[str, int]:
+        """
+        Get email queue statistics.
+        
+        Returns:
+            Dictionary with queue statistics
+        """
+        cursor = self._execute(
+            """
+            SELECT
+                status,
+                COUNT(*) as count
+            FROM email_queue
+            GROUP BY status
+            """
+        )
+        
+        stats = {
+            "pending": 0,
+            "sending": 0,
+            "sent": 0,
+            "failed": 0,
+            "total": 0,
+        }
+        
+        for row in cursor.fetchall():
+            status = row["status"]
+            count = row["count"]
+            stats[status] = count
+            stats["total"] += count
+        
+        return stats
+
+    def delete_old_email_jobs(self, days: int = 30) -> int:
+        """
+        Delete old sent/failed email jobs.
+        
+        Args:
+            days: Delete jobs older than this many days
+        
+        Returns:
+            Number of jobs deleted
+        """
+        cursor = self._execute(
+            """
+            DELETE FROM email_queue
+            WHERE status IN ('sent', 'failed')
+            AND datetime(updated_at) < datetime('now', '-' || ? || ' days')
+            """,
+            (days,)
+        )
+        
+        return cursor.rowcount
 
 
 def ensure_default_admin_user(database: "Database") -> None:
