@@ -103,6 +103,22 @@ def create_app() -> FastAPI:
         "ALLOWED_VIDEO_TYPES": settings.ALLOWED_VIDEO_TYPES,
     }
     
+    # Initialize cache manager
+    from app.cache import create_cache_manager
+    app.state.cache_manager = create_cache_manager(
+        redis_url=settings.REDIS_URL,
+        namespace=settings.CACHE_NAMESPACE,
+        default_ttl=settings.CACHE_TTL,
+        max_size=settings.CACHE_MAX_SIZE,
+        enabled=settings.CACHE_ENABLED,
+    )
+    logger.info(
+        "Cache manager initialized",
+        enabled=settings.CACHE_ENABLED,
+        backend="Redis" if settings.REDIS_URL else "LRU",
+        namespace=settings.CACHE_NAMESPACE,
+    )
+    
     # Initialize database
     global database
     from app.database import Database, ensure_default_admin_user, ensure_default_company
@@ -407,6 +423,16 @@ def create_app() -> FastAPI:
                 logger.info("Automated backup scheduler stopped")
         except Exception as e:
             logger.error("Failed to stop backup scheduler", error=str(e), exc_info=e)
+    
+    @app.on_event("shutdown")
+    async def close_cache():
+        """Close cache connections on shutdown."""
+        try:
+            if hasattr(app.state, 'cache_manager'):
+                await app.state.cache_manager.close()
+                logger.info("Cache manager closed")
+        except Exception as e:
+            logger.error("Failed to close cache manager", error=str(e), exc_info=e)
     
     # Store global app instance
     _app_instance = app

@@ -1067,6 +1067,114 @@ class Database:
         
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
+    
+    def list_portraits_paginated(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        client_id: Optional[str] = None,
+        folder_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        lifecycle_status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get paginated list of portraits with optional filters.
+        
+        Args:
+            page: Page number (1-indexed)
+            page_size: Number of items per page
+            client_id: Filter by client ID
+            folder_id: Filter by folder ID
+            company_id: Filter by company ID (via client relationship)
+            lifecycle_status: Filter by lifecycle status (active, expiring, archived)
+        
+        Returns:
+            List of portrait dictionaries
+        """
+        # Build base query
+        if company_id:
+            # Join with clients to filter by company
+            query = """
+                SELECT p.* FROM portraits p
+                JOIN clients c ON p.client_id = c.id
+                WHERE c.company_id = ?
+            """
+            params: List[Any] = [company_id]
+        else:
+            query = "SELECT * FROM portraits WHERE 1=1"
+            params = []
+        
+        # Apply filters
+        if client_id:
+            query += " AND client_id = ?" if not company_id else " AND p.client_id = ?"
+            params.append(client_id)
+        
+        if folder_id:
+            query += " AND folder_id = ?" if not company_id else " AND p.folder_id = ?"
+            params.append(folder_id)
+        
+        if lifecycle_status:
+            query += " AND lifecycle_status = ?" if not company_id else " AND p.lifecycle_status = ?"
+            params.append(lifecycle_status)
+        
+        # Add ordering and pagination
+        query += " ORDER BY created_at DESC" if not company_id else " ORDER BY p.created_at DESC"
+        query += " LIMIT ? OFFSET ?"
+        
+        offset = (page - 1) * page_size
+        params.extend([page_size, offset])
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def count_portraits(
+        self,
+        client_id: Optional[str] = None,
+        folder_id: Optional[str] = None,
+        company_id: Optional[str] = None,
+        lifecycle_status: Optional[str] = None,
+    ) -> int:
+        """
+        Count portraits with optional filters.
+        
+        Args:
+            client_id: Filter by client ID
+            folder_id: Filter by folder ID
+            company_id: Filter by company ID (via client relationship)
+            lifecycle_status: Filter by lifecycle status
+        
+        Returns:
+            Total count of portraits matching filters
+        """
+        # Build base query
+        if company_id:
+            # Join with clients to filter by company
+            query = """
+                SELECT COUNT(*) FROM portraits p
+                JOIN clients c ON p.client_id = c.id
+                WHERE c.company_id = ?
+            """
+            params: List[Any] = [company_id]
+        else:
+            query = "SELECT COUNT(*) FROM portraits WHERE 1=1"
+            params = []
+        
+        # Apply filters
+        if client_id:
+            query += " AND client_id = ?" if not company_id else " AND p.client_id = ?"
+            params.append(client_id)
+        
+        if folder_id:
+            query += " AND folder_id = ?" if not company_id else " AND p.folder_id = ?"
+            params.append(folder_id)
+        
+        if lifecycle_status:
+            query += " AND lifecycle_status = ?" if not company_id else " AND p.lifecycle_status = ?"
+            params.append(lifecycle_status)
+        
+        cursor = self._execute(query, tuple(params))
+        result = cursor.fetchone()
+        return result[0] if result else 0
 
     def increment_portrait_views(self, portrait_id: str) -> None:
         """Increase portrait view count."""
