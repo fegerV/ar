@@ -81,6 +81,7 @@ class CompanyCreate(BaseModel):
     storage_connection_id: Optional[str] = Field(default=None, description="Storage connection ID for remote storage")
     yandex_disk_folder_id: Optional[str] = Field(default=None, description="Yandex Disk folder ID for storing orders")
     content_types: Optional[str] = Field(default=None, description="Comma-separated list of content types for this company")
+    storage_folder_path: Optional[str] = Field(default=None, description="Storage folder path for local storage")
     
     @field_validator('name')
     @classmethod
@@ -102,6 +103,7 @@ class CompanyResponse(BaseModel):
     storage_connection_id: Optional[str] = None
     yandex_disk_folder_id: Optional[str] = None
     content_types: Optional[str] = None
+    storage_folder_path: Optional[str] = None
     created_at: str
 
 
@@ -115,6 +117,7 @@ class CompanyUpdate(BaseModel):
     storage_connection_id: Optional[str] = Field(None, description="Storage connection ID for remote storage")
     yandex_disk_folder_id: Optional[str] = Field(None, description="Yandex Disk folder ID for storing orders")
     content_types: Optional[str] = Field(None, description="Comma-separated list of content types for this company")
+    storage_folder_path: Optional[str] = Field(None, description="Storage folder path for local storage")
     
     @field_validator('name')
     @classmethod
@@ -205,6 +208,44 @@ class CompanyStorageUpdate(BaseModel):
         if v not in ['local', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, minio, yandex_disk')
         return v
+
+
+
+class CompanyStorageTypeUpdate(BaseModel):
+    storage_type: str = Field(..., description="Storage type: local, minio, or yandex_disk")
+    
+    @field_validator('storage_type')
+    @classmethod
+    def validate_storage_type(cls, v: str) -> str:
+        if v not in ['local', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        return v
+
+
+class CompanyStorageFolderUpdate(BaseModel):
+    folder_path: str = Field(..., min_length=1, max_length=255, description="Storage folder path")
+    
+    @field_validator('folder_path')
+    @classmethod
+    def validate_folder_path(cls, v: str) -> str:
+        import re
+        if not v or not v.strip():
+            raise ValueError('Folder path is required')
+        v = v.strip()
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError('Folder path can only contain letters, numbers, dashes, and underscores')
+        return v
+
+
+class CompanyStorageInfoResponse(BaseModel):
+    company_id: str
+    company_name: str
+    storage_type: str
+    storage_folder_path: Optional[str] = None
+    yandex_disk_folder_id: Optional[str] = None
+    storage_connection_id: Optional[str] = None
+    is_configured: bool
+    status_message: str
 
 
 class YandexFolderUpdate(BaseModel):

@@ -16,6 +16,9 @@ from app.models import (
     YandexFolderUpdate,
     CompanyContentTypesUpdate,
     ContentTypeItem,
+    CompanyStorageTypeUpdate,
+    CompanyStorageFolderUpdate,
+    CompanyStorageInfoResponse,
 )
 from logging_setup import get_logger
 
@@ -120,7 +123,8 @@ async def create_company(
             company.storage_type,
             company.storage_connection_id,
             company.yandex_disk_folder_id,
-            company.content_types
+            company.content_types,
+            company.storage_folder_path
         )
         created_company = database.get_company(company_id)
         
@@ -131,6 +135,7 @@ async def create_company(
             storage_connection_id=created_company.get("storage_connection_id"),
             yandex_disk_folder_id=created_company.get("yandex_disk_folder_id"),
             content_types=created_company.get("content_types"),
+            storage_folder_path=created_company.get("storage_folder_path"),
             created_at=created_company["created_at"],
         )
     except Exception as exc:
@@ -160,6 +165,7 @@ async def list_companies(
                 storage_connection_id=c.get("storage_connection_id"),
                 yandex_disk_folder_id=c.get("yandex_disk_folder_id"),
                 content_types=c.get("content_types"),
+                storage_folder_path=c.get("storage_folder_path"),
                 created_at=c["created_at"],
                 client_count=c.get("client_count", 0),
             )
@@ -550,4 +556,253 @@ async def update_company_content_types(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update content types"
+        )
+
+
+@router.get("/companies/{company_id}/storage-info", response_model=CompanyStorageInfoResponse)
+async def get_company_storage_info(
+    request: Request,
+    company_id: str,
+) -> CompanyStorageInfoResponse:
+    """
+    Get storage configuration information for a company.
+    
+    Returns current storage type, folder path, and configuration status.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    company = database.get_company(company_id)
+    if not company:
+        logger.error(
+            "Company not found",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    storage_type = company.get("storage_type", "local")
+    storage_folder_path = company.get("storage_folder_path")
+    yandex_disk_folder_id = company.get("yandex_disk_folder_id")
+    storage_connection_id = company.get("storage_connection_id")
+    
+    is_configured = False
+    status_message = ""
+    
+    if storage_type == "local":
+        if storage_folder_path:
+            is_configured = True
+            status_message = f"✅ Настроено (папка: {storage_folder_path})"
+        else:
+            status_message = "⚠️ Требуется настройка папки"
+    elif storage_type == "yandex_disk":
+        if yandex_disk_folder_id and storage_connection_id:
+            is_configured = True
+            status_message = f"✅ Настроено (Яндекс Диск: {yandex_disk_folder_id})"
+        else:
+            status_message = "⚠️ Требуется выбор папки на Яндекс Диске"
+    else:
+        if storage_connection_id:
+            is_configured = True
+            status_message = "✅ Настроено"
+        else:
+            status_message = "⚠️ Требуется подключение к хранилищу"
+    
+    logger.info(
+        "Retrieved company storage info",
+        company_id=company_id,
+        storage_type=storage_type,
+        is_configured=is_configured,
+        user=username
+    )
+    
+    return CompanyStorageInfoResponse(
+        company_id=company["id"],
+        company_name=company["name"],
+        storage_type=storage_type,
+        storage_folder_path=storage_folder_path,
+        yandex_disk_folder_id=yandex_disk_folder_id,
+        storage_connection_id=storage_connection_id,
+        is_configured=is_configured,
+        status_message=status_message,
+    )
+
+
+@router.put("/companies/{company_id}/storage-type", response_model=CompanyResponse)
+async def update_company_storage_type(
+    request: Request,
+    company_id: str,
+    storage_update: CompanyStorageTypeUpdate,
+) -> CompanyResponse:
+    """
+    Update the storage type for a company.
+    
+    Valid storage types: local, minio, yandex_disk
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    company = database.get_company(company_id)
+    if not company:
+        logger.error(
+            "Company not found",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    try:
+        success = database.update_company(
+            company_id,
+            storage_type=storage_update.storage_type
+        )
+        
+        if not success:
+            logger.error(
+                "Failed to update company storage type",
+                company_id=company_id,
+                storage_type=storage_update.storage_type,
+                user=username
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update storage type"
+            )
+        
+        logger.info(
+            "Updated company storage type",
+            company_id=company_id,
+            old_type=company.get("storage_type"),
+            new_type=storage_update.storage_type,
+            user=username
+        )
+        
+        updated_company = database.get_company(company_id)
+        return CompanyResponse(
+            id=updated_company["id"],
+            name=updated_company["name"],
+            storage_type=updated_company["storage_type"],
+            storage_connection_id=updated_company.get("storage_connection_id"),
+            yandex_disk_folder_id=updated_company.get("yandex_disk_folder_id"),
+            content_types=updated_company.get("content_types"),
+            storage_folder_path=updated_company.get("storage_folder_path"),
+            created_at=updated_company["created_at"],
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to update company storage type",
+            error=str(exc),
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update storage type"
+        )
+
+
+@router.post("/companies/{company_id}/storage-folder", response_model=CompanyResponse)
+async def create_or_update_company_storage_folder(
+    request: Request,
+    company_id: str,
+    folder_update: CompanyStorageFolderUpdate,
+) -> CompanyResponse:
+    """
+    Create or update storage folder for a company (for local storage).
+    
+    Validates folder name and creates the folder on disk.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    company = database.get_company(company_id)
+    if not company:
+        logger.error(
+            "Company not found",
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    if company.get("storage_type") != "local":
+        logger.error(
+            "Company does not use local storage",
+            company_id=company_id,
+            storage_type=company.get("storage_type"),
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Storage folder is only applicable for local storage type"
+        )
+    
+    try:
+        from pathlib import Path
+        
+        folder_path = folder_update.folder_path
+        
+        base_path = Path("app_data") / folder_path
+        base_path.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(
+            "Created storage folder",
+            company_id=company_id,
+            folder_path=folder_path,
+            full_path=str(base_path),
+            user=username
+        )
+        
+        success = database.update_company(
+            company_id,
+            storage_folder_path=folder_path
+        )
+        
+        if not success:
+            logger.error(
+                "Failed to update company storage folder in database",
+                company_id=company_id,
+                folder_path=folder_path,
+                user=username
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update storage folder"
+            )
+        
+        updated_company = database.get_company(company_id)
+        return CompanyResponse(
+            id=updated_company["id"],
+            name=updated_company["name"],
+            storage_type=updated_company["storage_type"],
+            storage_connection_id=updated_company.get("storage_connection_id"),
+            yandex_disk_folder_id=updated_company.get("yandex_disk_folder_id"),
+            content_types=updated_company.get("content_types"),
+            storage_folder_path=updated_company.get("storage_folder_path"),
+            created_at=updated_company["created_at"],
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to create/update storage folder",
+            error=str(exc),
+            company_id=company_id,
+            user=username
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create/update storage folder: {str(exc)}"
         )
