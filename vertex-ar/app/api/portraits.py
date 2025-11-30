@@ -10,15 +10,19 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 import qrcode
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, status
 
 from app.api.auth import get_current_user, require_admin
+from app.cache import CacheManager
+from app.config import settings
 from app.database import Database
 from app.models import ClientResponse, PortraitResponse, VideoResponse
 from app.main import get_current_app
 from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
 from utils import format_bytes
+from logging_setup import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
@@ -34,6 +38,23 @@ def get_database() -> Database:
         app.state.database = Database(DB_PATH)
         ensure_default_admin_user(app.state.database)
     return app.state.database
+
+
+def get_cache() -> Optional[CacheManager]:
+    """Get cache manager instance."""
+    try:
+        app = get_current_app()
+        return getattr(app.state, 'cache_manager', None)
+    except Exception:
+        return None
+
+
+async def invalidate_portrait_cache() -> None:
+    """Invalidate portrait listing cache when data changes."""
+    cache = get_cache()
+    if cache:
+        await cache.invalidate_all()
+        logger.info("Portrait cache invalidated")
 
 
 def _portrait_to_response(portrait: Dict[str, Any]) -> PortraitResponse:
@@ -73,6 +94,9 @@ async def create_portrait(
 ) -> PortraitResponse:
     """Create a new portrait for a client."""
     database = get_database()
+    
+    # Invalidate cache after creation
+    await invalidate_portrait_cache()
     
     # Check if client exists
     client = database.get_client(client_id)
@@ -201,46 +225,117 @@ async def create_portrait(
 
 @router.get("/")
 async def list_portraits(
-    client_id: Optional[str] = None,
-    folder_id: Optional[str] = None,
-    include_preview: bool = False,
+    client_id: Optional[str] = Query(None),
+    folder_id: Optional[str] = Query(None),
+    company_id: Optional[str] = Query(None),
+    lifecycle_status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(None, ge=1, le=settings.CACHE_PAGE_SIZE_MAX, description="Items per page"),
+    include_preview: bool = Query(False, description="Include base64-encoded preview data"),
     username: str = Depends(get_current_user)
-) -> List[Dict[str, Any]]:
-    """Get list of portraits (optionally filtered by client or folder) with optional preview data."""
+) -> Dict[str, Any]:
+    """
+    Get paginated list of portraits with optional filters.
+    
+    Returns:
+        {
+            "items": [...],
+            "total": 100,
+            "page": 1,
+            "page_size": 50,
+            "total_pages": 2
+        }
+    """
     database = get_database()
-    portraits = database.list_portraits(client_id=client_id, folder_id=folder_id)
+    cache = get_cache()
     
+    # Use default page size if not specified
+    if page_size is None:
+        page_size = settings.CACHE_PAGE_SIZE_DEFAULT
+    
+    # Generate cache key
+    cache_key_parts = (
+        "portraits",
+        "list",
+        client_id or "all",
+        folder_id or "all",
+        company_id or "all",
+        lifecycle_status or "all",
+        page,
+        page_size,
+        include_preview,
+    )
+    
+    # Try to get from cache
+    cached_result = None
+    if cache and not include_preview:  # Don't cache preview data (too large)
+        cached_result = await cache.get(*cache_key_parts)
+        if cached_result:
+            logger.debug("Cache hit for portrait list", page=page, page_size=page_size)
+            return cached_result
+    
+    # Fetch from database
+    portraits = database.list_portraits_paginated(
+        page=page,
+        page_size=page_size,
+        client_id=client_id,
+        folder_id=folder_id,
+        company_id=company_id,
+        lifecycle_status=lifecycle_status,
+    )
+    
+    total = database.count_portraits(
+        client_id=client_id,
+        folder_id=folder_id,
+        company_id=company_id,
+        lifecycle_status=lifecycle_status,
+    )
+    
+    total_pages = math.ceil(total / page_size) if page_size > 0 else 0
+    
+    # Convert to response format
+    items = []
     if not include_preview:
-        return [_portrait_to_response(portrait).dict() for portrait in portraits]
-    
-    # Include preview data
-    from logging_setup import get_logger
-    logger = get_logger(__name__)
-    from pathlib import Path
-    
-    result = []
-    for portrait in portraits:
-        portrait_dict = _portrait_to_response(portrait).dict()
+        items = [_portrait_to_response(portrait).dict() for portrait in portraits]
+    else:
+        # Include preview data
+        from pathlib import Path
         
-        # Add preview data if available
-        preview_data = None
-        image_preview_path = portrait.get("image_preview_path")
-        if image_preview_path:
-            try:
-                preview_path = Path(image_preview_path)
-                if preview_path.exists():
-                    with open(preview_path, "rb") as f:
-                        preview_content = base64.b64encode(f.read()).decode()
-                        # Determine format from file extension
-                        if image_preview_path.endswith('.webp'):
-                            preview_data = f"data:image/webp;base64,{preview_content}"
-                        else:
-                            preview_data = f"data:image/jpeg;base64,{preview_content}"
-            except Exception as e:
-                logger.warning(f"Failed to load preview for portrait {portrait['id']}: {e}")
-        
-        portrait_dict['image_preview_data'] = preview_data
-        result.append(portrait_dict)
+        for portrait in portraits:
+            portrait_dict = _portrait_to_response(portrait).dict()
+            
+            # Add preview data if available
+            preview_data = None
+            image_preview_path = portrait.get("image_preview_path")
+            if image_preview_path:
+                try:
+                    preview_path = Path(image_preview_path)
+                    if preview_path.exists():
+                        with open(preview_path, "rb") as f:
+                            preview_content = base64.b64encode(f.read()).decode()
+                            # Determine format from file extension
+                            if image_preview_path.endswith('.webp'):
+                                preview_data = f"data:image/webp;base64,{preview_content}"
+                            else:
+                                preview_data = f"data:image/jpeg;base64,{preview_content}"
+                except Exception as e:
+                    logger.warning(f"Failed to load preview for portrait {portrait['id']}: {e}")
+            
+            portrait_dict['image_preview_data'] = preview_data
+            items.append(portrait_dict)
+    
+    result = {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+    
+    # Cache result (only if not including previews)
+    if cache and not include_preview:
+        await cache.set(result, *cache_key_parts, ttl=settings.CACHE_TTL)
+        logger.debug("Cached portrait list", page=page, page_size=page_size)
     
     return result
 
@@ -258,27 +353,63 @@ async def list_portraits_legacy(
 
 @router.get("/admin/list-with-preview")
 async def list_portraits_with_preview(
-    company_id: Optional[str] = None,
+    company_id: Optional[str] = Query(None),
+    lifecycle_status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(None, ge=1, le=settings.CACHE_PAGE_SIZE_MAX, description="Items per page"),
     _: str = Depends(require_admin)
 ) -> Dict[str, Any]:
-    """Get all portraits with preview images and video info for admin dashboard."""
-    from logging_setup import get_logger
-    logger = get_logger(__name__)
+    """
+    Get paginated portraits with preview images and video info for admin dashboard.
     
+    This is the preview-heavy endpoint used by the admin dashboard.
+    Supports pagination and caching to reduce database/storage load.
+    """
     database = get_database()
+    cache = get_cache()
     
-    # Get clients for the specified company
-    if company_id:
-        clients = database.list_clients(company_id=company_id)
-        client_ids = [client["id"] for client in clients]
-        portraits = []
-        for client_id in client_ids:
-            client_portraits = database.list_portraits(client_id=client_id)
-            portraits.extend(client_portraits)
-    else:
-        portraits = database.list_portraits()
+    # Use default page size if not specified
+    if page_size is None:
+        page_size = settings.CACHE_PAGE_SIZE_DEFAULT
     
-    logger.info(f"Loading {len(portraits)} portraits with previews for company {company_id or 'all'}")
+    # Generate cache key
+    cache_key_parts = (
+        "portraits",
+        "admin_preview",
+        company_id or "all",
+        lifecycle_status or "all",
+        page,
+        page_size,
+    )
+    
+    # Try to get from cache
+    cached_result = None
+    if cache:
+        cached_result = await cache.get(*cache_key_parts)
+        if cached_result:
+            logger.debug("Cache hit for admin portrait preview list", page=page, page_size=page_size)
+            return cached_result
+    
+    # Fetch paginated portraits from database
+    portraits = database.list_portraits_paginated(
+        page=page,
+        page_size=page_size,
+        company_id=company_id,
+        lifecycle_status=lifecycle_status,
+    )
+    
+    total = database.count_portraits(
+        company_id=company_id,
+        lifecycle_status=lifecycle_status,
+    )
+    
+    total_pages = math.ceil(total / page_size) if page_size > 0 else 0
+    
+    logger.info(
+        f"Loading page {page}/{total_pages} ({len(portraits)} portraits) with previews",
+        company_id=company_id or "all",
+        total=total
+    )
     
     result = []
     for portrait in portraits:
@@ -353,8 +484,21 @@ async def list_portraits_with_preview(
             logger.error(f"Error processing portrait {portrait.get('id')}: {e}")
             continue
     
-    logger.info(f"Returning {len(result)} portraits with previews")
-    return {"portraits": result}
+    response_data = {
+        "portraits": result,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+    
+    # Cache the result
+    if cache:
+        await cache.set(response_data, *cache_key_parts, ttl=settings.CACHE_TTL)
+        logger.debug("Cached admin portrait preview list", page=page, page_size=page_size)
+    
+    logger.info(f"Returning page {page}/{total_pages} with {len(result)} portraits with previews")
+    return response_data
 
 
 @router.get("/{portrait_id}/analyze", response_model=Dict[str, Any])
@@ -551,6 +695,9 @@ async def add_video_to_portrait(
     
     database = get_database()
     
+    # Invalidate cache after video creation
+    await invalidate_portrait_cache()
+    
     # Check if portrait exists
     portrait = database.get_portrait(portrait_id)
     if not portrait:
@@ -632,6 +779,9 @@ async def delete_portrait(
     logger = get_logger(__name__)
     
     database = get_database()
+    
+    # Invalidate cache after deletion
+    await invalidate_portrait_cache()
     
     # Check if portrait exists
     portrait = database.get_portrait(portrait_id)

@@ -110,6 +110,15 @@ class Settings:
         self.SMTP_USERNAME = None
         self.SMTP_PASSWORD = None
         
+        # Cache settings
+        self.CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+        self.REDIS_URL = os.getenv("REDIS_URL")  # e.g., redis://localhost:6379/0
+        self.CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # Default 5 minutes
+        self.CACHE_NAMESPACE = os.getenv("CACHE_NAMESPACE", "vertex_ar")
+        self.CACHE_MAX_SIZE = int(os.getenv("CACHE_MAX_SIZE", "1000"))  # For LRU cache
+        self.CACHE_PAGE_SIZE_DEFAULT = int(os.getenv("CACHE_PAGE_SIZE_DEFAULT", "50"))
+        self.CACHE_PAGE_SIZE_MAX = int(os.getenv("CACHE_PAGE_SIZE_MAX", "200"))
+        
         # Monitoring and alerting
         self.ALERTING_ENABLED = os.getenv("ALERTING_ENABLED", "true").lower() == "true"
         self.CPU_THRESHOLD = float(os.getenv("CPU_THRESHOLD", "80.0"))  # %
