@@ -1,7 +1,7 @@
 """
 Company management endpoints for Vertex AR API.
 """
-from typing import Optional
+from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from app.database import Database
 from app.models import (
     CompanyCreate,
+    CompanyUpdate,
     CompanyListItem,
     CompanyResponse,
     PaginatedCompaniesResponse,
@@ -19,6 +20,12 @@ from app.models import (
     CompanyStorageTypeUpdate,
     CompanyStorageFolderUpdate,
     CompanyStorageInfoResponse,
+)
+from app.models_categories import (
+    CategoryCreate,
+    CategoryUpdate,
+    CategoryResponse,
+    PaginatedCategoriesResponse,
 )
 from app.storage_utils import is_local_storage
 from logging_setup import get_logger
@@ -150,13 +157,43 @@ async def create_company(
 @router.get("/companies", response_model=PaginatedCompaniesResponse)
 async def list_companies(
     request: Request,
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    storage_type: Optional[str] = None,
 ) -> PaginatedCompaniesResponse:
-    """Get list of all companies."""
+    """
+    Get list of companies with pagination and filtering.
+    
+    Query parameters:
+    - page: Page number (default: 1)
+    - page_size: Items per page (default: 50, max: 200)
+    - search: Search query for company name
+    - storage_type: Filter by storage type (local, local_disk, minio, yandex_disk)
+    """
     username = _get_admin_user(request)
     database = get_database()
     
+    # Validate pagination params
+    if page < 1:
+        page = 1
+    if page_size < 1 or page_size > 200:
+        page_size = 50
+    
+    offset = (page - 1) * page_size
+    
     try:
-        companies = database.get_companies_with_client_count()
+        # Get paginated companies
+        companies = database.list_companies_paginated(
+            limit=page_size,
+            offset=offset,
+            search=search,
+            storage_type=storage_type
+        )
+        
+        # Get total count for pagination
+        total = database.count_companies_filtered(search=search, storage_type=storage_type)
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
         
         items = [
             CompanyListItem(
@@ -167,6 +204,8 @@ async def list_companies(
                 yandex_disk_folder_id=c.get("yandex_disk_folder_id"),
                 content_types=c.get("content_types"),
                 storage_folder_path=c.get("storage_folder_path"),
+                backup_provider=c.get("backup_provider"),
+                backup_remote_path=c.get("backup_remote_path"),
                 created_at=c["created_at"],
                 client_count=c.get("client_count", 0),
             )
@@ -175,7 +214,10 @@ async def list_companies(
         
         return PaginatedCompaniesResponse(
             items=items,
-            total=len(items),
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
         )
     except Exception as exc:
         logger.error(f"Error listing companies: {exc}")
@@ -251,6 +293,125 @@ async def delete_company(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete company"
+        )
+
+
+@router.put("/companies/{company_id}", response_model=CompanyResponse)
+@router.patch("/companies/{company_id}", response_model=CompanyResponse)
+async def update_company(
+    request: Request,
+    company_id: str,
+    company_update: CompanyUpdate,
+) -> CompanyResponse:
+    """
+    Update company fields (PUT for full replacement, PATCH for partial update).
+    
+    Can update: name, storage_type, storage_connection_id, yandex_disk_folder_id,
+    content_types, storage_folder_path, backup_provider, backup_remote_path
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Prevent updating default company name
+    company = database.get_company(company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    if company_id == "vertex-ar-default" and company_update.name:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot rename default company 'Vertex AR'"
+        )
+    
+    # Validate storage configuration if being updated
+    if company_update.storage_type and not is_local_storage(company_update.storage_type):
+        # If changing to remote storage, ensure connection_id is provided
+        connection_id = company_update.storage_connection_id or company.get("storage_connection_id")
+        if not connection_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Storage connection ID is required for remote storage types"
+            )
+        
+        # Validate connection exists and is active
+        connection = database.get_storage_connection(connection_id)
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Storage connection not found"
+            )
+        if not connection['is_active'] or not connection['is_tested']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Storage connection must be active and tested"
+            )
+    
+    # Build update dict from provided fields
+    update_fields = {}
+    if company_update.name is not None:
+        update_fields['name'] = company_update.name
+    if company_update.storage_type is not None:
+        update_fields['storage_type'] = company_update.storage_type
+    if company_update.storage_connection_id is not None:
+        update_fields['storage_connection_id'] = company_update.storage_connection_id
+    if company_update.yandex_disk_folder_id is not None:
+        update_fields['yandex_disk_folder_id'] = company_update.yandex_disk_folder_id
+    if company_update.content_types is not None:
+        update_fields['content_types'] = company_update.content_types
+    if company_update.storage_folder_path is not None:
+        update_fields['storage_folder_path'] = company_update.storage_folder_path
+    if company_update.backup_provider is not None:
+        update_fields['backup_provider'] = company_update.backup_provider
+    if company_update.backup_remote_path is not None:
+        update_fields['backup_remote_path'] = company_update.backup_remote_path
+    
+    if not update_fields:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields to update"
+        )
+    
+    try:
+        success = database.update_company(company_id, **update_fields)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update company"
+            )
+        
+        # Clear storage adapter cache if storage config changed
+        if any(k in update_fields for k in ['storage_type', 'storage_connection_id', 'yandex_disk_folder_id', 'storage_folder_path']):
+            try:
+                from storage_manager import get_storage_manager
+                storage_manager = get_storage_manager()
+                storage_manager.clear_company_cache(company_id)
+            except Exception as cache_exc:
+                logger.warning(f"Failed to clear storage cache: {cache_exc}")
+        
+        # Return updated company
+        updated_company = database.get_company(company_id)
+        return CompanyResponse(
+            id=updated_company["id"],
+            name=updated_company["name"],
+            storage_type=updated_company.get("storage_type", "local"),
+            storage_connection_id=updated_company.get("storage_connection_id"),
+            yandex_disk_folder_id=updated_company.get("yandex_disk_folder_id"),
+            content_types=updated_company.get("content_types"),
+            storage_folder_path=updated_company.get("storage_folder_path"),
+            backup_provider=updated_company.get("backup_provider"),
+            backup_remote_path=updated_company.get("backup_remote_path"),
+            created_at=updated_company["created_at"],
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error updating company: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update company"
         )
 
 
@@ -840,4 +1001,352 @@ async def create_or_update_company_storage_folder(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create/update storage folder: {str(exc)}"
+        )
+
+
+# Category endpoints (wrapping projects table)
+
+
+@router.post("/companies/{company_id}/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_category(
+    request: Request,
+    company_id: str,
+    category: CategoryCreate,
+) -> CategoryResponse:
+    """
+    Create a new category for a company.
+    
+    Categories are organizational units within a company that can contain portraits/folders.
+    Each category has a storage-friendly slug for folder/URL naming.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Verify company exists
+    company = database.get_company(company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    # Check if slug already exists for this company
+    existing = database.get_category_by_slug(company_id, category.slug)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Category with slug '{category.slug}' already exists"
+        )
+    
+    try:
+        category_id = f"cat-{uuid4().hex[:8]}"
+        created_category = database.create_category(
+            category_id=category_id,
+            company_id=company_id,
+            name=category.name,
+            slug=category.slug,
+            description=category.description
+        )
+        
+        # Get folder and portrait counts
+        folder_count = database.get_project_folder_count(category_id)
+        portrait_count = database.get_project_portrait_count(category_id)
+        
+        logger.info(
+            "Created category",
+            category_id=category_id,
+            company_id=company_id,
+            name=category.name,
+            slug=category.slug,
+            user=username
+        )
+        
+        return CategoryResponse(
+            id=created_category["id"],
+            company_id=created_category["company_id"],
+            name=created_category["name"],
+            slug=created_category.get("slug"),
+            description=created_category.get("description"),
+            created_at=created_category["created_at"],
+            folder_count=folder_count,
+            portrait_count=portrait_count,
+        )
+    except ValueError as ve:
+        if "already_exists" in str(ve):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Category '{category.name}' already exists"
+            )
+        raise
+    except Exception as exc:
+        logger.error(f"Error creating category: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create category"
+        )
+
+
+@router.get("/companies/{company_id}/categories", response_model=PaginatedCategoriesResponse)
+async def list_categories(
+    request: Request,
+    company_id: str,
+    page: int = 1,
+    page_size: int = 50,
+) -> PaginatedCategoriesResponse:
+    """
+    List all categories for a company with pagination.
+    
+    Returns categories with folder and portrait counts.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Verify company exists
+    company = database.get_company(company_id)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found"
+        )
+    
+    # Validate pagination params
+    if page < 1:
+        page = 1
+    if page_size < 1 or page_size > 200:
+        page_size = 50
+    
+    offset = (page - 1) * page_size
+    
+    try:
+        categories = database.list_categories(
+            company_id=company_id,
+            limit=page_size,
+            offset=offset
+        )
+        total = database.count_categories(company_id=company_id)
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        
+        items = []
+        for cat in categories:
+            folder_count = database.get_project_folder_count(cat["id"])
+            portrait_count = database.get_project_portrait_count(cat["id"])
+            
+            items.append(CategoryResponse(
+                id=cat["id"],
+                company_id=cat["company_id"],
+                name=cat["name"],
+                slug=cat.get("slug"),
+                description=cat.get("description"),
+                created_at=cat["created_at"],
+                folder_count=folder_count,
+                portrait_count=portrait_count,
+            ))
+        
+        return PaginatedCategoriesResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+    except Exception as exc:
+        logger.error(f"Error listing categories: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list categories"
+        )
+
+
+@router.get("/companies/{company_id}/categories/{category_id}", response_model=CategoryResponse)
+async def get_category(
+    request: Request,
+    company_id: str,
+    category_id: str,
+) -> CategoryResponse:
+    """Get a specific category by ID."""
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    category = database.get_project(category_id)
+    if not category or category.get("company_id") != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    
+    folder_count = database.get_project_folder_count(category_id)
+    portrait_count = database.get_project_portrait_count(category_id)
+    
+    return CategoryResponse(
+        id=category["id"],
+        company_id=category["company_id"],
+        name=category["name"],
+        slug=category.get("slug"),
+        description=category.get("description"),
+        created_at=category["created_at"],
+        folder_count=folder_count,
+        portrait_count=portrait_count,
+    )
+
+
+@router.put("/companies/{company_id}/categories/{category_id}", response_model=CategoryResponse)
+@router.patch("/companies/{company_id}/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    request: Request,
+    company_id: str,
+    category_id: str,
+    category_update: CategoryUpdate,
+) -> CategoryResponse:
+    """
+    Update category name, slug, or description.
+    
+    Validates that new slug doesn't conflict with existing categories.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Verify category exists and belongs to company
+    category = database.get_project(category_id)
+    if not category or category.get("company_id") != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    
+    # Check for slug conflict if slug is being updated
+    if category_update.slug and category_update.slug != category.get("slug"):
+        existing = database.get_category_by_slug(company_id, category_update.slug)
+        if existing and existing["id"] != category_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Category with slug '{category_update.slug}' already exists"
+            )
+    
+    try:
+        success = database.rename_category(
+            category_id=category_id,
+            new_name=category_update.name or category["name"],
+            new_slug=category_update.slug
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update category"
+            )
+        
+        # Update description separately if provided
+        if category_update.description is not None:
+            database.update_project(category_id, description=category_update.description)
+        
+        # Get updated category
+        updated_category = database.get_project(category_id)
+        folder_count = database.get_project_folder_count(category_id)
+        portrait_count = database.get_project_portrait_count(category_id)
+        
+        logger.info(
+            "Updated category",
+            category_id=category_id,
+            company_id=company_id,
+            user=username
+        )
+        
+        return CategoryResponse(
+            id=updated_category["id"],
+            company_id=updated_category["company_id"],
+            name=updated_category["name"],
+            slug=updated_category.get("slug"),
+            description=updated_category.get("description"),
+            created_at=updated_category["created_at"],
+            folder_count=folder_count,
+            portrait_count=portrait_count,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error updating category: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update category"
+        )
+
+
+@router.delete("/companies/{company_id}/categories/{category_id}", response_model=MessageResponse)
+async def delete_category(
+    request: Request,
+    company_id: str,
+    category_id: str,
+) -> MessageResponse:
+    """
+    Delete a category.
+    
+    This will cascade delete all folders and portraits within the category.
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    # Verify category exists and belongs to company
+    category = database.get_project(category_id)
+    if not category or category.get("company_id") != company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    
+    try:
+        success = database.delete_category(category_id)
+        if success:
+            logger.info(
+                "Deleted category",
+                category_id=category_id,
+                company_id=company_id,
+                name=category["name"],
+                user=username
+            )
+            return MessageResponse(
+                message=f"Category '{category['name']}' deleted successfully"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete category"
+            )
+    except Exception as exc:
+        logger.error(f"Error deleting category: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete category"
+        )
+
+
+# Storage workflow endpoints
+
+
+@router.get("/companies/workflow/storage-options", response_model=List[dict])
+async def get_storage_workflow_options(
+    request: Request,
+) -> List[dict]:
+    """
+    Get available storage options for company creation workflow.
+    
+    Returns list of storage types with connection details:
+    - Local storage (always available)
+    - Tested remote storage connections (MinIO, Yandex Disk)
+    """
+    username = _get_admin_user(request)
+    database = get_database()
+    
+    try:
+        options = database.get_available_storage_options()
+        logger.info(
+            "Retrieved storage workflow options",
+            count=len(options),
+            user=username
+        )
+        return options
+    except Exception as exc:
+        logger.error(f"Error getting storage options: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get storage options"
         )

@@ -358,6 +358,9 @@ class YandexDiskFoldersResponse(BaseModel):
 class PaginatedCompaniesResponse(BaseModel):
     items: List[CompanyListItem]
     total: int
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=50, description="Items per page")
+    total_pages: int = Field(default=1, description="Total number of pages")
 
 
 # Client models

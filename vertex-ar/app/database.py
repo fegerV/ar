@@ -350,6 +350,16 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
+            # Add slug column to projects table for category functionality
+            try:
+                self._connection.execute("ALTER TABLE projects ADD COLUMN slug TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_company_slug ON projects(company_id, slug)")
+            except sqlite3.OperationalError:
+                pass
+            
             # Add lifecycle management columns to projects table
             try:
                 self._connection.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
@@ -1937,6 +1947,79 @@ class Database:
         """)
         return [dict(row) for row in cursor.fetchall()]
 
+    def list_companies_paginated(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        search: Optional[str] = None,
+        storage_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get paginated list of companies with optional filtering.
+        
+        Args:
+            limit: Maximum number of companies to return
+            offset: Number of companies to skip
+            search: Optional search query (matches name)
+            storage_type: Optional storage type filter
+            
+        Returns:
+            List of company dicts with client_count
+        """
+        query = """
+            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id,
+                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
+                   c.backup_provider, c.backup_remote_path, COUNT(cl.id) as client_count
+            FROM companies c
+            LEFT JOIN clients cl ON c.id = cl.company_id
+            WHERE 1=1
+        """
+        params: List[Any] = []
+        
+        if search:
+            query += " AND c.name LIKE ?"
+            params.append(f"%{search}%")
+        
+        if storage_type:
+            query += " AND c.storage_type = ?"
+            params.append(storage_type)
+        
+        query += " GROUP BY c.id ORDER BY c.name ASC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        
+        cursor = self._execute(query, tuple(params))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def count_companies_filtered(
+        self,
+        search: Optional[str] = None,
+        storage_type: Optional[str] = None
+    ) -> int:
+        """
+        Count companies with optional filtering.
+        
+        Args:
+            search: Optional search query (matches name)
+            storage_type: Optional storage type filter
+            
+        Returns:
+            Total count of matching companies
+        """
+        query = "SELECT COUNT(*) as count FROM companies WHERE 1=1"
+        params: List[Any] = []
+        
+        if search:
+            query += " AND name LIKE ?"
+            params.append(f"%{search}%")
+        
+        if storage_type:
+            query += " AND storage_type = ?"
+            params.append(storage_type)
+        
+        cursor = self._execute(query, tuple(params))
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+
     def update_company_storage(
         self, 
         company_id: str, 
@@ -2281,7 +2364,7 @@ class Database:
         
         return options
 
-    # Project methods
+    # Project methods (also used for category management)
     def create_project(
         self, 
         project_id: str, 
@@ -2289,13 +2372,14 @@ class Database:
         name: str, 
         description: Optional[str] = None,
         status: str = "active",
-        subscription_end: Optional[str] = None
+        subscription_end: Optional[str] = None,
+        slug: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create a new project."""
         try:
             self._execute(
-                "INSERT INTO projects (id, company_id, name, description, status, subscription_end) VALUES (?, ?, ?, ?, ?, ?)",
-                (project_id, company_id, name, description, status, subscription_end),
+                "INSERT INTO projects (id, company_id, name, description, status, subscription_end, slug) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (project_id, company_id, name, description, status, subscription_end, slug),
             )
             logger.info(f"Created project: {name} in company {company_id}")
             return self.get_project(project_id)
@@ -2469,6 +2553,155 @@ class Database:
                 results[status] = 0
         
         return results
+
+    # Category methods (wrapping projects table)
+    def create_category(
+        self, 
+        category_id: str, 
+        company_id: str, 
+        name: str, 
+        slug: str,
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a new category (project) with storage-friendly slug.
+        
+        Args:
+            category_id: Unique category ID
+            company_id: Parent company ID
+            name: Display name for the category
+            slug: URL/storage-friendly identifier
+            description: Optional description
+            
+        Returns:
+            Created category dict
+            
+        Raises:
+            ValueError: If category with same name or slug already exists
+        """
+        return self.create_project(
+            project_id=category_id,
+            company_id=company_id,
+            name=name,
+            description=description,
+            slug=slug
+        )
+    
+    def list_categories(
+        self, 
+        company_id: str, 
+        limit: Optional[int] = None, 
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        List all categories (projects) for a company.
+        
+        Args:
+            company_id: Company ID to filter by
+            limit: Optional limit for pagination
+            offset: Optional offset for pagination
+            
+        Returns:
+            List of category dicts with id, name, slug, description, created_at
+        """
+        return self.list_projects(company_id=company_id, limit=limit, offset=offset)
+    
+    def count_categories(self, company_id: str) -> int:
+        """
+        Count categories (projects) for a company.
+        
+        Args:
+            company_id: Company ID to filter by
+            
+        Returns:
+            Total count of categories
+        """
+        return self.count_projects(company_id=company_id)
+    
+    def get_category_by_slug(self, company_id: str, slug: str) -> Optional[Dict[str, Any]]:
+        """
+        Get category by slug within a company.
+        
+        Args:
+            company_id: Company ID
+            slug: Category slug
+            
+        Returns:
+            Category dict or None if not found
+        """
+        cursor = self._execute(
+            "SELECT * FROM projects WHERE company_id = ? AND slug = ?",
+            (company_id, slug)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    
+    def rename_category(self, category_id: str, new_name: str, new_slug: Optional[str] = None) -> bool:
+        """
+        Rename a category and optionally update its slug.
+        
+        Args:
+            category_id: Category ID
+            new_name: New display name
+            new_slug: Optional new slug
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        updates = ["name = ?"]
+        params = [new_name]
+        
+        if new_slug is not None:
+            updates.append("slug = ?")
+            params.append(new_slug)
+        
+        params.append(category_id)
+        query = f"UPDATE projects SET {', '.join(updates)} WHERE id = ?"
+        
+        try:
+            cursor = self._execute(query, tuple(params))
+            return cursor.rowcount > 0
+        except sqlite3.IntegrityError:
+            logger.error(f"Failed to rename category {category_id}: slug or name conflict")
+            return False
+        except Exception as exc:
+            logger.error(f"Failed to rename category: {exc}")
+            return False
+    
+    def delete_category(self, category_id: str) -> bool:
+        """
+        Delete a category (project).
+        
+        Args:
+            category_id: Category ID to delete
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        return self.delete_project(category_id)
+    
+    def assign_category_folder(self, portrait_id: str, category_folder_id: str) -> bool:
+        """
+        Assign a portrait to a category folder.
+        
+        Args:
+            portrait_id: Portrait ID
+            category_folder_id: Folder ID (which belongs to a category/project)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            cursor = self._execute(
+                "UPDATE portraits SET folder_id = ? WHERE id = ?",
+                (category_folder_id, portrait_id)
+            )
+            return cursor.rowcount > 0
+        except Exception as exc:
+            logger.error(f"Failed to assign category folder: {exc}")
+            return False
 
     # Folder methods
     def create_folder(self, folder_id: str, project_id: str, name: str, description: Optional[str] = None) -> Dict[str, Any]:
