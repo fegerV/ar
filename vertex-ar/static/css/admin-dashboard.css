@@ -901,6 +901,221 @@ body {
     background-color: #c82333;
 }
 
+.company-btn:disabled {
+    background-color: var(--secondary-color);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Storage Management Styles */
+.storage-management-section {
+    margin-top: 1.5rem;
+}
+
+.storage-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all var(--transition-speed);
+}
+
+.storage-status-badge[data-status="ready"] {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.storage-status-badge[data-status="warning"] {
+    background-color: var(--warning-color);
+    color: #000;
+}
+
+.storage-status-badge[data-status="error"] {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.storage-folder-input {
+    transition: border-color var(--transition-speed);
+}
+
+.storage-folder-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.storage-folder-input.error {
+    border-color: var(--danger-color);
+}
+
+.storage-folder-input.error:focus {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.input-error {
+    color: var(--danger-color);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: none;
+    animation: shake 0.3s;
+}
+
+.input-error.visible {
+    display: block;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.storage-folder-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-color);
+}
+
+.storage-folder-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.storage-folder-list::-webkit-scrollbar-track {
+    background: var(--bg-color);
+    border-radius: 4px;
+}
+
+.storage-folder-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+    transition: background var(--transition-speed);
+}
+
+.storage-folder-list::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+.storage-folder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color var(--transition-speed);
+}
+
+.storage-folder-item:last-child {
+    border-bottom: none;
+}
+
+.storage-folder-item:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.storage-folder-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.storage-folder-name {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.storage-folder-meta {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+}
+
+.storage-folder-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.storage-folder-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.storage-folder-delete-btn {
+    background-color: transparent;
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all var(--transition-speed);
+    font-weight: 500;
+}
+
+.storage-folder-delete-btn:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.storage-folder-delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.storage-empty-state {
+    padding: 2rem 1rem;
+    text-align: center;
+    background: var(--bg-color);
+    border-radius: var(--border-radius);
+    border: 2px dashed var(--border-color);
+}
+
+.storage-empty-list {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+}
+
+.storage-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.storage-badge.ready {
+    background-color: rgba(40, 167, 69, 0.15);
+    color: var(--success-color);
+}
+
+.storage-badge.pending {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: var(--warning-color);
+}
+
+.storage-badge.error {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: var(--danger-color);
+}
+
 /* Mobile Responsive Design */
 @media (max-width: 1200px) {
     .container {
@@ -965,6 +1180,17 @@ body {
     .company-select,
     .company-input {
         min-width: auto;
+    }
+    
+    .storage-folder-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .storage-folder-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 }
 

@@ -1916,6 +1916,13 @@ function debounce(func, wait) {
     };
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Performance optimization - lazy load non-critical features
 const lazyLoadFeatures = () => {
     // Load features that are not immediately needed
@@ -2432,6 +2439,438 @@ window.toggleFiltersPanel = function() {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     }
 };
+
+// ============================================================
+// Storage Management Functions
+// ============================================================
+
+/**
+ * Initialize storage management UI based on current company
+ */
+async function initializeStorageManagement() {
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showStorageEmptyState('Компания не выбрана');
+        return;
+    }
+    
+    try {
+        // Fetch storage configuration for current company
+        const response = await fetch(`/api/companies/${encodeURIComponent(companyId)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const company = await response.json();
+            updateStorageUI(company);
+            
+            // Load folders if local storage
+            if (company.storage_type === 'local') {
+                await loadStorageFolders();
+            }
+        } else {
+            showStorageEmptyState('Не удалось загрузить настройки хранилища');
+        }
+    } catch (error) {
+        console.error('Error initializing storage management:', error);
+        showStorageEmptyState('Ошибка при загрузке настроек хранилища');
+    }
+}
+
+/**
+ * Update storage UI with company configuration
+ */
+function updateStorageUI(company) {
+    const storageType = company.storage_type || 'local';
+    const basePath = company.base_path || '/uploads';
+    
+    // Update storage type and path
+    const storageTypeEl = document.getElementById('storageType');
+    const storageBasePathEl = document.getElementById('storageBasePath');
+    
+    if (storageTypeEl) {
+        storageTypeEl.textContent = getStorageTypeLabel(storageType);
+    }
+    
+    if (storageBasePathEl) {
+        storageBasePathEl.textContent = basePath;
+    }
+    
+    // Update status badge
+    updateStorageStatusBadge('ready');
+    
+    // Show/hide management UI based on storage type
+    const emptyState = document.getElementById('storageEmptyState');
+    const managementUI = document.getElementById('storageFolderManagement');
+    
+    if (storageType === 'local') {
+        if (emptyState) emptyState.style.display = 'none';
+        if (managementUI) managementUI.style.display = 'flex';
+    } else {
+        if (emptyState) emptyState.style.display = 'block';
+        if (managementUI) managementUI.style.display = 'none';
+    }
+    
+    // Populate content type selector
+    populateContentTypeSelector(company.content_types || []);
+}
+
+/**
+ * Get human-readable storage type label
+ */
+function getStorageTypeLabel(storageType) {
+    const labels = {
+        'local': 'Локальный диск',
+        'yandex': 'Yandex Disk',
+        's3': 'Amazon S3',
+        'minio': 'MinIO'
+    };
+    return labels[storageType] || storageType;
+}
+
+/**
+ * Update storage status badge
+ */
+function updateStorageStatusBadge(status) {
+    const badge = document.getElementById('storageStatus');
+    if (!badge) return;
+    
+    badge.setAttribute('data-status', status);
+    
+    const statusConfig = {
+        'ready': { text: '✅ Готово', bg: 'var(--success-color)', color: 'white' },
+        'warning': { text: '⚠️ Внимание', bg: 'var(--warning-color)', color: '#000' },
+        'error': { text: '❌ Ошибка', bg: 'var(--danger-color)', color: 'white' }
+    };
+    
+    const config = statusConfig[status] || statusConfig.ready;
+    badge.textContent = config.text;
+    badge.style.background = config.bg;
+    badge.style.color = config.color;
+}
+
+/**
+ * Show empty state message
+ */
+function showStorageEmptyState(message) {
+    const emptyState = document.getElementById('storageEmptyState');
+    const managementUI = document.getElementById('storageFolderManagement');
+    
+    if (emptyState) {
+        emptyState.style.display = 'block';
+        if (message) {
+            const messageEl = emptyState.querySelector('p:last-child');
+            if (messageEl) messageEl.textContent = message;
+        }
+    }
+    
+    if (managementUI) {
+        managementUI.style.display = 'none';
+    }
+}
+
+/**
+ * Populate content type selector
+ */
+function populateContentTypeSelector(contentTypes) {
+    const selector = document.getElementById('storageFolderContentType');
+    if (!selector) return;
+    
+    // Clear existing options except first (placeholder)
+    selector.innerHTML = '<option value="">Не указан</option>';
+    
+    // Add content types
+    if (Array.isArray(contentTypes) && contentTypes.length > 0) {
+        contentTypes.forEach(ct => {
+            const option = document.createElement('option');
+            option.value = ct.slug || ct;
+            option.textContent = ct.label || ct;
+            selector.appendChild(option);
+        });
+    }
+}
+
+/**
+ * Load storage folders for current company
+ */
+async function loadStorageFolders() {
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) return;
+    
+    AdminDashboard.setState({ storageLoading: true });
+    
+    try {
+        // TODO: Replace with actual API endpoint when backend is ready
+        // For now, show empty state
+        const folders = [];
+        
+        displayStorageFolders(folders);
+    } catch (error) {
+        console.error('Error loading storage folders:', error);
+        showToast('Ошибка при загрузке списка папок', 'error');
+    } finally {
+        AdminDashboard.setState({ storageLoading: false });
+    }
+}
+
+/**
+ * Display storage folders in the list
+ */
+function displayStorageFolders(folders) {
+    const listContainer = document.getElementById('storageFolderList');
+    const countEl = document.getElementById('storageFolderCount');
+    
+    if (!listContainer) return;
+    
+    // Update count
+    if (countEl) {
+        countEl.textContent = `${folders.length} ${folders.length === 1 ? 'папка' : 'папок'}`;
+    }
+    
+    // Clear list
+    listContainer.innerHTML = '';
+    
+    if (folders.length === 0) {
+        listContainer.innerHTML = `
+            <div class="storage-empty-list" style="padding: 2rem 1rem; text-align: center; color: var(--secondary-color); font-size: 0.9rem;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem; opacity: 0.5;">📂</div>
+                <p>Папки появятся здесь после создания</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Render folders
+    folders.forEach(folder => {
+        const folderItem = createFolderItemElement(folder);
+        listContainer.appendChild(folderItem);
+    });
+}
+
+/**
+ * Create folder item element
+ */
+function createFolderItemElement(folder) {
+    const item = document.createElement('div');
+    item.className = 'storage-folder-item';
+    item.dataset.folderId = folder.id || folder.name;
+    
+    const folderInfo = document.createElement('div');
+    folderInfo.className = 'storage-folder-info';
+    
+    const folderName = document.createElement('div');
+    folderName.className = 'storage-folder-name';
+    folderName.innerHTML = `📁 ${escapeHtml(folder.name)}`;
+    
+    const folderMeta = document.createElement('div');
+    folderMeta.className = 'storage-folder-meta';
+    
+    // Add metadata
+    if (folder.content_type) {
+        const metaItem = document.createElement('span');
+        metaItem.className = 'storage-folder-meta-item';
+        metaItem.innerHTML = `🏷️ ${escapeHtml(folder.content_type)}`;
+        folderMeta.appendChild(metaItem);
+    }
+    
+    if (folder.created_at) {
+        const metaItem = document.createElement('span');
+        metaItem.className = 'storage-folder-meta-item';
+        metaItem.innerHTML = `📅 ${new Date(folder.created_at).toLocaleDateString('ru-RU')}`;
+        folderMeta.appendChild(metaItem);
+    }
+    
+    if (folder.file_count !== undefined) {
+        const metaItem = document.createElement('span');
+        metaItem.className = 'storage-folder-meta-item';
+        metaItem.innerHTML = `📄 ${folder.file_count} файлов`;
+        folderMeta.appendChild(metaItem);
+    }
+    
+    folderInfo.appendChild(folderName);
+    folderInfo.appendChild(folderMeta);
+    
+    const actions = document.createElement('div');
+    actions.className = 'storage-folder-actions';
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'storage-folder-delete-btn';
+    deleteBtn.textContent = '🗑️ Удалить';
+    deleteBtn.onclick = () => deleteStorageFolder(folder.id || folder.name);
+    
+    actions.appendChild(deleteBtn);
+    
+    item.appendChild(folderInfo);
+    item.appendChild(actions);
+    
+    return item;
+}
+
+/**
+ * Validate folder name input
+ */
+function validateFolderInput() {
+    const input = document.getElementById('storageFolderInput');
+    const errorEl = document.getElementById('storageFolderInputError');
+    const createBtn = document.getElementById('createFolderBtn');
+    
+    if (!input || !createBtn) return false;
+    
+    const value = input.value.trim();
+    const pattern = /^[a-zA-Z0-9_-]+$/;
+    
+    if (!value) {
+        input.classList.remove('error');
+        if (errorEl) {
+            errorEl.style.display = 'none';
+            errorEl.textContent = '';
+        }
+        createBtn.disabled = true;
+        return false;
+    }
+    
+    if (!pattern.test(value)) {
+        input.classList.add('error');
+        if (errorEl) {
+            errorEl.style.display = 'block';
+            errorEl.textContent = 'Только буквы, цифры, дефисы и подчёркивания';
+            errorEl.classList.add('visible');
+        }
+        createBtn.disabled = true;
+        return false;
+    }
+    
+    input.classList.remove('error');
+    if (errorEl) {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        errorEl.classList.remove('visible');
+    }
+    createBtn.disabled = false;
+    return true;
+}
+
+/**
+ * Create new storage folder
+ */
+window.createStorageFolder = async function() {
+    const input = document.getElementById('storageFolderInput');
+    const contentTypeSelect = document.getElementById('storageFolderContentType');
+    
+    if (!validateFolderInput()) {
+        return;
+    }
+    
+    const folderName = input.value.trim();
+    const contentType = contentTypeSelect?.value || '';
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Создание папки...');
+        
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await fetch('/api/storage/folders', {
+        //     method: 'POST',
+        //     credentials: 'include',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({
+        //         company_id: companyId,
+        //         folder_name: folderName,
+        //         content_type: contentType
+        //     })
+        // });
+        
+        // Simulated success for now
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        showToast(`Папка "${folderName}" создана (функция в разработке)`, 'info');
+        input.value = '';
+        if (contentTypeSelect) contentTypeSelect.value = '';
+        
+        // Refresh folder list
+        await refreshStorageFolderList();
+        
+    } catch (error) {
+        console.error('Error creating folder:', error);
+        showToast('Ошибка при создании папки', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+/**
+ * Refresh storage folder list
+ */
+window.refreshStorageFolderList = async function() {
+    try {
+        showLoading('Обновление списка...');
+        await loadStorageFolders();
+        showToast('Список папок обновлён', 'success');
+    } catch (error) {
+        console.error('Error refreshing folder list:', error);
+        showToast('Ошибка при обновлении списка', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+/**
+ * Delete storage folder
+ */
+async function deleteStorageFolder(folderId) {
+    if (!confirm('Вы уверены, что хотите удалить эту папку? Это действие нельзя отменить.')) {
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    try {
+        showLoading('Удаление папки...');
+        
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await fetch(`/api/storage/folders/${encodeURIComponent(folderId)}`, {
+        //     method: 'DELETE',
+        //     credentials: 'include',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({ company_id: companyId })
+        // });
+        
+        // Simulated success for now
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        showToast('Папка удалена (функция в разработке)', 'info');
+        
+        // Refresh folder list
+        await refreshStorageFolderList();
+        
+    } catch (error) {
+        console.error('Error deleting folder:', error);
+        showToast('Ошибка при удалении папки', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Add input validation listener
+document.addEventListener('DOMContentLoaded', () => {
+    const folderInput = document.getElementById('storageFolderInput');
+    if (folderInput) {
+        folderInput.addEventListener('input', validateFolderInput);
+        folderInput.addEventListener('blur', validateFolderInput);
+    }
+    
+    // Initialize storage management on page load
+    initializeStorageManagement();
+});
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
