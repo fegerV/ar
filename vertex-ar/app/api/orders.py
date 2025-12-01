@@ -16,6 +16,7 @@ from app.api.auth import require_admin
 from app.database import Database
 from app.main import get_current_app
 from app.models import ClientResponse, OrderResponse, PortraitResponse, VideoResponse
+from app.services.folder_service import FolderService
 from logging_setup import get_logger
 from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
 from preview_generator import PreviewGenerator
@@ -107,10 +108,14 @@ async def _create_order_workflow(
     yandex_disk_folder_id = company.get('yandex_disk_folder_id')
     storage_type = company.get('storage_type', 'local')
     use_yandex_storage = storage_type == 'yandex_disk' and yandex_disk_folder_id
+    use_local_storage = storage_type in ('local', 'local_disk')
     
-    # Always create local temp directory for NFT marker generation
-    portrait_dir = storage_root / "portraits" / client["id"] / portrait_id
-    portrait_dir.mkdir(parents=True, exist_ok=True)
+    # Initialize folder service for local storage
+    folder_service = FolderService(storage_root) if use_local_storage else None
+    
+    # Create temp directory for NFT marker generation (always local)
+    temp_dir = storage_root / "temp" / "orders" / portrait_id
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
     image.file.seek(0)
     video.file.seek(0)
@@ -119,18 +124,18 @@ async def _create_order_workflow(
         image_content = await image.read()
         video_content = await video.read()
 
-        # Write files to local temp directory first
-        local_image_path = portrait_dir / f"{portrait_id}.jpg"
-        with open(local_image_path, "wb") as image_file:
+        # Write files to temp directory first
+        temp_image_path = temp_dir / f"{portrait_id}.jpg"
+        with open(temp_image_path, "wb") as image_file:
             image_file.write(image_content)
 
-        local_video_path = portrait_dir / f"{video_id}.mp4"
-        with open(local_video_path, "wb") as video_file:
+        temp_video_path = temp_dir / f"{video_id}.mp4"
+        with open(temp_video_path, "wb") as video_file:
             video_file.write(video_content)
         
         # Initialize paths (will be updated based on storage type)
-        image_path = local_image_path
-        video_path = local_video_path
+        image_path = temp_image_path
+        video_path = temp_video_path
 
         video_file_size_mb: int | None = None
         try:
@@ -146,7 +151,7 @@ async def _create_order_workflow(
         try:
             image_preview = PreviewGenerator.generate_image_preview(image_content)
             if image_preview:
-                image_preview_path = portrait_dir / f"{portrait_id}_preview.jpg"
+                image_preview_path = temp_dir / f"{portrait_id}_preview.jpg"
                 with open(image_preview_path, "wb") as preview_file:
                     preview_file.write(image_preview)
                 logger.info(
@@ -168,7 +173,7 @@ async def _create_order_workflow(
         try:
             video_preview = PreviewGenerator.generate_video_preview(video_content)
             if video_preview:
-                video_preview_path = portrait_dir / f"{video_id}_preview.jpg"
+                video_preview_path = temp_dir / f"{video_id}_preview.jpg"
                 with open(video_preview_path, "wb") as preview_file:
                     preview_file.write(video_preview)
                 logger.info(
@@ -187,7 +192,7 @@ async def _create_order_workflow(
                 exc_info=exc,
             )
 
-        # Generate NFT markers using local files
+        # Generate NFT markers using temp files
         nft_generator = NFTMarkerGenerator(storage_root)
         marker_config = NFTMarkerConfig(
             feature_density="high",
@@ -195,7 +200,7 @@ async def _create_order_workflow(
             max_image_size=8192,
             max_image_area=50_000_000,
         )
-        marker_result = nft_generator.generate_marker(str(local_image_path), portrait_id, marker_config)
+        marker_result = nft_generator.generate_marker(str(temp_image_path), portrait_id, marker_config)
 
         permanent_link = f"portrait_{portrait_id}"
         portrait_url = f"{base_url}/portrait/{permanent_link}"
@@ -303,10 +308,125 @@ async def _create_order_workflow(
                     company_id=company_id,
                     exc_info=yandex_exc
                 )
-                # Fall back to local storage paths
+                # Fall back to local storage
                 use_yandex_storage = False
-                image_path = local_image_path
-                video_path = local_video_path
+                use_local_storage = True
+                folder_service = FolderService(storage_root)
+        
+        # Handle local storage if configured or fallback from Yandex
+        if use_local_storage and folder_service:
+            try:
+                # Create folder structure using folder service
+                order_id = portrait_id
+                structure_result = folder_service.ensure_order_structure(
+                    company,
+                    content_type,
+                    order_id
+                )
+                
+                logger.info(
+                    "Created order structure on local storage",
+                    company_id=company_id,
+                    content_type=content_type,
+                    order_id=order_id,
+                    results=structure_result
+                )
+                
+                # Move image to Image subfolder
+                final_image_path = folder_service.build_order_path(
+                    company, content_type, order_id, "Image"
+                ) / f"{portrait_id}.jpg"
+                folder_service.move_file(temp_image_path, final_image_path)
+                image_path = Path(folder_service.build_relative_path(
+                    company, content_type, order_id, f"{portrait_id}.jpg", "Image"
+                ))
+                logger.info("Moved image to local storage", path=str(image_path))
+                
+                # Move video to Image subfolder
+                final_video_path = folder_service.build_order_path(
+                    company, content_type, order_id, "Image"
+                ) / f"{video_id}.mp4"
+                folder_service.move_file(temp_video_path, final_video_path)
+                video_path = Path(folder_service.build_relative_path(
+                    company, content_type, order_id, f"{video_id}.mp4", "Image"
+                ))
+                logger.info("Moved video to local storage", path=str(video_path))
+                
+                # Move image preview if exists
+                if image_preview_path and image_preview_path.exists():
+                    final_image_preview_path = folder_service.build_order_path(
+                        company, content_type, order_id, "Image"
+                    ) / f"{portrait_id}_preview.jpg"
+                    folder_service.move_file(image_preview_path, final_image_preview_path)
+                    image_preview_path = Path(folder_service.build_relative_path(
+                        company, content_type, order_id, f"{portrait_id}_preview.jpg", "Image"
+                    ))
+                    logger.info("Moved image preview to local storage", path=str(image_preview_path))
+                
+                # Move video preview if exists
+                if video_preview_path and video_preview_path.exists():
+                    final_video_preview_path = folder_service.build_order_path(
+                        company, content_type, order_id, "Image"
+                    ) / f"{video_id}_preview.jpg"
+                    folder_service.move_file(video_preview_path, final_video_preview_path)
+                    video_preview_path = Path(folder_service.build_relative_path(
+                        company, content_type, order_id, f"{video_id}_preview.jpg", "Image"
+                    ))
+                    logger.info("Moved video preview to local storage", path=str(video_preview_path))
+                
+                # Save QR code to QR subfolder
+                qr_bytes = qr_buffer.getvalue()
+                qr_filename = f"{portrait_id}_qr.png"
+                qr_path = folder_service.build_order_path(
+                    company, content_type, order_id, "QR"
+                ) / qr_filename
+                with open(qr_path, "wb") as qr_file:
+                    qr_file.write(qr_bytes)
+                logger.info("Saved QR code to local storage", path=str(qr_path))
+                
+                # Move NFT markers to nft_markers subfolder
+                for marker_file in [marker_result.fset_path, marker_result.fset3_path, marker_result.iset_path]:
+                    if marker_file and Path(marker_file).exists():
+                        marker_filename = Path(marker_file).name
+                        final_marker_path = folder_service.build_order_path(
+                            company, content_type, order_id, "nft_markers"
+                        ) / marker_filename
+                        folder_service.move_file(Path(marker_file), final_marker_path)
+                        
+                        # Update marker_result with new paths (relative)
+                        relative_marker_path = folder_service.build_relative_path(
+                            company, content_type, order_id, marker_filename, "nft_markers"
+                        )
+                        if marker_file == marker_result.fset_path:
+                            marker_result.fset_path = relative_marker_path
+                        elif marker_file == marker_result.fset3_path:
+                            marker_result.fset3_path = relative_marker_path
+                        elif marker_file == marker_result.iset_path:
+                            marker_result.iset_path = relative_marker_path
+                        
+                        logger.info("Moved NFT marker to local storage", path=relative_marker_path)
+                
+                # Clean up temp directory
+                folder_service.cleanup_temp_directory(temp_dir)
+                
+                logger.info(
+                    "Successfully organized all order artifacts in local storage",
+                    order_id=order_id,
+                    company_id=company_id
+                )
+                
+            except (PermissionError, OSError) as storage_exc:
+                logger.error(
+                    "Failed to organize files in local storage folder structure",
+                    error=str(storage_exc),
+                    company_id=company_id,
+                    order_id=portrait_id,
+                    exc_info=storage_exc
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Storage error: {str(storage_exc)}"
+                )
 
         portrait_record = database.create_portrait(
             portrait_id=portrait_id,
@@ -375,7 +495,8 @@ async def _create_order_workflow(
             extra={"admin": username, "client_phone": phone, "endpoint": endpoint},
             exc_info=exc,
         )
-        shutil.rmtree(portrait_dir, ignore_errors=True)
+        # Clean up temp directory on error
+        shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create order")
 
 
