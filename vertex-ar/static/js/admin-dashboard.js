@@ -21,7 +21,10 @@ const AdminDashboard = {
         lastUpdate: null,
         statusFilter: null,
         companyConfigs: {},
-        yandexFolders: []
+        yandexFolders: [],
+        storageConfig: null,
+        storageFolders: [],
+        storageLoading: false
     },
     
     // State persistence using localStorage instead of cookies
@@ -142,6 +145,14 @@ function refreshData() {
     loadCompanies();
     loadBackupStats();
     loadRecords(); // Also reload records with current company context
+    
+    // Refresh storage config and folders for current company
+    const currentCompanyId = AdminDashboard.state.currentCompany?.id;
+    if (currentCompanyId) {
+        loadCompanyStorageConfig(currentCompanyId);
+        loadStorageFolders(currentCompanyId);
+    }
+    
     addLog('Данные обновлены автоматически', 'info');
 }
 
@@ -195,6 +206,21 @@ function initializeEventListeners() {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addContentType();
+            }
+        });
+    }
+    
+    // Storage folder input listeners
+    const newStorageFolderInput = document.getElementById('newStorageFolderInput');
+    const addStorageFolderBtn = document.getElementById('addStorageFolderBtn');
+    if (newStorageFolderInput && addStorageFolderBtn) {
+        newStorageFolderInput.addEventListener('input', function() {
+            addStorageFolderBtn.disabled = !this.value.trim();
+        });
+        newStorageFolderInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                createStorageFolder();
             }
         });
     }
@@ -1105,6 +1131,12 @@ async function loadCompanyConfig(companyId) {
     } catch (error) {
         console.error('Error loading content types:', error);
     }
+    
+    // Load storage configuration
+    await loadCompanyStorageConfig(companyId);
+    
+    // Load storage folders if applicable
+    await loadStorageFolders(companyId);
 }
 
 // Content Types Management
@@ -1259,6 +1291,304 @@ async function removeContentType(typeToRemove) {
         console.error('Error removing content type:', error);
         showToast('Ошибка сети при удалении типа', 'error');
         addLog(`Ошибка сети при удалении типа: ${error.message}`, 'error');
+    }
+}
+
+// Storage Folder Management
+async function loadCompanyStorageConfig(companyId) {
+    if (!companyId) {
+        console.warn('No company ID provided for storage config');
+        return;
+    }
+    
+    try {
+        AdminDashboard.state.storageLoading = true;
+        
+        const response = await fetch(`/api/companies/${companyId}/storage-info`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            AdminDashboard.state.storageConfig = data;
+            
+            // Update UI elements if they exist
+            updateStorageConfigDisplay(data);
+            
+            addLog(`Загружена конфигурация хранилища для компании: ${data.company_name}`, 'info');
+        } else {
+            const error = await response.json();
+            console.error('Error loading storage config:', error);
+            addLog(`Ошибка загрузки конфигурации хранилища: ${error.detail || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading storage config:', error);
+        addLog(`Ошибка сети при загрузке конфигурации хранилища: ${error.message}`, 'error');
+    } finally {
+        AdminDashboard.state.storageLoading = false;
+    }
+}
+
+function updateStorageConfigDisplay(config) {
+    // Update storage type indicator
+    const storageTypeElement = document.getElementById('storageTypeIndicator');
+    if (storageTypeElement) {
+        storageTypeElement.textContent = config.storage_type || 'local';
+    }
+    
+    // Update storage status
+    const storageStatusElement = document.getElementById('storageStatus');
+    if (storageStatusElement) {
+        storageStatusElement.textContent = config.status_message || 'Не настроено';
+        storageStatusElement.className = config.is_configured ? 'status-configured' : 'status-unconfigured';
+    }
+    
+    // Update folder path if available
+    const folderPathElement = document.getElementById('storageFolderPath');
+    if (folderPathElement && config.storage_folder_path) {
+        folderPathElement.textContent = config.storage_folder_path;
+    }
+}
+
+async function loadStorageFolders(companyId) {
+    if (!companyId) {
+        console.warn('No company ID provided for loading folders');
+        return;
+    }
+    
+    const company = AdminDashboard.state.storageConfig;
+    if (!company) {
+        await loadCompanyStorageConfig(companyId);
+    }
+    
+    // Only load folders for remote storage types
+    const storageType = AdminDashboard.state.storageConfig?.storage_type;
+    if (storageType === 'local') {
+        AdminDashboard.state.storageFolders = [];
+        updateStorageFoldersList([]);
+        return;
+    }
+    
+    if (storageType === 'yandex_disk') {
+        await loadYandexDiskFolders(companyId);
+    } else {
+        // For other storage types (MinIO, etc.), implement similar logic
+        console.log('Storage type not yet supported for folder listing:', storageType);
+        AdminDashboard.state.storageFolders = [];
+        updateStorageFoldersList([]);
+    }
+}
+
+async function loadYandexDiskFolders(companyId) {
+    try {
+        AdminDashboard.state.storageLoading = true;
+        
+        const response = await fetch(`/api/yandex-disk/folders?company_id=${encodeURIComponent(companyId)}`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            AdminDashboard.state.storageFolders = data.items || [];
+            updateStorageFoldersList(data.items || []);
+            
+            addLog(`Загружено папок: ${data.items?.length || 0}`, 'info');
+        } else {
+            const error = await response.json();
+            showToast(`Ошибка загрузки папок: ${error.detail || 'Неизвестная ошибка'}`, 'error');
+            addLog(`Ошибка загрузки папок: ${error.detail}`, 'error');
+            AdminDashboard.state.storageFolders = [];
+            updateStorageFoldersList([]);
+        }
+    } catch (error) {
+        console.error('Error loading storage folders:', error);
+        showToast('Ошибка сети при загрузке папок', 'error');
+        addLog(`Ошибка сети при загрузке папок: ${error.message}`, 'error');
+        AdminDashboard.state.storageFolders = [];
+        updateStorageFoldersList([]);
+    } finally {
+        AdminDashboard.state.storageLoading = false;
+    }
+}
+
+function updateStorageFoldersList(folders) {
+    const foldersListElement = document.getElementById('storageFoldersList');
+    if (!foldersListElement) return;
+    
+    if (!folders || folders.length === 0) {
+        foldersListElement.innerHTML = '<p style="text-align: center; opacity: 0.6; padding: 1rem;">Папки отсутствуют или не применимы для данного типа хранилища</p>';
+        return;
+    }
+    
+    foldersListElement.innerHTML = '';
+    folders.forEach(folder => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-color); border-radius: var(--border-radius); border: 1px solid var(--border-color); margin-bottom: 0.5rem;';
+        item.innerHTML = `
+            <div style="flex: 1;">
+                <strong>📁 ${folder.name}</strong>
+                <div style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.25rem;">${folder.path || ''}</div>
+            </div>
+            <button onclick="deleteStorageFolder('${folder.path || folder.name}')" class="company-btn danger" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;">🗑️ Удалить</button>
+        `;
+        foldersListElement.appendChild(item);
+    });
+}
+
+function validateFolderName(folderName) {
+    // Validate folder name: letters, digits, dash, underscore only
+    const pattern = /^[a-zA-Z0-9_-]+$/;
+    return pattern.test(folderName);
+}
+
+async function createStorageFolder() {
+    const input = document.getElementById('newStorageFolderInput');
+    const addBtn = document.getElementById('addStorageFolderBtn');
+    const folderName = input?.value?.trim();
+    
+    if (!folderName) {
+        showToast('Введите название папки', 'warning');
+        return;
+    }
+    
+    // Client-side validation
+    if (!validateFolderName(folderName)) {
+        showToast('Название папки может содержать только буквы, цифры, дефис и подчёркивание', 'error');
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    const storageType = AdminDashboard.state.storageConfig?.storage_type;
+    
+    try {
+        if (addBtn) addBtn.disabled = true;
+        
+        // Optimistic UI update
+        const optimisticFolder = { name: folderName, path: folderName };
+        const currentFolders = [...AdminDashboard.state.storageFolders];
+        AdminDashboard.state.storageFolders = [...currentFolders, optimisticFolder];
+        updateStorageFoldersList(AdminDashboard.state.storageFolders);
+        
+        let response;
+        if (storageType === 'local') {
+            // For local storage, use the storage folder endpoint
+            response = await fetch(`/api/companies/${companyId}/storage-folder`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ folder_path: folderName }),
+                credentials: 'include'
+            });
+        } else {
+            // For remote storage (Yandex, MinIO), we would need folder creation endpoints
+            // For now, show a message that manual creation is needed
+            showToast('Для удалённого хранилища создавайте папки в интерфейсе хранилища', 'warning');
+            // Revert optimistic update
+            AdminDashboard.state.storageFolders = currentFolders;
+            updateStorageFoldersList(currentFolders);
+            return;
+        }
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (input) input.value = '';
+            
+            // Reload folders to get actual state
+            await loadStorageFolders(companyId);
+            await loadCompanyStorageConfig(companyId);
+            
+            showToast('Папка создана успешно', 'success');
+            addLog(`Создана папка хранилища: ${folderName}`, 'success');
+        } else {
+            // Revert optimistic update on error
+            AdminDashboard.state.storageFolders = currentFolders;
+            updateStorageFoldersList(currentFolders);
+            
+            const error = await response.json();
+            showToast(`Ошибка: ${error.detail || 'Не удалось создать папку'}`, 'error');
+            addLog(`Ошибка создания папки: ${error.detail}`, 'error');
+        }
+    } catch (error) {
+        // Revert optimistic update on error
+        const currentFolders = AdminDashboard.state.storageFolders.filter(f => f.name !== folderName);
+        AdminDashboard.state.storageFolders = currentFolders;
+        updateStorageFoldersList(currentFolders);
+        
+        console.error('Error creating storage folder:', error);
+        showToast('Ошибка сети при создании папки', 'error');
+        addLog(`Ошибка сети при создании папки: ${error.message}`, 'error');
+    } finally {
+        if (addBtn) addBtn.disabled = false;
+    }
+}
+
+async function deleteStorageFolder(folderPath) {
+    if (!confirm(`Удалить папку "${folderPath}"?`)) {
+        return;
+    }
+    
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    if (!companyId) {
+        showToast('Компания не выбрана', 'error');
+        return;
+    }
+    
+    const storageType = AdminDashboard.state.storageConfig?.storage_type;
+    
+    // Optimistic UI update
+    const currentFolders = [...AdminDashboard.state.storageFolders];
+    AdminDashboard.state.storageFolders = currentFolders.filter(f => f.path !== folderPath && f.name !== folderPath);
+    updateStorageFoldersList(AdminDashboard.state.storageFolders);
+    
+    try {
+        if (storageType === 'local') {
+            // For local storage, we might not have a delete endpoint
+            // Show warning that manual deletion might be needed
+            showToast('Для локального хранилища удаляйте папки вручную через файловую систему', 'warning');
+            // Revert optimistic update
+            AdminDashboard.state.storageFolders = currentFolders;
+            updateStorageFoldersList(currentFolders);
+            return;
+        } else if (storageType === 'yandex_disk') {
+            // For Yandex Disk, we would need a delete endpoint
+            showToast('Для Яндекс Диска удаляйте папки через интерфейс Яндекс Диска', 'warning');
+            // Revert optimistic update
+            AdminDashboard.state.storageFolders = currentFolders;
+            updateStorageFoldersList(currentFolders);
+            return;
+        }
+        
+        showToast('Папка удалена успешно', 'success');
+        addLog(`Удалена папка хранилища: ${folderPath}`, 'success');
+        
+        // Reload folders to get actual state
+        await loadStorageFolders(companyId);
+        await loadCompanyStorageConfig(companyId);
+        
+    } catch (error) {
+        // Revert optimistic update on error
+        AdminDashboard.state.storageFolders = currentFolders;
+        updateStorageFoldersList(currentFolders);
+        
+        console.error('Error deleting storage folder:', error);
+        
+        // Handle specific error cases
+        if (error.message && error.message.includes('permission')) {
+            showToast('Ошибка: Недостаточно прав для удаления папки', 'error');
+        } else if (error.message && error.message.includes('not empty')) {
+            showToast('Ошибка: Папка не пуста. Удалите содержимое перед удалением папки', 'error');
+        } else {
+            showToast('Ошибка при удалении папки', 'error');
+        }
+        
+        addLog(`Ошибка удаления папки: ${error.message}`, 'error');
     }
 }
 
