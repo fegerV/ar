@@ -557,6 +557,47 @@ async def update_company_storage(
                 detail="Failed to update company storage"
             )
         
+        # Clear adapter cache for this company
+        from app.main import get_current_app
+        app = get_current_app()
+        storage_manager = app.state.storage_manager
+        storage_manager.clear_company_cache(company_id)
+        
+        # Flush directory cache if Yandex Disk
+        await storage_manager.flush_directory_cache(company_id)
+        
+        # Provision storage hierarchy if content types provided
+        if storage_update.content_types:
+            content_types_list = database.deserialize_content_types(storage_update.content_types)
+            category_slugs = [ct['slug'] for ct in content_types_list]
+            
+            try:
+                provision_result = await storage_manager.provision_company_storage(
+                    company_id,
+                    category_slugs
+                )
+                
+                if not provision_result.get('success', False):
+                    logger.warning(
+                        "Storage hierarchy provisioning failed",
+                        company_id=company_id,
+                        error=provision_result.get('error')
+                    )
+                else:
+                    logger.info(
+                        "Storage hierarchy provisioned",
+                        company_id=company_id,
+                        categories=len(category_slugs),
+                        paths_created=provision_result.get('total_paths_created', 0)
+                    )
+            except Exception as prov_exc:
+                logger.error(
+                    "Failed to provision storage hierarchy",
+                    company_id=company_id,
+                    error=str(prov_exc),
+                    exc_info=prov_exc
+                )
+        
         return MessageResponse(
             message=f"Company storage updated successfully"
         )

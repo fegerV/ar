@@ -539,6 +539,40 @@ async def update_company_content_types(
             user=username
         )
         
+        # Provision storage hierarchy for new content types
+        from app.main import get_current_app
+        app = get_current_app()
+        storage_manager = app.state.storage_manager
+        
+        category_slugs = [item.slug for item in content_types_update.content_types]
+        
+        try:
+            provision_result = await storage_manager.provision_company_storage(
+                company_id,
+                category_slugs
+            )
+            
+            if not provision_result.get('success', False):
+                logger.warning(
+                    "Storage hierarchy provisioning failed",
+                    company_id=company_id,
+                    error=provision_result.get('error')
+                )
+            else:
+                logger.info(
+                    "Storage hierarchy provisioned for content types",
+                    company_id=company_id,
+                    categories=len(category_slugs),
+                    paths_created=provision_result.get('total_paths_created', 0)
+                )
+        except Exception as prov_exc:
+            logger.error(
+                "Failed to provision storage hierarchy for content types",
+                company_id=company_id,
+                error=str(prov_exc),
+                exc_info=prov_exc
+            )
+        
         return {
             "success": True,
             "content_types": normalized_list,

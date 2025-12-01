@@ -109,3 +109,54 @@ class LocalStorageAdapter(StorageAdapter):
         """
         from app.config import settings
         return f"{settings.BASE_URL}/storage/{file_path}"
+    
+    async def create_directory(self, dir_path: str) -> bool:
+        """Create a directory in local storage.
+        
+        Args:
+            dir_path: Directory path to create
+            
+        Returns:
+            True if created successfully or already exists
+        """
+        full_path = self.storage_root / dir_path
+        try:
+            full_path.mkdir(parents=True, exist_ok=True)
+            return True
+        except Exception:
+            return False
+    
+    async def directory_exists(self, dir_path: str) -> bool:
+        """Check if directory exists in local storage.
+        
+        Args:
+            dir_path: Directory path to check
+            
+        Returns:
+            True if directory exists
+        """
+        full_path = self.storage_root / dir_path
+        return full_path.exists() and full_path.is_dir()
+    
+    async def list_directories(self, base_path: str = "") -> list:
+        """List directories at the given path in local storage.
+        
+        Args:
+            base_path: Base path to list directories from
+            
+        Returns:
+            List of directory names (not full paths)
+        """
+        full_path = self.storage_root / base_path if base_path else self.storage_root
+        
+        if not full_path.exists() or not full_path.is_dir():
+            return []
+        
+        try:
+            return [
+                entry.name
+                for entry in full_path.iterdir()
+                if entry.is_dir()
+            ]
+        except Exception:
+            return []
