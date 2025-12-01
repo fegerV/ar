@@ -211,7 +211,7 @@ Content-Type: application/json
   "storage_type": "local_disk",
   "storage_connection_id": null,
   "yandex_disk_folder_id": null,
-  "content_types": "portraits:Portraits",
+  "storage_type": "local_disk",  # Note: content_types deprecated, use /api/companies/{id}/categories
   "storage_folder_path": "vertex_ar_content",
   "backup_provider": null,
   "backup_remote_path": null,

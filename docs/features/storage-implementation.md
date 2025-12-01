@@ -1,14 +1,22 @@
 # Storage Configuration Implementation
 
-This document describes the implementation of flexible storage configuration for Vertex AR, allowing different content types to be stored in different storage backends.
+This document describes the implementation of flexible storage configuration for Vertex AR, supporting multiple storage backends with per-company configuration.
 
 ## Overview
 
 The implementation provides:
-1. **Multiple Storage Backends**: Local filesystem, MinIO, and Yandex Disk
-2. **Content-Type Specific Configuration**: Different storage for portraits, videos, previews, and NFT markers
-3. **Chunked Backup Support**: Large backup files can be split into configurable chunk sizes
-4. **Unified Management Interface**: Single UI for managing all storage configurations
+1. **Multiple Storage Backends**: Local disk (`local_disk`), MinIO, and Yandex Disk
+2. **Per-Company Storage Configuration**: Each company can use different storage backend
+3. **Category-Based Organization**: Content organized via categories (managed through projects table)
+4. **Chunked Backup Support**: Large backup files can be split into configurable chunk sizes
+5. **Unified Management Interface**: Single UI for managing all storage configurations
+
+## Storage Type Naming
+
+The system uses consistent storage type identifiers:
+- **`local_disk`**: Canonical local storage type (display: "Локальное хранилище" / "Local Disk")
+- **`yandex_disk`**: Yandex Disk cloud storage
+- **`minio`**: MinIO S3-compatible storage
 
 ## Architecture
 
@@ -20,14 +28,14 @@ The implementation provides:
 - Provides unified API regardless of backend
 
 #### Storage Adapters
-- **LocalStorageAdapter**: Filesystem-based storage (existing)
-- **MinioStorageAdapter**: MinIO S3-compatible storage (existing)
-- **YandexDiskStorageAdapter**: Yandex Disk cloud storage (new)
+- **LocalStorageAdapter**: Filesystem-based storage with hierarchical folder structure
+- **MinioStorageAdapter**: MinIO S3-compatible storage
+- **YandexDiskStorageAdapter**: Yandex Disk cloud storage
 
-#### StorageConfig (`storage_config.py`)
-- Manages configuration for different content types
-- Handles JSON-based configuration persistence
-- Provides default settings
+#### Company Configuration
+- Each company has `storage_type` field (e.g., `local_disk`, `yandex_disk`, `minio`)
+- Storage adapters initialized per company based on configuration
+- Categories managed via projects table with storage-friendly slugs
 
 #### API Endpoints (`app/api/storage_config.py`)
 - `/storage-config/config` - Get/set configuration
@@ -41,32 +49,35 @@ The implementation provides:
 
 ## Configuration Structure
 
+**Note**: This configuration shows legacy structure. Modern system uses per-company storage configuration and category-based organization.
+
+### Legacy Configuration (Deprecated)
 ```json
 {
   "content_types": {
     "portraits": {
-      "storage_type": "local",
+      "storage_type": "local_disk",
       "yandex_disk": {
         "enabled": false,
         "base_path": "vertex-ar/portraits"
       }
     },
     "videos": {
-      "storage_type": "local",
+      "storage_type": "local_disk",
       "yandex_disk": {
         "enabled": false,
         "base_path": "vertex-ar/videos"
       }
     },
     "previews": {
-      "storage_type": "local",
+      "storage_type": "local_disk",
       "yandex_disk": {
         "enabled": false,
         "base_path": "vertex-ar/previews"
       }
     },
     "nft_markers": {
-      "storage_type": "local",
+      "storage_type": "local_disk",
       "yandex_disk": {
         "enabled": false,
         "base_path": "vertex-ar/nft_markers"
@@ -113,13 +124,13 @@ The implementation provides:
 - Automatic directory management
 - Public link generation
 
-### 2. Content-Type Specific Configuration
+### 2. Category-Based Organization
 
-Each content type can be configured independently:
-- **Portraits**: Main portrait images
-- **Videos**: AR video content
-- **Previews**: Generated thumbnails
-- **NFT Markers**: AR tracking markers
+Content is organized by categories (managed via projects table):
+- Each company defines custom categories (e.g., "portraits", "diplomas", "certificates")
+- Categories have storage-friendly slugs used in folder paths
+- Replaces legacy CSV-based `content_types` approach
+- Files organized: `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/`
 
 ### 3. Chunked Backup Support
 
@@ -282,17 +293,22 @@ Starting in version 1.5.0, Vertex AR supports company-level storage configuratio
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `storage_type` | TEXT | Storage backend: `local`, `minio`, or `yandex_disk` |
+| `storage_type` | TEXT | Storage backend: `local_disk`, `minio`, or `yandex_disk` |
 | `storage_connection_id` | TEXT | Reference to `storage_connections` table |
+| `storage_folder_path` | TEXT | Custom folder path (optional, defaults to company slug) |
+
+### Default Company
+
+The system auto-provisions a default "Vertex AR" company on first startup with `storage_type = 'local_disk'`.
 
 ### Workflow
 
 When an order is created:
-1. System retrieves company's `storage_type` and `storage_connection_id`
-2. Initializes appropriate storage adapter with company configuration
-3. Builds paths with company isolation: `{base_path}/companies/{company_id}/...`
-4. Uploads all files (portrait, video, previews, markers) to company's storage
-5. Returns public URLs based on storage type
+1. **Company Selection** → determines storage backend (`storage_type`)
+2. **Category Selection** → determines content organization (via `/api/companies/{id}/categories`)
+3. **Path Building** → constructs hierarchy: `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/`
+4. **File Upload** → uploads all files (portrait, video, previews, markers) to appropriate subfolders
+5. **URL Generation** → returns public URLs based on storage type
 
 ### Example: Company with Yandex Disk
 

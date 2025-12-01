@@ -47,17 +47,13 @@ Guided multi-step workflow ensuring proper configuration:
    - Shows current path for Yandex Disk navigation
    - Validates folder selection before proceeding
 
-4. **Content Types Management**
-   - Add/remove content type categories
-   - Automatic slug generation from labels
-   - Validation (minimum 1 content type required)
-   - Default: "Portraits"
-
-5. **Save and Verify**
+4. **Save and Verify**
    - Validation of all required fields
    - Storage connection testing
    - Folder existence verification
    - Toast notifications for success/errors
+
+**Note**: Categories for content organization are managed separately via `/api/companies/{id}/categories` endpoints after company creation.
 
 #### Edit Company
 - Pre-populated form with current company data
@@ -65,7 +61,7 @@ Guided multi-step workflow ensuring proper configuration:
 - Can update:
   - Storage connection
   - Folder path
-  - Content types
+- Categories managed via separate endpoints
 
 #### Delete Company Protection
 - Default company (`vertex-ar-default`) cannot be deleted
@@ -80,7 +76,7 @@ Guided multi-step workflow ensuring proper configuration:
 #### Per-Company Backup Settings Modal
 - **Provider Selection**:
   - None (disabled)
-  - Local storage
+  - Local disk (`local_disk`)
   - Yandex Disk
   - Google Drive (if configured)
 - **Remote Path**: Custom path for backups in remote storage

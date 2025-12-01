@@ -369,13 +369,16 @@ class StorageManager:
         self.adapters: Dict[str, StorageAdapter] = {}
         
         # Инициализация адаптеров для типов контента
-        content_types = ["portraits", "videos", "previews", "nft_markers"]
+        # Note: Modern system uses category-based organization via projects table
+        content_categories = ["portraits", "videos", "previews", "nft_markers"]
         
-        for content_type in content_types:
-            storage_type = self.config.get_storage_type(content_type)
-            adapter = self._create_adapter(storage_type, content_type)
-            self.adapters[content_type] = adapter
+        for category in content_categories:
+            storage_type = self.config.get_storage_type(category)
+            adapter = self._create_adapter(storage_type, category)
+            self.adapters[category] = adapter
 ```
+
+**Примечание**: В современной версии система использует управление категориями через проекты (`/api/companies/{id}/categories`).
 
 **Типы хранилищ:**
 
