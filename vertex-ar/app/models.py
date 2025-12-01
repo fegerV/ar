@@ -12,6 +12,8 @@ from app.validators import (
     validate_username,
     validate_password_strength,
     validate_name,
+    validate_url,
+    validate_social_links,
 )
 
 
@@ -84,6 +86,15 @@ class CompanyCreate(BaseModel):
     storage_folder_path: Optional[str] = Field(default="vertex_ar_content", description="Storage folder path for local storage")
     backup_provider: Optional[str] = Field(default=None, description="Remote backup provider (e.g., yandex_disk, google_drive)")
     backup_remote_path: Optional[str] = Field(default=None, description="Remote path for backups")
+    email: Optional[str] = Field(default=None, max_length=255, description="Company email address")
+    description: Optional[str] = Field(default=None, description="Company description")
+    city: Optional[str] = Field(default=None, max_length=150, description="Company city/location")
+    phone: Optional[str] = Field(default=None, max_length=50, description="Company phone number")
+    website: Optional[str] = Field(default=None, max_length=2048, description="Company website URL")
+    social_links: Optional[str] = Field(default=None, description="Social media links as JSON string")
+    manager_name: Optional[str] = Field(default=None, max_length=150, description="Manager/contact person name")
+    manager_phone: Optional[str] = Field(default=None, max_length=50, description="Manager phone number")
+    manager_email: Optional[str] = Field(default=None, max_length=255, description="Manager email address")
     
     @field_validator('name')
     @classmethod
@@ -95,6 +106,55 @@ class CompanyCreate(BaseModel):
     def validate_storage_type(cls, v: str) -> str:
         if v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
+        return v
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
+        return v
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_phone(v)
+        return v
+    
+    @field_validator('website')
+    @classmethod
+    def validate_website_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_url(v)
+        return v
+    
+    @field_validator('social_links')
+    @classmethod
+    def validate_social_links_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_social_links(v)
+        return v
+    
+    @field_validator('manager_name', 'city')
+    @classmethod
+    def validate_name_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_name(v)
+        return v
+    
+    @field_validator('manager_phone')
+    @classmethod
+    def validate_manager_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_phone(v)
+        return v
+    
+    @field_validator('manager_email')
+    @classmethod
+    def validate_manager_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
         return v
 
 
@@ -108,6 +168,15 @@ class CompanyResponse(BaseModel):
     storage_folder_path: Optional[str] = None
     backup_provider: Optional[str] = None
     backup_remote_path: Optional[str] = None
+    email: Optional[str] = None
+    description: Optional[str] = None
+    city: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    social_links: Optional[str] = None
+    manager_name: Optional[str] = None
+    manager_phone: Optional[str] = None
+    manager_email: Optional[str] = None
     created_at: str
 
 
@@ -124,6 +193,15 @@ class CompanyUpdate(BaseModel):
     storage_folder_path: Optional[str] = Field(None, description="Storage folder path for local storage")
     backup_provider: Optional[str] = Field(None, description="Remote backup provider")
     backup_remote_path: Optional[str] = Field(None, description="Remote path for backups")
+    email: Optional[str] = Field(None, max_length=255, description="Company email address")
+    description: Optional[str] = Field(None, description="Company description")
+    city: Optional[str] = Field(None, max_length=150, description="Company city/location")
+    phone: Optional[str] = Field(None, max_length=50, description="Company phone number")
+    website: Optional[str] = Field(None, max_length=2048, description="Company website URL")
+    social_links: Optional[str] = Field(None, description="Social media links as JSON string")
+    manager_name: Optional[str] = Field(None, max_length=150, description="Manager/contact person name")
+    manager_phone: Optional[str] = Field(None, max_length=50, description="Manager phone number")
+    manager_email: Optional[str] = Field(None, max_length=255, description="Manager email address")
     
     @field_validator('name')
     @classmethod
@@ -137,6 +215,55 @@ class CompanyUpdate(BaseModel):
     def validate_storage_type(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
+        return v
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
+        return v
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_phone(v)
+        return v
+    
+    @field_validator('website')
+    @classmethod
+    def validate_website_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_url(v)
+        return v
+    
+    @field_validator('social_links')
+    @classmethod
+    def validate_social_links_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_social_links(v)
+        return v
+    
+    @field_validator('manager_name', 'city')
+    @classmethod
+    def validate_name_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_name(v)
+        return v
+    
+    @field_validator('manager_phone')
+    @classmethod
+    def validate_manager_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_phone(v)
+        return v
+    
+    @field_validator('manager_email')
+    @classmethod
+    def validate_manager_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return validate_email(v)
         return v
 
 

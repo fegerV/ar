@@ -198,8 +198,26 @@ class Database:
                     # Try with new columns first, fall back to basic columns if they don't exist yet
                     try:
                         self._connection.execute(
-                            "INSERT INTO companies (id, name, storage_type, content_types, storage_folder_path) VALUES (?, ?, ?, ?, ?)",
-                            ("vertex-ar-default", "Vertex AR", "local_disk", "portraits:Portraits", "vertex_ar_content")
+                            """INSERT INTO companies (
+                                id, name, storage_type, content_types, storage_folder_path,
+                                email, description, city, phone, website, 
+                                manager_name, manager_phone, manager_email
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (
+                                "vertex-ar-default", 
+                                "Vertex AR", 
+                                "local_disk", 
+                                "portraits:Portraits", 
+                                "vertex_ar_content",
+                                "contact@vertex-ar.com",
+                                "Default company for Vertex AR platform",
+                                "Moscow",
+                                "+7 (495) 000-00-00",
+                                "https://vertex-ar.com",
+                                "System Administrator",
+                                "+7 (495) 000-00-00",
+                                "admin@vertex-ar.com"
+                            )
                         )
                     except sqlite3.OperationalError:
                         # Fall back to basic columns (for initial schema creation)
@@ -208,7 +226,7 @@ class Database:
                             ("vertex-ar-default", "Vertex AR")
                         )
                     self._connection.commit()
-                    logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
+                    logger.info("Created default company 'Vertex AR' with storage_type=local_disk and contact metadata")
             except sqlite3.OperationalError as e:
                 logger.warning(f"Error ensuring default company: {e}")
 
@@ -527,6 +545,44 @@ class Database:
                 pass
             try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN backup_remote_path TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Add contact and metadata columns to companies table
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN email TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN description TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN city TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN phone TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN website TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN social_links TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_name TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_phone TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_email TEXT")
             except sqlite3.OperationalError:
                 pass
             
@@ -1809,13 +1865,32 @@ class Database:
         content_types: Optional[str] = None,
         storage_folder_path: Optional[str] = "vertex_ar_content",
         backup_provider: Optional[str] = None,
-        backup_remote_path: Optional[str] = None
+        backup_remote_path: Optional[str] = None,
+        email: Optional[str] = None,
+        description: Optional[str] = None,
+        city: Optional[str] = None,
+        phone: Optional[str] = None,
+        website: Optional[str] = None,
+        social_links: Optional[str] = None,
+        manager_name: Optional[str] = None,
+        manager_phone: Optional[str] = None,
+        manager_email: Optional[str] = None
     ) -> None:
         """Create a new company."""
         try:
             self._execute(
-                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path, backup_provider, backup_remote_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path, backup_provider, backup_remote_path),
+                """INSERT INTO companies (
+                    id, name, storage_type, storage_connection_id, yandex_disk_folder_id, 
+                    content_types, storage_folder_path, backup_provider, backup_remote_path,
+                    email, description, city, phone, website, social_links,
+                    manager_name, manager_phone, manager_email
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, 
+                    content_types, storage_folder_path, backup_provider, backup_remote_path,
+                    email, description, city, phone, website, social_links,
+                    manager_name, manager_phone, manager_email
+                ),
             )
             logger.info(f"Created company: {name} with storage: {storage_type}")
         except sqlite3.IntegrityError as exc:
@@ -1853,7 +1928,16 @@ class Database:
         content_types: Optional[str] = None,
         storage_folder_path: Optional[str] = None,
         backup_provider: Optional[str] = None,
-        backup_remote_path: Optional[str] = None
+        backup_remote_path: Optional[str] = None,
+        email: Optional[str] = None,
+        description: Optional[str] = None,
+        city: Optional[str] = None,
+        phone: Optional[str] = None,
+        website: Optional[str] = None,
+        social_links: Optional[str] = None,
+        manager_name: Optional[str] = None,
+        manager_phone: Optional[str] = None,
+        manager_email: Optional[str] = None
     ) -> bool:
         """
         Update company fields.
@@ -1868,6 +1952,15 @@ class Database:
             storage_folder_path: Storage folder path (optional)
             backup_provider: Remote backup provider (optional)
             backup_remote_path: Remote backup path (optional)
+            email: Company email (optional)
+            description: Company description (optional)
+            city: Company city (optional)
+            phone: Company phone (optional)
+            website: Company website (optional)
+            social_links: Company social links JSON/text (optional)
+            manager_name: Manager name (optional)
+            manager_phone: Manager phone (optional)
+            manager_email: Manager email (optional)
             
         Returns:
             True if successful, False otherwise
@@ -1908,6 +2001,42 @@ class Database:
                 updates.append("backup_remote_path = ?")
                 params.append(backup_remote_path)
             
+            if email is not None:
+                updates.append("email = ?")
+                params.append(email)
+            
+            if description is not None:
+                updates.append("description = ?")
+                params.append(description)
+            
+            if city is not None:
+                updates.append("city = ?")
+                params.append(city)
+            
+            if phone is not None:
+                updates.append("phone = ?")
+                params.append(phone)
+            
+            if website is not None:
+                updates.append("website = ?")
+                params.append(website)
+            
+            if social_links is not None:
+                updates.append("social_links = ?")
+                params.append(social_links)
+            
+            if manager_name is not None:
+                updates.append("manager_name = ?")
+                params.append(manager_name)
+            
+            if manager_phone is not None:
+                updates.append("manager_phone = ?")
+                params.append(manager_phone)
+            
+            if manager_email is not None:
+                updates.append("manager_email = ?")
+                params.append(manager_email)
+            
             if not updates:
                 return False
             
@@ -1939,7 +2068,10 @@ class Database:
         cursor = self._execute("""
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
                    c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
-                   c.backup_provider, c.backup_remote_path, COUNT(cl.id) as client_count
+                   c.backup_provider, c.backup_remote_path,
+                   c.email, c.description, c.city, c.phone, c.website, c.social_links,
+                   c.manager_name, c.manager_phone, c.manager_email,
+                   COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             GROUP BY c.id
@@ -1969,7 +2101,10 @@ class Database:
         query = """
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id,
                    c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
-                   c.backup_provider, c.backup_remote_path, COUNT(cl.id) as client_count
+                   c.backup_provider, c.backup_remote_path,
+                   c.email, c.description, c.city, c.phone, c.website, c.social_links,
+                   c.manager_name, c.manager_phone, c.manager_email,
+                   COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             WHERE 1=1

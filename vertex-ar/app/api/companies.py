@@ -132,7 +132,18 @@ async def create_company(
             company.storage_connection_id,
             company.yandex_disk_folder_id,
             company.content_types,
-            company.storage_folder_path
+            company.storage_folder_path,
+            company.backup_provider,
+            company.backup_remote_path,
+            company.email,
+            company.description,
+            company.city,
+            company.phone,
+            company.website,
+            company.social_links,
+            company.manager_name,
+            company.manager_phone,
+            company.manager_email
         )
         created_company = database.get_company(company_id)
         
@@ -144,6 +155,17 @@ async def create_company(
             yandex_disk_folder_id=created_company.get("yandex_disk_folder_id"),
             content_types=created_company.get("content_types"),
             storage_folder_path=created_company.get("storage_folder_path"),
+            backup_provider=created_company.get("backup_provider"),
+            backup_remote_path=created_company.get("backup_remote_path"),
+            email=created_company.get("email"),
+            description=created_company.get("description"),
+            city=created_company.get("city"),
+            phone=created_company.get("phone"),
+            website=created_company.get("website"),
+            social_links=created_company.get("social_links"),
+            manager_name=created_company.get("manager_name"),
+            manager_phone=created_company.get("manager_phone"),
+            manager_email=created_company.get("manager_email"),
             created_at=created_company["created_at"],
         )
     except Exception as exc:
@@ -206,6 +228,15 @@ async def list_companies(
                 storage_folder_path=c.get("storage_folder_path"),
                 backup_provider=c.get("backup_provider"),
                 backup_remote_path=c.get("backup_remote_path"),
+                email=c.get("email"),
+                description=c.get("description"),
+                city=c.get("city"),
+                phone=c.get("phone"),
+                website=c.get("website"),
+                social_links=c.get("social_links"),
+                manager_name=c.get("manager_name"),
+                manager_phone=c.get("manager_phone"),
+                manager_email=c.get("manager_email"),
                 created_at=c["created_at"],
                 client_count=c.get("client_count", 0),
             )
@@ -250,6 +281,18 @@ async def get_company(
         storage_connection_id=company.get("storage_connection_id"),
         yandex_disk_folder_id=company.get("yandex_disk_folder_id"),
         content_types=company.get("content_types"),
+        storage_folder_path=company.get("storage_folder_path"),
+        backup_provider=company.get("backup_provider"),
+        backup_remote_path=company.get("backup_remote_path"),
+        email=company.get("email"),
+        description=company.get("description"),
+        city=company.get("city"),
+        phone=company.get("phone"),
+        website=company.get("website"),
+        social_links=company.get("social_links"),
+        manager_name=company.get("manager_name"),
+        manager_phone=company.get("manager_phone"),
+        manager_email=company.get("manager_email"),
         created_at=company["created_at"],
     )
 
@@ -307,7 +350,9 @@ async def update_company(
     Update company fields (PUT for full replacement, PATCH for partial update).
     
     Can update: name, storage_type, storage_connection_id, yandex_disk_folder_id,
-    content_types, storage_folder_path, backup_provider, backup_remote_path
+    content_types, storage_folder_path, backup_provider, backup_remote_path,
+    email, description, city, phone, website, social_links,
+    manager_name, manager_phone, manager_email
     """
     username = _get_admin_user(request)
     database = get_database()
@@ -367,6 +412,24 @@ async def update_company(
         update_fields['backup_provider'] = company_update.backup_provider
     if company_update.backup_remote_path is not None:
         update_fields['backup_remote_path'] = company_update.backup_remote_path
+    if company_update.email is not None:
+        update_fields['email'] = company_update.email
+    if company_update.description is not None:
+        update_fields['description'] = company_update.description
+    if company_update.city is not None:
+        update_fields['city'] = company_update.city
+    if company_update.phone is not None:
+        update_fields['phone'] = company_update.phone
+    if company_update.website is not None:
+        update_fields['website'] = company_update.website
+    if company_update.social_links is not None:
+        update_fields['social_links'] = company_update.social_links
+    if company_update.manager_name is not None:
+        update_fields['manager_name'] = company_update.manager_name
+    if company_update.manager_phone is not None:
+        update_fields['manager_phone'] = company_update.manager_phone
+    if company_update.manager_email is not None:
+        update_fields['manager_email'] = company_update.manager_email
     
     if not update_fields:
         raise HTTPException(
@@ -403,6 +466,15 @@ async def update_company(
             storage_folder_path=updated_company.get("storage_folder_path"),
             backup_provider=updated_company.get("backup_provider"),
             backup_remote_path=updated_company.get("backup_remote_path"),
+            email=updated_company.get("email"),
+            description=updated_company.get("description"),
+            city=updated_company.get("city"),
+            phone=updated_company.get("phone"),
+            website=updated_company.get("website"),
+            social_links=updated_company.get("social_links"),
+            manager_name=updated_company.get("manager_name"),
+            manager_phone=updated_company.get("manager_phone"),
+            manager_email=updated_company.get("manager_email"),
             created_at=updated_company["created_at"],
         )
     except HTTPException:
