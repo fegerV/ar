@@ -54,6 +54,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 client_host=request.client.host if request.client else None,
             )
             
+            # Track slow endpoints in monitoring system
+            try:
+                from app.main import system_monitor
+                if system_monitor:
+                    system_monitor.track_slow_endpoint(
+                        method=request.method,
+                        path=request.url.path,
+                        duration_ms=duration_ms,
+                        status_code=response.status_code
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to track slow endpoint: {e}")
+            
             # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
             
@@ -71,6 +84,20 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 error=str(exc),
                 exc_info=True,
             )
+            
+            # Track failed requests as slow endpoints too
+            try:
+                from app.main import system_monitor
+                if system_monitor:
+                    system_monitor.track_slow_endpoint(
+                        method=request.method,
+                        path=request.url.path,
+                        duration_ms=duration_ms,
+                        status_code=500
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to track slow endpoint: {e}")
+            
             raise
 
 

@@ -61,6 +61,16 @@ disk_temperature_gauge = Gauge('vertex_ar_disk_temperature_celsius', 'Disk tempe
 # Historical trend metrics
 trend_gauge = Gauge('vertex_ar_metric_trend', 'Metric trend slope', ['metric'], registry=registry)
 
+# Deep diagnostics metrics
+slow_queries_count_gauge = Gauge('vertex_ar_slow_queries_count', 'Number of tracked slow queries', registry=registry)
+slow_queries_slowest_ms_gauge = Gauge('vertex_ar_slow_queries_slowest_ms', 'Duration of slowest query in milliseconds', registry=registry)
+slow_endpoints_count_gauge = Gauge('vertex_ar_slow_endpoints_count', 'Number of tracked slow endpoints', registry=registry)
+slow_endpoints_slowest_ms_gauge = Gauge('vertex_ar_slow_endpoints_slowest_ms', 'Duration of slowest endpoint in milliseconds', registry=registry)
+memory_snapshots_count_gauge = Gauge('vertex_ar_memory_snapshots_count', 'Number of tracemalloc snapshots taken', registry=registry)
+process_history_count_gauge = Gauge('vertex_ar_process_history_count', 'Number of processes being tracked', registry=registry)
+process_trend_cpu_gauge = Gauge('vertex_ar_process_trend_cpu_avg', 'Average CPU usage for tracked process', ['pid'], registry=registry)
+process_trend_rss_gauge = Gauge('vertex_ar_process_trend_rss_mb', 'Average RSS memory for tracked process in MB', ['pid'], registry=registry)
+
 
 class PrometheusExporter:
     """Exports monitoring metrics in Prometheus format."""
@@ -202,6 +212,38 @@ class PrometheusExporter:
                         trend_gauge.labels(metric=metric_name).set(trend_data["slope"])
             except Exception as e:
                 logger.debug(f"Could not update trend metrics: {e}")
+            
+            # Update deep diagnostics metrics
+            try:
+                hotspots = system_monitor.get_hotspots()
+                
+                # Slow queries
+                slow_queries_count_gauge.set(hotspots["slow_queries"]["count"])
+                if hotspots["slow_queries"]["queries"]:
+                    slowest_query = hotspots["slow_queries"]["queries"][0]
+                    slow_queries_slowest_ms_gauge.set(slowest_query["duration_ms"])
+                else:
+                    slow_queries_slowest_ms_gauge.set(0)
+                
+                # Slow endpoints
+                slow_endpoints_count_gauge.set(hotspots["slow_endpoints"]["count"])
+                if hotspots["slow_endpoints"]["endpoints"]:
+                    slowest_endpoint = hotspots["slow_endpoints"]["endpoints"][0]
+                    slow_endpoints_slowest_ms_gauge.set(slowest_endpoint["duration_ms"])
+                else:
+                    slow_endpoints_slowest_ms_gauge.set(0)
+                
+                # Memory snapshots
+                memory_snapshots_count_gauge.set(hotspots["memory_snapshots"]["count"])
+                
+                # Process trends
+                process_history_count_gauge.set(len(hotspots["process_trends"]))
+                for pid_str, trend_data in hotspots["process_trends"].items():
+                    process_trend_cpu_gauge.labels(pid=pid_str).set(trend_data["cpu_avg"])
+                    process_trend_rss_gauge.labels(pid=pid_str).set(trend_data["rss_avg_mb"])
+                
+            except Exception as e:
+                logger.debug(f"Could not update deep diagnostics metrics: {e}")
             
             self.last_update = current_time
             logger.debug("Prometheus metrics updated successfully")

@@ -611,3 +611,165 @@ async def get_email_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get email stats: {str(e)}"
         )
+
+
+@router.get("/hotspots")
+async def get_hotspots(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """
+    Get deep resource diagnostics (hotspots).
+    
+    Returns comprehensive performance diagnostics including:
+    - Process CPU/RSS trends over time
+    - Slow database queries (queries exceeding threshold)
+    - Slow HTTP endpoints (requests exceeding threshold)
+    - Memory allocation snapshots (if tracemalloc enabled)
+    
+    Useful for identifying performance bottlenecks and memory leaks.
+    """
+    try:
+        hotspots = system_monitor.get_hotspots()
+        
+        # Add configuration info
+        config = {
+            "slow_query_threshold_ms": system_monitor.slow_query_threshold_ms,
+            "slow_query_ring_size": system_monitor.slow_query_ring_size,
+            "slow_endpoint_threshold_ms": system_monitor.slow_endpoint_threshold_ms,
+            "slow_endpoint_ring_size": system_monitor.slow_endpoint_ring_size,
+            "process_history_size": system_monitor.process_history_size,
+            "tracemalloc_enabled": system_monitor.tracemalloc_enabled,
+            "tracemalloc_threshold_mb": system_monitor.tracemalloc_threshold_mb,
+            "tracemalloc_top_n": system_monitor.tracemalloc_top_n,
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "config": config,
+                "diagnostics": hotspots,
+            },
+            "message": "Hotspots retrieved successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting hotspots: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get hotspots: {str(e)}"
+        )
+
+
+@router.get("/memory-leaks")
+async def get_memory_leaks(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """
+    Get tracemalloc memory snapshots for leak detection.
+    
+    Returns:
+    - All captured memory snapshots with top allocations
+    - Memory threshold configuration
+    - Latest snapshot details
+    
+    Note: Tracemalloc must be enabled (MONITORING_TRACEMALLOC_ENABLED=true)
+    and memory must exceed threshold (MONITORING_TRACEMALLOC_THRESHOLD_MB)
+    for snapshots to be captured.
+    
+    For production use, enable temporarily when investigating memory issues.
+    Adds ~10% memory overhead when active.
+    """
+    try:
+        # Check if tracemalloc is enabled
+        if not system_monitor.tracemalloc_enabled:
+            return {
+                "success": False,
+                "data": {
+                    "enabled": False,
+                    "snapshots": [],
+                    "message": "Tracemalloc is not enabled. Set MONITORING_TRACEMALLOC_ENABLED=true to enable."
+                },
+                "message": "Memory profiling disabled"
+            }
+        
+        hotspots = system_monitor.get_hotspots()
+        memory_data = hotspots["memory_snapshots"]
+        
+        # Get current memory usage
+        import psutil
+        current_memory_mb = psutil.Process().memory_info().rss / (1024**2)
+        
+        return {
+            "success": True,
+            "data": {
+                "enabled": True,
+                "current_memory_mb": round(current_memory_mb, 2),
+                "threshold_mb": memory_data["threshold_mb"],
+                "snapshot_count": memory_data["count"],
+                "snapshots": memory_data["snapshots"],
+                "latest_snapshot": memory_data["snapshots"][-1] if memory_data["snapshots"] else None,
+            },
+            "message": f"Found {memory_data['count']} memory snapshots"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting memory leak data: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get memory leak data: {str(e)}"
+        )
+
+
+@router.post("/memory-snapshot")
+async def trigger_memory_snapshot(
+    _: str = Depends(get_require_admin()),
+) -> Dict[str, Any]:
+    """
+    Manually trigger a memory snapshot (bypasses threshold check).
+    
+    Useful for:
+    - Capturing current memory state for debugging
+    - Forcing a snapshot even if below threshold
+    - Testing tracemalloc integration
+    
+    Requires MONITORING_TRACEMALLOC_ENABLED=true.
+    """
+    try:
+        if not system_monitor.tracemalloc_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tracemalloc is not enabled. Set MONITORING_TRACEMALLOC_ENABLED=true to enable."
+            )
+        
+        # Temporarily lower threshold to force snapshot
+        original_threshold = system_monitor.tracemalloc_threshold_mb
+        system_monitor.tracemalloc_threshold_mb = 0
+        
+        try:
+            snapshot = system_monitor.check_and_snapshot_memory()
+        finally:
+            system_monitor.tracemalloc_threshold_mb = original_threshold
+        
+        if snapshot:
+            return {
+                "success": True,
+                "data": {
+                    "snapshot": snapshot,
+                    "message": "Memory snapshot captured successfully"
+                },
+                "message": "Snapshot taken"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to capture memory snapshot"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error triggering memory snapshot: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to trigger memory snapshot: {str(e)}"
+        )
