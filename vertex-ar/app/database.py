@@ -198,8 +198,8 @@ class Database:
                     # Try with new columns first, fall back to basic columns if they don't exist yet
                     try:
                         self._connection.execute(
-                            "INSERT INTO companies (id, name, storage_type, content_types) VALUES (?, ?, ?, ?)",
-                            ("vertex-ar-default", "Vertex AR", "local", "portraits:Portraits")
+                            "INSERT INTO companies (id, name, storage_type, content_types, storage_folder_path) VALUES (?, ?, ?, ?, ?)",
+                            ("vertex-ar-default", "Vertex AR", "local_disk", "portraits:Portraits", "vertex_ar_content")
                         )
                     except sqlite3.OperationalError:
                         # Fall back to basic columns (for initial schema creation)
@@ -208,7 +208,7 @@ class Database:
                             ("vertex-ar-default", "Vertex AR")
                         )
                     self._connection.commit()
-                    logger.info("Created default company 'Vertex AR'")
+                    logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
             except sqlite3.OperationalError as e:
                 logger.warning(f"Error ensuring default company: {e}")
 
@@ -507,6 +507,19 @@ class Database:
                     )
                     self._connection.commit()
                     logger.info("Backfilled default storage_folder_path for existing companies")
+            except sqlite3.OperationalError:
+                pass
+            
+            # Migrate legacy "local" storage_type to "local_disk"
+            try:
+                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_type = 'local'")
+                count = cursor.fetchone()[0]
+                if count > 0:
+                    self._connection.execute(
+                        "UPDATE companies SET storage_type = 'local_disk' WHERE storage_type = 'local'"
+                    )
+                    self._connection.commit()
+                    logger.info(f"Migrated {count} companies from storage_type='local' to 'local_disk'")
             except sqlite3.OperationalError:
                 pass
 
@@ -1770,11 +1783,11 @@ class Database:
         self, 
         company_id: str, 
         name: str, 
-        storage_type: str = "local", 
+        storage_type: str = "local_disk", 
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
         content_types: Optional[str] = None,
-        storage_folder_path: Optional[str] = None
+        storage_folder_path: Optional[str] = "vertex_ar_content"
     ) -> None:
         """Create a new company."""
         try:

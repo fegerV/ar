@@ -8,6 +8,7 @@ from typing import Optional, Dict
 from pathlib import Path
 from dotenv import load_dotenv
 
+from app.storage_utils import is_local_storage
 from logging_setup import get_logger
 
 load_dotenv()
@@ -265,7 +266,7 @@ class StorageFactory:
         if storage_type == "minio":
             logger.info("Using MinIO storage adapter (remote or local)")
             return MinIOStorageAdapter()
-        elif storage_type == "local":
+        elif is_local_storage(storage_type):
             logger.info("Using local file storage adapter")
             return LocalStorageAdapter()
         else:

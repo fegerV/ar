@@ -77,11 +77,11 @@ class ARContentResponse(BaseModel):
 # Company models
 class CompanyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    storage_type: str = Field(default="local", description="Storage type")
+    storage_type: str = Field(default="local_disk", description="Storage type")
     storage_connection_id: Optional[str] = Field(default=None, description="Storage connection ID for remote storage")
     yandex_disk_folder_id: Optional[str] = Field(default=None, description="Yandex Disk folder ID for storing orders")
     content_types: Optional[str] = Field(default=None, description="Comma-separated list of content types for this company")
-    storage_folder_path: Optional[str] = Field(default=None, description="Storage folder path for local storage")
+    storage_folder_path: Optional[str] = Field(default="vertex_ar_content", description="Storage folder path for local storage")
     
     @field_validator('name')
     @classmethod
@@ -91,8 +91,8 @@ class CompanyCreate(BaseModel):
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
-        if v not in ['local', 'minio', 'yandex_disk']:
-            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        if v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
 
 
@@ -129,8 +129,8 @@ class CompanyUpdate(BaseModel):
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ['local', 'minio', 'yandex_disk']:
-            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        if v is not None and v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
 
 
@@ -205,20 +205,20 @@ class CompanyStorageUpdate(BaseModel):
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
-        if v not in ['local', 'minio', 'yandex_disk']:
-            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        if v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
 
 
 
 class CompanyStorageTypeUpdate(BaseModel):
-    storage_type: str = Field(..., description="Storage type: local, minio, or yandex_disk")
+    storage_type: str = Field(..., description="Storage type: local, local_disk, minio, or yandex_disk")
     
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
-        if v not in ['local', 'minio', 'yandex_disk']:
-            raise ValueError('storage_type must be one of: local, minio, yandex_disk')
+        if v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
+            raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
 
 
