@@ -20,6 +20,7 @@ from app.models import (
     CompanyStorageFolderUpdate,
     CompanyStorageInfoResponse,
 )
+from app.storage_utils import is_local_storage
 from logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -95,7 +96,7 @@ async def create_company(
         )
     
     # Validate storage configuration
-    if company.storage_type != 'local' and company.storage_connection_id:
+    if not is_local_storage(company.storage_type) and company.storage_connection_id:
         connection = database.get_storage_connection(company.storage_connection_id)
         if not connection:
             raise HTTPException(
@@ -108,7 +109,7 @@ async def create_company(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Storage connection must be active and tested"
             )
-    elif company.storage_type != 'local' and not company.storage_connection_id:
+    elif not is_local_storage(company.storage_type) and not company.storage_connection_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Storage connection ID is required for remote storage"
@@ -592,7 +593,7 @@ async def get_company_storage_info(
     is_configured = False
     status_message = ""
     
-    if storage_type == "local":
+    if is_local_storage(storage_type):
         if storage_folder_path:
             is_configured = True
             status_message = f"✅ Настроено (папка: {storage_folder_path})"

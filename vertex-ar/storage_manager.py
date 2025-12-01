@@ -9,6 +9,7 @@ from app.storage import StorageAdapter
 from app.storage_local import LocalStorageAdapter
 from app.storage_minio import MinioStorageAdapter
 from app.storage_yandex import YandexDiskStorageAdapter
+from app.storage_utils import is_local_storage
 from storage_config import get_storage_config
 from logging_setup import get_logger
 
@@ -48,7 +49,7 @@ class StorageManager:
     
     def _create_adapter(self, storage_type: str, content_type: str) -> StorageAdapter:
         """Create storage adapter for given type and content."""
-        if storage_type == "local":
+        if is_local_storage(storage_type):
             return LocalStorageAdapter(self.storage_root)
         
         elif storage_type == "minio":
@@ -248,7 +249,7 @@ class StorageManager:
         yandex_disk_folder_id: Optional[str] = None
     ) -> StorageAdapter:
         """Create storage adapter for company-specific configuration."""
-        if storage_type == "local":
+        if is_local_storage(storage_type):
             return LocalStorageAdapter(self.storage_root)
         
         elif storage_type in ("minio", "yandex_disk") and storage_connection_id:

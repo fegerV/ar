@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.api.auth import require_admin
+from app.storage_utils import is_local_storage
 from storage_config import get_storage_config
 from storage_manager import get_storage_manager
 from logging_setup import get_logger
@@ -286,7 +287,7 @@ async def test_storage_connection(
                 "connected": is_connected
             }
         
-        elif storage_type == "local":
+        elif is_local_storage(storage_type):
             # Local storage is always available
             storage_root = Path("storage")
             storage_root.mkdir(parents=True, exist_ok=True)
