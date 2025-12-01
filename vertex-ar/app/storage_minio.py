@@ -132,3 +132,106 @@ class MinioStorageAdapter(StorageAdapter):
             base_url = self.endpoint
             
         return f"{base_url}/{self.bucket}/{file_path}"
+    
+    async def create_directory(self, dir_path: str) -> bool:
+        """Create a directory in MinIO storage.
+        
+        MinIO/S3 doesn't have true directories, but we create a marker object.
+        
+        Args:
+            dir_path: Directory path to create
+            
+        Returns:
+            True if created successfully or already exists
+        """
+        from io import BytesIO
+        from minio.error import S3Error
+        
+        # Ensure dir_path ends with /
+        if not dir_path.endswith('/'):
+            dir_path += '/'
+        
+        try:
+            # Create a zero-byte marker object for the directory
+            self.client.put_object(
+                self.bucket,
+                dir_path,
+                BytesIO(b''),
+                length=0
+            )
+            return True
+        except S3Error:
+            return False
+    
+    async def directory_exists(self, dir_path: str) -> bool:
+        """Check if directory exists in MinIO storage.
+        
+        Args:
+            dir_path: Directory path to check
+            
+        Returns:
+            True if directory exists
+        """
+        from minio.error import S3Error
+        
+        # Ensure dir_path ends with /
+        if not dir_path.endswith('/'):
+            dir_path += '/'
+        
+        try:
+            # Check if the directory marker exists
+            self.client.stat_object(self.bucket, dir_path)
+            return True
+        except S3Error:
+            # Also check if there are any objects with this prefix
+            try:
+                objects = list(self.client.list_objects(
+                    self.bucket,
+                    prefix=dir_path,
+                    max_keys=1
+                ))
+                return len(objects) > 0
+            except S3Error:
+                return False
+    
+    async def list_directories(self, base_path: str = "") -> list:
+        """List directories at the given path in MinIO storage.
+        
+        Args:
+            base_path: Base path to list directories from
+            
+        Returns:
+            List of directory names (not full paths)
+        """
+        from minio.error import S3Error
+        
+        # Ensure base_path ends with / if not empty
+        if base_path and not base_path.endswith('/'):
+            base_path += '/'
+        
+        try:
+            # List objects with delimiter to get "directories"
+            objects = self.client.list_objects(
+                self.bucket,
+                prefix=base_path,
+                recursive=False
+            )
+            
+            directories = set()
+            for obj in objects:
+                # Extract directory name from object key
+                if obj.is_dir:
+                    # Remove prefix and trailing slash
+                    dir_name = obj.object_name[len(base_path):].rstrip('/')
+                    if dir_name:
+                        directories.add(dir_name)
+                else:
+                    # Check if object is in a subdirectory
+                    relative_path = obj.object_name[len(base_path):]
+                    if '/' in relative_path:
+                        dir_name = relative_path.split('/')[0]
+                        directories.add(dir_name)
+            
+            return sorted(list(directories))
+        except S3Error:
+            return []

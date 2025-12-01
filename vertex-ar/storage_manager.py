@@ -431,6 +431,143 @@ class StorageManager:
                     stats[f"company_{company_id}_{content_type}"] = adapter.get_cache_stats()
         
         return stats
+    
+    async def provision_company_storage(
+        self,
+        company_id: str,
+        category_slugs: list,
+        subfolders: Optional[list] = None
+    ) -> Dict[str, Any]:
+        """
+        Provision complete storage hierarchy for a company across all configured storage types.
+        
+        Args:
+            company_id: Company ID
+            category_slugs: List of category slugs (content types)
+            subfolders: List of subfolder names (defaults to standard subfolders)
+            
+        Returns:
+            Dictionary with provisioning results
+        """
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+        
+        company = database.get_company(company_id)
+        if not company:
+            raise ValueError(f"Company not found: {company_id}")
+        
+        if subfolders is None:
+            from app.services.folder_service import FolderService
+            subfolders = FolderService.STANDARD_SUBFOLDERS
+        
+        storage_type = company.get('storage_type', 'local')
+        company_slug = self._get_company_slug(company)
+        
+        results = {
+            "company_id": company_id,
+            "company_slug": company_slug,
+            "storage_type": storage_type,
+            "categories": category_slugs,
+            "subfolders": subfolders
+        }
+        
+        logger.info(
+            "Provisioning company storage hierarchy",
+            company_id=company_id,
+            storage_type=storage_type,
+            categories=len(category_slugs)
+        )
+        
+        if is_local_storage(storage_type):
+            # Use FolderService for local storage
+            from app.services.folder_service import FolderService, FolderCreationError
+            try:
+                folder_service = FolderService(self.storage_root)
+                provision_result = folder_service.provision_company_hierarchy(company, category_slugs)
+                results.update(provision_result)
+            except FolderCreationError as e:
+                logger.error(f"Failed to provision local storage: {e}")
+                results["success"] = False
+                results["error"] = str(e)
+        else:
+            # Use storage adapter for remote storage
+            try:
+                # Get content_type from first category or use 'portraits' as default
+                content_type = category_slugs[0] if category_slugs else 'portraits'
+                adapter = self.get_company_adapter(company_id, content_type)
+                
+                provision_result = await adapter.provision_hierarchy(
+                    company_slug,
+                    category_slugs,
+                    subfolders
+                )
+                results.update(provision_result)
+            except Exception as e:
+                logger.error(f"Failed to provision remote storage: {e}", exc_info=e)
+                results["success"] = False
+                results["error"] = str(e)
+        
+        return results
+    
+    async def verify_company_storage(
+        self,
+        company_id: str,
+        category_slugs: list
+    ) -> Dict[str, Any]:
+        """
+        Verify that storage hierarchy exists for company and categories.
+        
+        Args:
+            company_id: Company ID
+            category_slugs: List of category slugs to verify
+            
+        Returns:
+            Dictionary with verification results
+        """
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+        
+        company = database.get_company(company_id)
+        if not company:
+            raise ValueError(f"Company not found: {company_id}")
+        
+        storage_type = company.get('storage_type', 'local')
+        
+        if is_local_storage(storage_type):
+            from app.services.folder_service import FolderService
+            folder_service = FolderService(self.storage_root)
+            return folder_service.verify_hierarchy(company, category_slugs)
+        else:
+            # For remote storage, check via adapter
+            content_type = category_slugs[0] if category_slugs else 'portraits'
+            adapter = self.get_company_adapter(company_id, content_type)
+            company_slug = self._get_company_slug(company)
+            
+            results = {}
+            for category_slug in category_slugs:
+                base_path = f"{company_slug}/{category_slug}"
+                exists = await adapter.directory_exists(base_path)
+                results[category_slug] = {
+                    "base_path": base_path,
+                    "exists": exists
+                }
+            
+            all_exist = all(r["exists"] for r in results.values())
+            
+            return {
+                "company_id": company_id,
+                "company_slug": company_slug,
+                "storage_type": storage_type,
+                "all_exist": all_exist,
+                "categories": results
+            }
+    
+    def _get_company_slug(self, company: Dict[str, Any]) -> str:
+        """Get or generate slug for company."""
+        from app.services.folder_service import FolderService
+        return FolderService.slugify(company.get('id', 'default'))
 
 
 # Global storage manager instance

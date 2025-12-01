@@ -1048,6 +1048,111 @@ class YandexDiskStorageAdapter(StorageAdapter):
         """Get directory cache statistics."""
         return self.directory_cache.get_stats()
     
+    async def create_directory(self, dir_path: str) -> bool:
+        """Create a directory in Yandex Disk storage.
+        
+        Args:
+            dir_path: Directory path to create
+            
+        Returns:
+            True if created successfully or already exists
+        """
+        full_path = self._get_full_path(dir_path)
+        return await self._ensure_directory_exists(full_path)
+    
+    async def directory_exists(self, dir_path: str) -> bool:
+        """Check if directory exists in Yandex Disk storage.
+        
+        Args:
+            dir_path: Directory path to check
+            
+        Returns:
+            True if directory exists
+        """
+        full_path = self._get_full_path(dir_path)
+        
+        # Check cache first
+        cached = await self.directory_cache.get(full_path)
+        if cached is not None:
+            return True
+        
+        start_time = time.time()
+        success = False
+        error_type = None
+        
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self._make_request("GET", "/resources", params={"path": full_path})
+            )
+            
+            data = response.json()
+            exists = data.get("type") == "dir"
+            
+            if exists:
+                await self.directory_cache.set(full_path, True)
+            
+            success = True
+            return exists
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                success = True
+                return False
+            error_type = f"http_{e.response.status_code}"
+            return False
+        except Exception as e:
+            error_type = type(e).__name__
+            logger.error("Failed to check directory existence", error=str(e), path=full_path)
+            return False
+        finally:
+            duration = time.time() - start_time
+            self._record_operation("directory_exists", duration, success, error_type)
+    
+    async def list_directories(self, base_path: str = "") -> list:
+        """List directories at the given path in Yandex Disk storage.
+        
+        Args:
+            base_path: Base path to list directories from
+            
+        Returns:
+            List of directory names (not full paths)
+        """
+        full_path = self._get_full_path(base_path) if base_path else self.base_path
+        
+        start_time = time.time()
+        success = False
+        error_type = None
+        
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self._make_request("GET", "/resources", params={"path": full_path})
+            )
+            
+            data = response.json()
+            items = data.get("_embedded", {}).get("items", [])
+            
+            # Filter only directories and return names
+            directories = [
+                item["name"]
+                for item in items
+                if item.get("type") == "dir"
+            ]
+            
+            success = True
+            return directories
+            
+        except Exception as e:
+            error_type = type(e).__name__
+            logger.error("Failed to list directories", error=str(e), path=full_path)
+            return []
+        finally:
+            duration = time.time() - start_time
+            self._record_operation("list_directories", duration, success, error_type)
+    
     def close(self):
         """Close persistent session and cleanup resources."""
         if self.session:
