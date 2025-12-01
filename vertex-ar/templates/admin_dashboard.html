@@ -779,6 +779,91 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Storage Management -->
+            <div class="storage-management-section" style="margin-top: 1.5rem; padding: 1rem; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">💾 Управление хранилищем</h3>
+                
+                <!-- Storage Status -->
+                <div id="storageStatusContainer" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: var(--border-radius);">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <strong style="font-size: 0.9rem;">Тип хранилища:</strong>
+                            <span id="storageType" style="color: var(--primary-color); font-weight: 500;">Локальный диск</span>
+                        </div>
+                        <span id="storageStatus" class="storage-status-badge" data-status="ready" style="padding: 0.35rem 0.75rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; background: var(--success-color); color: white;">✅ Готово</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <strong style="font-size: 0.9rem;">Базовая папка:</strong>
+                        <code id="storageBasePath" style="background: rgba(0, 123, 255, 0.1); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; color: var(--text-color); word-break: break-all;">/uploads/company_1</code>
+                    </div>
+                </div>
+
+                <!-- Empty State for Non-Local Storage -->
+                <div id="storageEmptyState" class="storage-empty-state" style="display: none; padding: 2rem 1rem; text-align: center; background: var(--bg-color); border-radius: var(--border-radius); border: 2px dashed var(--border-color);">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;">📂</div>
+                    <p style="font-size: 0.95rem; color: var(--text-color); margin-bottom: 0.5rem; font-weight: 500;">Управление папками недоступно</p>
+                    <p style="font-size: 0.85rem; color: var(--secondary-color); line-height: 1.5;">
+                        Данная компания использует нелокальное хранилище или не поддерживает управление папками через интерфейс.
+                        Для работы с папками используйте настройки хранилища или внешний интерфейс провайдера.
+                    </p>
+                </div>
+                
+                <!-- Folder Management (visible only for local storage) -->
+                <div id="storageFolderManagement" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <!-- Info Message -->
+                    <div style="padding: 0.75rem; background: rgba(23, 162, 184, 0.1); border-left: 3px solid var(--info-color); border-radius: var(--border-radius); font-size: 0.9rem; color: var(--text-color);">
+                        <strong>💡 Подсказка:</strong> Создавайте папки для организации контента. Имя папки может содержать только буквы, цифры, дефисы и подчёркивания.
+                    </div>
+                    
+                    <!-- Create Folder Controls -->
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start;">
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.25rem;">
+                            <label for="storageFolderInput" style="font-size: 0.85rem; font-weight: 500; color: var(--text-color);">Имя новой папки:</label>
+                            <input 
+                                type="text" 
+                                id="storageFolderInput" 
+                                class="company-input storage-folder-input" 
+                                placeholder="Например: portraits_2025" 
+                                pattern="[a-zA-Z0-9_-]+"
+                                title="Только буквы, цифры, дефисы и подчёркивания"
+                                style="flex: 1; min-width: 200px;">
+                            <small id="storageFolderInputError" class="input-error" style="display: none; color: var(--danger-color); font-size: 0.75rem; margin-top: 0.25rem;"></small>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.25rem;">
+                            <label for="storageFolderContentType" style="font-size: 0.85rem; font-weight: 500; color: var(--text-color);">Тип контента (опционально):</label>
+                            <select id="storageFolderContentType" class="company-select" style="flex: 1; min-width: 200px;">
+                                <option value="">Не указан</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button id="createFolderBtn" onclick="createStorageFolder()" class="company-btn" title="Создать новую папку" disabled>
+                            📁 Создать папку
+                        </button>
+                        <button id="refreshFolderListBtn" onclick="refreshStorageFolderList()" class="company-btn" title="Обновить список папок" style="background: var(--info-color);">
+                            🔄 Обновить список
+                        </button>
+                    </div>
+                    
+                    <!-- Folders List -->
+                    <div style="margin-top: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.9rem;">Существующие папки:</strong>
+                            <span id="storageFolderCount" style="font-size: 0.85rem; color: var(--secondary-color);">0 папок</span>
+                        </div>
+                        <div id="storageFolderList" class="storage-folder-list" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); background: var(--bg-color);">
+                            <!-- Folders will be populated here via JavaScript -->
+                            <div class="storage-empty-list" style="padding: 2rem 1rem; text-align: center; color: var(--secondary-color); font-size: 0.9rem;">
+                                <div style="font-size: 1.5rem; margin-bottom: 0.5rem; opacity: 0.5;">📂</div>
+                                <p>Папки появятся здесь после создания</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Create Order Section -->
