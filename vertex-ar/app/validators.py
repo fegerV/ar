@@ -167,3 +167,45 @@ def validate_query_param(value: Any, param_name: str, min_val: int = None, max_v
             raise ValueError(f"{param_name} must not exceed {max_val}")
     
     return value
+
+
+def validate_social_links(social_links: Any) -> str:
+    """
+    Validate social links format.
+    Accepts dict or JSON string. Returns JSON string.
+    Expected format: {"platform": "url", ...}
+    """
+    import json
+    
+    if not social_links:
+        raise ValueError("Social links cannot be empty")
+    
+    # If it's a string, try to parse as JSON
+    if isinstance(social_links, str):
+        try:
+            parsed = json.loads(social_links)
+        except json.JSONDecodeError:
+            raise ValueError("Social links must be valid JSON")
+    elif isinstance(social_links, dict):
+        parsed = social_links
+    else:
+        raise ValueError("Social links must be a dict or JSON string")
+    
+    # Validate structure
+    if not isinstance(parsed, dict):
+        raise ValueError("Social links must be a JSON object/dict")
+    
+    # Validate each entry
+    for platform, url in parsed.items():
+        if not isinstance(platform, str) or not platform.strip():
+            raise ValueError("Social link platform names must be non-empty strings")
+        if not isinstance(url, str) or not url.strip():
+            raise ValueError(f"Social link URL for '{platform}' must be a non-empty string")
+        # Validate URL format
+        try:
+            validate_url(url)
+        except ValueError as e:
+            raise ValueError(f"Invalid URL for social link '{platform}': {str(e)}")
+    
+    # Return as JSON string
+    return json.dumps(parsed)
