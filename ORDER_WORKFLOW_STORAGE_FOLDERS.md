@@ -83,7 +83,7 @@ Created comprehensive test suites covering all aspects:
 - File operations (move, create parent dirs, not found, cleanup)
 - Complete workflow integration
 
-#### Integration Tests (`test_files/integration/test_order_local_storage_simple.py`) - 6 tests
+#### Integration Tests - Simple (`test_files/integration/test_order_local_storage_simple.py`) - 6 tests
 - Create order folder structure
 - Move files to order folders
 - Relative paths for database
@@ -91,7 +91,16 @@ Created comprehensive test suites covering all aspects:
 - Multiple content types
 - Default storage folder path
 
-All tests passing: **25 tests total**
+#### Integration Tests - Full API (`test_files/integration/test_order_workflow_storage_folders.py`) - 8 tests
+- Order creates folder structure via API
+- Database stores relative paths
+- Default storage folder path handling
+- Permission error handling
+- Multiple content types (portraits, diplomas)
+- Temp file cleanup after order creation
+- Public URLs work with relative paths
+
+All tests passing: **33 tests total**
 
 ## Folder Hierarchy
 
@@ -231,9 +240,10 @@ All operations logged with structured logging:
 - `vertex-ar/app/services/__init__.py` - Added FolderService export
 
 ## Files Created
-- `vertex-ar/app/services/folder_service.py` - New folder management service
-- `test_files/unit/test_folder_service.py` - 19 unit tests
-- `test_files/integration/test_order_local_storage_simple.py` - 6 integration tests
+- `vertex-ar/app/services/folder_service.py` - New folder management service (291 lines)
+- `test_files/unit/test_folder_service.py` - 19 unit tests (301 lines)
+- `test_files/integration/test_order_local_storage_simple.py` - 6 integration tests (275 lines)
+- `test_files/integration/test_order_workflow_storage_folders.py` - 8 full API integration tests (426 lines)
 - `ORDER_WORKFLOW_STORAGE_FOLDERS.md` - This document
 
 ## Next Steps (Optional Enhancements)

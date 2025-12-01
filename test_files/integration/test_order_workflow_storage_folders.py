@@ -35,12 +35,18 @@ def test_database():
 
 
 @pytest.fixture
-def app_with_temp_storage(temp_storage, test_database):
+def app_with_temp_storage(temp_storage, test_database, monkeypatch):
     """Create app with temporary storage and database."""
-    app = create_app(
-        storage_root=temp_storage,
-        db_path=test_database.path
-    )
+    # Override settings before creating app
+    monkeypatch.setattr("app.config.settings.STORAGE_ROOT", temp_storage)
+    monkeypatch.setattr("app.config.settings.DB_PATH", test_database.path)
+    
+    app = create_app()
+    
+    # Also update app state to ensure consistency
+    app.state.config["STORAGE_ROOT"] = temp_storage
+    app.state.database = test_database
+    
     return app
 
 
