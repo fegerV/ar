@@ -720,6 +720,7 @@ async def create_or_update_company_storage_folder(
     Create or update storage folder for a company (for local storage).
     
     Validates folder name and creates the folder on disk.
+    Uses the centralized storage folders service.
     """
     username = _get_admin_user(request)
     database = get_database()
@@ -749,31 +750,43 @@ async def create_or_update_company_storage_folder(
         )
     
     try:
-        from pathlib import Path
+        # Use the centralized storage folders service
+        from app.services import get_storage_folders_service
+        service = get_storage_folders_service()
         
         folder_path = folder_update.folder_path
         
-        base_path = Path("app_data") / folder_path
-        base_path.mkdir(parents=True, exist_ok=True)
+        # Normalize and validate folder name
+        try:
+            normalized_folder = service.normalize_folder_name(folder_path)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc)
+            )
+        
+        # Ensure the company storage root exists
+        company_root = service.get_company_storage_root(company_id)
+        company_root.mkdir(parents=True, exist_ok=True)
         
         logger.info(
-            "Created storage folder",
+            "Created/verified storage folder",
             company_id=company_id,
-            folder_path=folder_path,
-            full_path=str(base_path),
+            folder_path=normalized_folder,
+            full_path=str(company_root),
             user=username
         )
         
         success = database.update_company(
             company_id,
-            storage_folder_path=folder_path
+            storage_folder_path=normalized_folder
         )
         
         if not success:
             logger.error(
                 "Failed to update company storage folder in database",
                 company_id=company_id,
-                folder_path=folder_path,
+                folder_path=normalized_folder,
                 user=username
             )
             raise HTTPException(

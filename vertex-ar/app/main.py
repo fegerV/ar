@@ -155,7 +155,7 @@ def create_app() -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
     
     # Register API routes
-    from app.api import auth, ar, admin, clients, companies, projects, folders, portraits, videos, health, users, notifications as notifications_api, notifications_management, notification_settings, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, yandex_disk, email_templates
+    from app.api import auth, ar, admin, clients, companies, projects, folders, portraits, videos, health, users, notifications as notifications_api, notifications_management, notification_settings, orders, backups, monitoring, mobile, remote_storage, storage_config, storage_management, storage_folders, yandex_disk, email_templates
     
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(users.router, prefix="/users", tags=["users"])
@@ -173,6 +173,7 @@ def create_app() -> FastAPI:
     app.include_router(remote_storage.router, tags=["remote_storage"])
     app.include_router(storage_config.router, tags=["storage_config"])
     app.include_router(storage_management.router, tags=["storage_management"])
+    app.include_router(storage_folders.router, prefix="/api", tags=["storage_folders"])
     app.include_router(yandex_disk.router, tags=["yandex_disk"])
     app.include_router(email_templates.router, tags=["email_templates"])
     app.include_router(health.router, tags=["health"])

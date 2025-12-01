@@ -857,3 +857,65 @@ class EmailTemplatePreviewRequest(BaseModel):
 class EmailTemplatePreviewResponse(BaseModel):
     subject: str
     html_content: str
+
+# Storage Folders API models
+class StorageFolderListRequest(BaseModel):
+    company_id: str = Field(..., description="Company identifier")
+    content_type: Optional[str] = Field(None, description="Optional content type filter")
+
+
+class StorageFolderItem(BaseModel):
+    folder_name: str
+    content_type: str
+    full_path: str
+    has_required_subdirs: Dict[str, bool]
+    is_empty: bool
+
+
+class StorageFoldersListResponse(BaseModel):
+    company_id: str
+    folders: List[StorageFolderItem]
+    total: int
+
+
+class StorageFolderCreateRequest(BaseModel):
+    company_id: str = Field(..., description="Company identifier")
+    content_type: str = Field(..., min_length=1, max_length=100, description="Content type (e.g., 'portraits', 'diplomas')")
+    folder_name: str = Field(..., min_length=1, max_length=255, description="Folder name (letters, digits, dash, underscore only)")
+    
+    @field_validator('folder_name')
+    @classmethod
+    def validate_folder_name(cls, v: str) -> str:
+        import re
+        if not v or not v.strip():
+            raise ValueError('Folder name is required')
+        v = v.strip()
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError('Folder name can only contain letters, digits, dashes, and underscores')
+        return v
+
+
+class StorageFolderDeleteRequest(BaseModel):
+    company_id: str = Field(..., description="Company identifier")
+    content_type: str = Field(..., min_length=1, max_length=100, description="Content type")
+    folder_name: str = Field(..., min_length=1, max_length=255, description="Folder name to delete")
+    force: bool = Field(False, description="Force deletion even if not empty")
+
+
+class StorageFolderOperationResponse(BaseModel):
+    success: bool
+    message: str
+    folder_path: Optional[str] = None
+
+
+class CompanyStorageStatusResponse(BaseModel):
+    company_id: str
+    company_name: str
+    storage_type: str
+    storage_root: str
+    company_path: str
+    permissions: Dict[str, bool]
+    content_types: Dict[str, int]
+    is_ready: bool
+    is_configured: bool
+    status_message: str
