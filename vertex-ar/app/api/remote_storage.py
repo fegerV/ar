@@ -5,10 +5,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 from app.api.auth import require_admin
+from app.models import CompanyBackupConfig, CompanyBackupConfigResponse
 from backup_manager import create_backup_manager
 from remote_storage import get_remote_storage_manager
 from logging_setup import get_logger
@@ -436,3 +437,343 @@ async def sync_all_to_remote(
     except Exception as e:
         logger.error("Failed to sync all backups", error=str(e), exc_info=e)
         raise HTTPException(status_code=500, detail=f"Failed to sync all: {str(e)}")
+
+
+@router.get("/providers")
+async def list_providers(_admin=Depends(require_admin)) -> Dict[str, Any]:
+    """
+    List all configured remote storage providers.
+    
+    Returns a list of provider names that are configured and ready to use.
+    Requires admin authentication.
+    """
+    try:
+        storage_manager = get_remote_storage_manager()
+        providers = storage_manager.list_providers()
+        
+        # Get connection status for each provider
+        provider_details = []
+        for provider_name in providers:
+            storage = storage_manager.get_storage(provider_name)
+            is_connected = False
+            if storage:
+                try:
+                    is_connected = storage.test_connection()
+                except Exception:
+                    pass
+            
+            provider_details.append({
+                "name": provider_name,
+                "connected": is_connected
+            })
+        
+        return {
+            "success": True,
+            "providers": provider_details,
+            "count": len(provider_details)
+        }
+    except Exception as e:
+        logger.error("Failed to list providers", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to list providers: {str(e)}")
+
+
+@router.post("/companies/{company_id}/backup-config")
+async def set_company_backup_config(
+    company_id: str,
+    config: CompanyBackupConfig,
+    request: Request,
+    _admin=Depends(require_admin)
+) -> CompanyBackupConfigResponse:
+    """
+    Set remote backup configuration for a specific company.
+    
+    This assigns a backup provider and remote path to a company,
+    enabling automatic remote backups for that company's data.
+    
+    Requires admin authentication.
+    """
+    try:
+        database = request.app.state.database
+        
+        # Verify company exists
+        company = database.get_company(company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company '{company_id}' not found")
+        
+        # If a provider is specified, verify it exists
+        if config.backup_provider:
+            storage_manager = get_remote_storage_manager()
+            storage = storage_manager.get_storage(config.backup_provider)
+            if not storage:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Provider '{config.backup_provider}' is not configured"
+                )
+            
+            # Test connection
+            try:
+                if not storage.test_connection():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Provider '{config.backup_provider}' connection test failed"
+                    )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Provider '{config.backup_provider}' is not accessible: {str(e)}"
+                )
+        
+        # Update database
+        success = database.set_company_backup_config(
+            company_id,
+            config.backup_provider,
+            config.backup_remote_path
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update backup configuration")
+        
+        logger.info(
+            "Updated company backup config",
+            company_id=company_id,
+            provider=config.backup_provider,
+            remote_path=config.backup_remote_path,
+            admin=_admin
+        )
+        
+        return CompanyBackupConfigResponse(
+            company_id=company_id,
+            company_name=company["name"],
+            backup_provider=config.backup_provider,
+            backup_remote_path=config.backup_remote_path
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to set company backup config", error=str(e), company_id=company_id, exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to set backup config: {str(e)}")
+
+
+@router.get("/companies/{company_id}/backup-config")
+async def get_company_backup_config(
+    company_id: str,
+    request: Request,
+    _admin=Depends(require_admin)
+) -> CompanyBackupConfigResponse:
+    """
+    Get remote backup configuration for a specific company.
+    
+    Returns the assigned backup provider and remote path.
+    Requires admin authentication.
+    """
+    try:
+        database = request.app.state.database
+        
+        # Get company
+        company = database.get_company(company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company '{company_id}' not found")
+        
+        return CompanyBackupConfigResponse(
+            company_id=company_id,
+            company_name=company["name"],
+            backup_provider=company.get("backup_provider"),
+            backup_remote_path=company.get("backup_remote_path")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get company backup config", error=str(e), company_id=company_id, exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to get backup config: {str(e)}")
+
+
+@router.get("/companies/backup-configs")
+async def list_companies_backup_configs(
+    request: Request,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    List backup configurations for all companies.
+    
+    Returns a list of all companies with their backup settings.
+    Requires admin authentication.
+    """
+    try:
+        database = request.app.state.database
+        companies = database.list_companies()
+        
+        configs = [
+            CompanyBackupConfigResponse(
+                company_id=company["id"],
+                company_name=company["name"],
+                backup_provider=company.get("backup_provider"),
+                backup_remote_path=company.get("backup_remote_path")
+            )
+            for company in companies
+        ]
+        
+        return {
+            "success": True,
+            "companies": [config.model_dump() for config in configs],
+            "count": len(configs)
+        }
+        
+    except Exception as e:
+        logger.error("Failed to list company backup configs", error=str(e), exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to list backup configs: {str(e)}")
+
+
+@router.post("/companies/{company_id}/sync-backup")
+async def sync_company_backup(
+    company_id: str,
+    backup_path: str,
+    request: Request,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Sync a specific backup file to the company's configured remote storage.
+    
+    The company must have a backup provider configured.
+    Requires admin authentication.
+    """
+    try:
+        database = request.app.state.database
+        
+        # Get company backup config
+        company = database.get_company(company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company '{company_id}' not found")
+        
+        backup_provider = company.get("backup_provider")
+        backup_remote_path = company.get("backup_remote_path", "vertex-ar-backups")
+        
+        if not backup_provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Company '{company['name']}' does not have a backup provider configured"
+            )
+        
+        # Get storage and backup managers
+        storage_manager = get_remote_storage_manager()
+        storage = storage_manager.get_storage(backup_provider)
+        
+        if not storage:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Backup provider '{backup_provider}' is not configured"
+            )
+        
+        backup_manager = create_backup_manager()
+        backup_file = Path(backup_path)
+        
+        if not backup_file.exists():
+            raise HTTPException(status_code=404, detail=f"Backup file not found: {backup_path}")
+        
+        logger.info(
+            "Syncing company backup",
+            company_id=company_id,
+            company_name=company["name"],
+            backup_path=backup_path,
+            provider=backup_provider,
+            remote_path=backup_remote_path,
+            admin=_admin
+        )
+        
+        # Sync to remote
+        result = backup_manager.sync_to_remote(backup_file, storage, backup_remote_path)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Sync failed"))
+        
+        return {
+            "success": True,
+            "message": f"Backup synced to {backup_provider}",
+            "company_id": company_id,
+            "company_name": company["name"],
+            "provider": backup_provider,
+            "remote_path": result.get("remote_path"),
+            "size_mb": round(result.get("size", 0) / (1024 * 1024), 2)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to sync company backup", error=str(e), company_id=company_id, exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to sync backup: {str(e)}")
+
+
+@router.post("/companies/{company_id}/download-backup")
+async def download_company_backup(
+    company_id: str,
+    remote_filename: str,
+    request: Request,
+    _admin=Depends(require_admin)
+) -> Dict[str, Any]:
+    """
+    Download a backup from the company's configured remote storage.
+    
+    The company must have a backup provider configured.
+    Requires admin authentication.
+    """
+    try:
+        database = request.app.state.database
+        
+        # Get company backup config
+        company = database.get_company(company_id)
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company '{company_id}' not found")
+        
+        backup_provider = company.get("backup_provider")
+        backup_remote_path = company.get("backup_remote_path", "vertex-ar-backups")
+        
+        if not backup_provider:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Company '{company['name']}' does not have a backup provider configured"
+            )
+        
+        # Get storage and backup managers
+        storage_manager = get_remote_storage_manager()
+        storage = storage_manager.get_storage(backup_provider)
+        
+        if not storage:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Backup provider '{backup_provider}' is not configured"
+            )
+        
+        backup_manager = create_backup_manager()
+        
+        logger.info(
+            "Downloading company backup",
+            company_id=company_id,
+            company_name=company["name"],
+            remote_filename=remote_filename,
+            provider=backup_provider,
+            remote_path=backup_remote_path,
+            admin=_admin
+        )
+        
+        # Download from remote
+        result = backup_manager.restore_from_remote(storage, remote_filename, backup_remote_path)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Download failed"))
+        
+        return {
+            "success": True,
+            "message": result.get("message"),
+            "company_id": company_id,
+            "company_name": company["name"],
+            "provider": backup_provider,
+            "local_path": result.get("local_path"),
+            "backup_type": result.get("backup_type")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to download company backup", error=str(e), company_id=company_id, exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Failed to download backup: {str(e)}")

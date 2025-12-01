@@ -82,6 +82,8 @@ class CompanyCreate(BaseModel):
     yandex_disk_folder_id: Optional[str] = Field(default=None, description="Yandex Disk folder ID for storing orders")
     content_types: Optional[str] = Field(default=None, description="Comma-separated list of content types for this company")
     storage_folder_path: Optional[str] = Field(default="vertex_ar_content", description="Storage folder path for local storage")
+    backup_provider: Optional[str] = Field(default=None, description="Remote backup provider (e.g., yandex_disk, google_drive)")
+    backup_remote_path: Optional[str] = Field(default=None, description="Remote path for backups")
     
     @field_validator('name')
     @classmethod
@@ -104,6 +106,8 @@ class CompanyResponse(BaseModel):
     yandex_disk_folder_id: Optional[str] = None
     content_types: Optional[str] = None
     storage_folder_path: Optional[str] = None
+    backup_provider: Optional[str] = None
+    backup_remote_path: Optional[str] = None
     created_at: str
 
 
@@ -118,6 +122,8 @@ class CompanyUpdate(BaseModel):
     yandex_disk_folder_id: Optional[str] = Field(None, description="Yandex Disk folder ID for storing orders")
     content_types: Optional[str] = Field(None, description="Comma-separated list of content types for this company")
     storage_folder_path: Optional[str] = Field(None, description="Storage folder path for local storage")
+    backup_provider: Optional[str] = Field(None, description="Remote backup provider")
+    backup_remote_path: Optional[str] = Field(None, description="Remote path for backups")
     
     @field_validator('name')
     @classmethod
@@ -132,6 +138,28 @@ class CompanyUpdate(BaseModel):
         if v is not None and v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
+
+
+# Company backup configuration models
+class CompanyBackupConfig(BaseModel):
+    """Model for setting company backup configuration."""
+    backup_provider: Optional[str] = Field(None, description="Provider name (e.g., yandex_disk, google_drive)")
+    backup_remote_path: Optional[str] = Field(None, description="Remote directory path for backups")
+    
+    @field_validator('backup_provider')
+    @classmethod
+    def validate_provider(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ['yandex_disk', 'google_drive', 'local']:
+            raise ValueError('backup_provider must be one of: yandex_disk, google_drive, local')
+        return v
+
+
+class CompanyBackupConfigResponse(BaseModel):
+    """Response model for company backup configuration."""
+    company_id: str
+    company_name: str
+    backup_provider: Optional[str] = None
+    backup_remote_path: Optional[str] = None
 
 
 # Storage connection models

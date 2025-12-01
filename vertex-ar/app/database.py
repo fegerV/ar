@@ -510,6 +510,16 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
+            # Add backup provider columns to companies table
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN backup_provider TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._connection.execute("ALTER TABLE companies ADD COLUMN backup_remote_path TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
             # Migrate legacy "local" storage_type to "local_disk"
             try:
                 cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_type = 'local'")
@@ -1787,13 +1797,15 @@ class Database:
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
         content_types: Optional[str] = None,
-        storage_folder_path: Optional[str] = "vertex_ar_content"
+        storage_folder_path: Optional[str] = "vertex_ar_content",
+        backup_provider: Optional[str] = None,
+        backup_remote_path: Optional[str] = None
     ) -> None:
         """Create a new company."""
         try:
             self._execute(
-                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path),
+                "INSERT INTO companies (id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path, backup_provider, backup_remote_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, content_types, storage_folder_path, backup_provider, backup_remote_path),
             )
             logger.info(f"Created company: {name} with storage: {storage_type}")
         except sqlite3.IntegrityError as exc:
@@ -1829,7 +1841,9 @@ class Database:
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
         content_types: Optional[str] = None,
-        storage_folder_path: Optional[str] = None
+        storage_folder_path: Optional[str] = None,
+        backup_provider: Optional[str] = None,
+        backup_remote_path: Optional[str] = None
     ) -> bool:
         """
         Update company fields.
@@ -1842,6 +1856,8 @@ class Database:
             yandex_disk_folder_id: Yandex Disk folder ID (optional)
             content_types: Content types CSV string (optional)
             storage_folder_path: Storage folder path (optional)
+            backup_provider: Remote backup provider (optional)
+            backup_remote_path: Remote backup path (optional)
             
         Returns:
             True if successful, False otherwise
@@ -1874,6 +1890,14 @@ class Database:
                 updates.append("storage_folder_path = ?")
                 params.append(storage_folder_path)
             
+            if backup_provider is not None:
+                updates.append("backup_provider = ?")
+                params.append(backup_provider)
+            
+            if backup_remote_path is not None:
+                updates.append("backup_remote_path = ?")
+                params.append(backup_remote_path)
+            
             if not updates:
                 return False
             
@@ -1904,7 +1928,8 @@ class Database:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
-                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path, COUNT(cl.id) as client_count
+                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
+                   c.backup_provider, c.backup_remote_path, COUNT(cl.id) as client_count
             FROM companies c
             LEFT JOIN clients cl ON c.id = cl.company_id
             GROUP BY c.id
@@ -1987,6 +2012,57 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to update content types: {exc}")
             return False
+    
+    def set_company_backup_config(
+        self, 
+        company_id: str, 
+        backup_provider: Optional[str], 
+        backup_remote_path: Optional[str]
+    ) -> bool:
+        """
+        Set remote backup configuration for a company.
+        
+        Args:
+            company_id: Company ID
+            backup_provider: Provider name (e.g., 'yandex_disk', 'google_drive') or None to unset
+            backup_remote_path: Remote directory path for backups or None to unset
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            self._execute(
+                "UPDATE companies SET backup_provider = ?, backup_remote_path = ? WHERE id = ?",
+                (backup_provider, backup_remote_path, company_id)
+            )
+            logger.info(
+                f"Updated backup config for company {company_id}",
+                backup_provider=backup_provider,
+                backup_remote_path=backup_remote_path
+            )
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to set backup config: {exc}")
+            return False
+    
+    def get_company_backup_config(self, company_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get remote backup configuration for a company.
+        
+        Args:
+            company_id: Company ID
+            
+        Returns:
+            Dict with backup_provider and backup_remote_path or None if company not found
+        """
+        cursor = self._execute(
+            "SELECT backup_provider, backup_remote_path FROM companies WHERE id = ?",
+            (company_id,)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
     
     @staticmethod
     def serialize_content_types(content_types: List[Dict[str, str]]) -> str:
