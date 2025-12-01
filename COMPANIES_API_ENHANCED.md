@@ -15,13 +15,14 @@ This document describes the comprehensive enhancements made to the company manag
 
 ## Overview
 
-The enhanced company API provides complete lifecycle management for companies and their categories (content types), with support for:
+The enhanced company API provides complete lifecycle management for companies and their categories, with support for:
 
 - **Full CRUD**: Create, Read, Update (PUT/PATCH), Delete operations
 - **Pagination**: Paginated listings with configurable page size
 - **Filtering**: Search by name and filter by storage type
-- **Categories**: Explicit category management with storage-friendly slugs
+- **Categories**: Explicit category management via projects table with storage-friendly slugs
 - **Storage Workflow**: Helper endpoints for guided company setup
+- **Auto-Provisioning**: Default "Vertex AR" company created automatically on first startup
 
 ---
 
@@ -35,7 +36,7 @@ The enhanced company API provides complete lifecycle management for companies an
 - `page` (int, default: 1): Page number
 - `page_size` (int, default: 50, max: 200): Items per page
 - `search` (string, optional): Search query for company name
-- `storage_type` (string, optional): Filter by storage type (`local`, `local_disk`, `minio`, `yandex_disk`)
+- `storage_type` (string, optional): Filter by storage type (`local_disk`, `minio`, `yandex_disk`)
 
 **Response**:
 ```json
@@ -44,10 +45,9 @@ The enhanced company API provides complete lifecycle management for companies an
     {
       "id": "company-abc123",
       "name": "Acme Corp",
-      "storage_type": "local",
+      "storage_type": "local_disk",
       "storage_connection_id": null,
       "yandex_disk_folder_id": null,
-      "content_types": "portraits:Portraits,diplomas:Diplomas",
       "storage_folder_path": "acme_corp",
       "backup_provider": null,
       "backup_remote_path": null,
@@ -64,7 +64,7 @@ The enhanced company API provides complete lifecycle management for companies an
 
 **Example**:
 ```bash
-curl "https://api.example.com/api/companies?page=1&page_size=20&search=Acme&storage_type=local"
+curl "https://api.example.com/api/companies?page=1&page_size=20&search=Acme&storage_type=local_disk"
 ```
 
 ### Get Single Company
@@ -84,12 +84,16 @@ curl "https://api.example.com/api/companies?page=1&page_size=20&search=Acme&stor
   "storage_type": "local_disk",
   "storage_connection_id": null,
   "yandex_disk_folder_id": null,
-  "content_types": null,
   "storage_folder_path": "new_company",
   "backup_provider": null,
   "backup_remote_path": null
 }
 ```
+
+**Notes**:
+- `storage_type` defaults to `local_disk` if not specified
+- System auto-provisions default "Vertex AR" company on first startup
+- Categories (content organization) are managed separately via `/api/companies/{id}/categories`
 
 **Response**: `CompanyResponse` with 201 Created status.
 
@@ -106,7 +110,6 @@ curl "https://api.example.com/api/companies?page=1&page_size=20&search=Acme&stor
   "storage_type": "yandex_disk",
   "storage_connection_id": "conn-xyz789",
   "yandex_disk_folder_id": "/Companies/UpdatedCompany",
-  "content_types": "portraits:Portraits,certificates:Certificates",
   "storage_folder_path": "updated_company",
   "backup_provider": "yandex_disk",
   "backup_remote_path": "/Backups/UpdatedCompany"
@@ -148,12 +151,26 @@ Categories are organizational units within a company (implemented using the `pro
 
 ### Why Categories?
 
-Categories bridge the gap between legacy `content_types` (CSV string in companies table) and explicit content organization:
+Categories provide explicit content organization for orders and portraits:
 
-- **Storage Hierarchy**: Each category slug is used in storage paths (e.g., `/company-slug/category-slug/order-id/`)
+- **Storage Hierarchy**: Each category slug is used in storage paths (e.g., `/storage-root/folder-path/company-slug/category-slug/order-id/`)
 - **Content Grouping**: Portraits can be organized into category-specific folders
-- **Backward Compatible**: Works alongside existing `content_types` field
-- **Extensible**: Can add metadata, permissions, settings per category
+- **Flexible Organization**: Each company can define custom categories (e.g., "portraits", "diplomas", "certificates")
+- **Extensible**: Can add metadata, permissions, settings per category in future
+
+### Folder Selection Workflow
+
+When creating orders, the system follows this workflow:
+
+1. **Select Company** → determines storage backend (`local_disk`, `yandex_disk`, etc.)
+2. **Select/Create Category** → organizes content within company storage
+3. **Create Order** → files stored in hierarchy: `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/`
+
+For local disk storage (`local_disk`), files are organized in subfolders:
+- `Image/` - portraits, videos, and previews
+- `QR/` - QR codes
+- `nft_markers/` - NFT marker files
+- `nft_cache/` - NFT cache files
 
 ### Create Category
 
@@ -288,9 +305,11 @@ Helper endpoints for guided company setup following the workflow: **Create Stora
 ```
 
 **Features**:
-- Always includes local storage
+- Always includes `local_disk` storage option
 - Only includes tested and active remote connections
 - UI can use this to present storage selection dialog
+
+**Note**: `local_disk` is the canonical local storage type across the system (DB, API, and UI display as "Локальное хранилище" in Russian, "Local Disk" in English).
 
 ### Additional Workflow Endpoints
 
@@ -410,8 +429,9 @@ All changes are **100% backward compatible**:
 
 1. **Slug Column**: Added as nullable, existing projects work without slugs
 2. **Pagination**: Default parameters match old behavior
-3. **Categories**: Companies can continue using `content_types` field
+3. **Categories**: Explicit category management via projects table replaces legacy CSV approach
 4. **Update Methods**: New `update_company()` accepts optional parameters
+5. **Storage Type**: System standardizes on `local_disk` as canonical local storage identifier
 
 ### Data Migration
 
@@ -431,17 +451,6 @@ for project in projects:
     if not project.get('slug'):
         slug = slugify(project['name'])
         database.rename_category(project['id'], project['name'], slug)
-```
-
-### Reconciling Content Types
-
-Categories and `content_types` can work together:
-
-```python
-# Sync categories to content_types CSV
-categories = database.list_categories("company-1")
-content_types = ",".join([f"{c['slug']}:{c['name']}" for c in categories if c.get('slug')])
-database.update_company("company-1", content_types=content_types)
 ```
 
 ---

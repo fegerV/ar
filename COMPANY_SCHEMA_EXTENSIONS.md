@@ -1,22 +1,28 @@
 # Company Schema Extensions - Implementation Summary
 
 ## Overview
-This document describes the extensions to the company schema to support Yandex Disk integration with folder selection and content type management.
+This document describes the extensions to the company schema to support storage backend integration with folder selection and category-based content organization.
+
+**Note**: This document references legacy `content_types` CSV field. The system now uses explicit category management via the projects table (`/api/companies/{id}/categories` endpoints) for better organization and flexibility.
 
 ## Database Changes (app/database.py)
 
 ### Schema Extensions
 1. **New Columns Added to `companies` Table**:
+   - `storage_type` (TEXT) - Storage backend: `local_disk`, `minio`, or `yandex_disk`
+   - `storage_folder_path` (TEXT, nullable) - Custom folder path (defaults to company slug)
    - `yandex_disk_folder_id` (TEXT, nullable) - Stores the Yandex Disk folder path for order storage
-   - `content_types` (TEXT, nullable) - Stores comma-separated content types in format "slug1:label1,slug2:label2"
+   - `storage_connection_id` (TEXT, nullable) - Reference to storage_connections table
+   - `backup_provider` (TEXT, nullable) - Backup provider configuration
+   - `backup_remote_path` (TEXT, nullable) - Backup storage path
 
 2. **Safe ALTER TABLE Operations**:
    - All column additions are wrapped in try/except blocks to handle existing schemas gracefully
    - Columns are nullable to maintain backward compatibility
 
-3. **Default Data Backfill**:
-   - Existing companies with NULL `content_types` are automatically backfilled with "portraits:Portraits"
-   - Default company "Vertex AR" is created with `content_types = "portraits:Portraits"`
+3. **Default Company**:
+   - Default company "Vertex AR" is auto-provisioned on first startup with `storage_type = 'local_disk'`
+   - Categories managed separately via projects table
 
 ### New Database Methods
 
@@ -45,14 +51,15 @@ def deserialize_content_types(content_types_str: Optional[str]) -> List[Dict[str
 def create_company(
     company_id: str, 
     name: str, 
-    storage_type: str = "local", 
+    storage_type: str = "local_disk",  # Default to canonical local storage type
     storage_connection_id: Optional[str] = None,
     yandex_disk_folder_id: Optional[str] = None,
-    content_types: Optional[str] = None
+    content_types: Optional[str] = None  # Deprecated: use categories via /api/companies/{id}/categories
 ) -> None
 ```
 - Now accepts `yandex_disk_folder_id` and `content_types` parameters
 - Both fields are optional for backward compatibility
+- **Note**: `content_types` is deprecated in favor of category management via projects table
 
 ```python
 def update_company(

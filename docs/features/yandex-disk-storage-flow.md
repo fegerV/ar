@@ -34,8 +34,12 @@ Each company in the database has the following storage-related fields:
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
-| `storage_type` | TEXT | Storage backend type | `local`, `minio`, `yandex_disk` |
+| `storage_type` | TEXT | Storage backend type | `local_disk`, `minio`, `yandex_disk` |
 | `storage_connection_id` | TEXT (nullable) | Reference to storage_connections table | UUID of connection |
+| `storage_folder_path` | TEXT (nullable) | Custom folder path | `my_company` |
+| `yandex_disk_folder_id` | TEXT (nullable) | Yandex Disk folder path | `/Companies/MyCompany` |
+
+**Note**: The system uses `local_disk` as the canonical local storage type (displayed as "Локальное хранилище" in Russian, "Local Disk" in English).
 
 ### Storage Connections Table
 
@@ -137,21 +141,23 @@ base_path = "vertex-ar"  # From storage connection config
 company_path = f"{base_path}/companies/{company_id}"
 portrait_path = f"{company_path}/portraits/{client_id}/{portrait_id}"
 
-# For local storage (fallback)
+# For local disk storage (fallback)
 portrait_path = f"storage/portraits/{client_id}/{portrait_id}"
 ```
 
-### Content Type Organization
+**Note**: The code shows simplified example. Actual system uses category slugs for path construction.
 
-Different content types are stored in separate directories:
+### Category-Based Organization
 
-| Content Type | Local Path | Yandex Path |
-|--------------|------------|-------------|
-| Portraits | `storage/portraits/{client_id}/{portrait_id}/` | `{base_path}/companies/{company_id}/portraits/{client_id}/{portrait_id}/` |
-| Videos | `storage/portraits/{client_id}/{portrait_id}/{video_id}.mp4` | Same as portraits |
-| Previews | `storage/portraits/{client_id}/{portrait_id}/*_preview.jpg` | Same as portraits |
-| NFT Markers | `storage/portraits/{client_id}/{portrait_id}/nft_markers/` | Same as portraits |
-| QR Codes | `storage/qrcodes/{portrait_id}.png` | `{base_path}/companies/{company_id}/qrcodes/` |
+Content is organized by categories (managed via projects table):
+
+| Content Type | Local Disk Path | Yandex Path |
+|--------------|----------------|-------------|
+| All Content | `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/Image/` | `{base_path}/{folder_path}/{company_slug}/{category_slug}/{order_id}/Image/` |
+| QR Codes | `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/QR/` | `{base_path}/{folder_path}/{company_slug}/{category_slug}/{order_id}/QR/` |
+| NFT Markers | `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/nft_markers/` | `{base_path}/{folder_path}/{company_slug}/{category_slug}/{order_id}/nft_markers/` |
+
+**Categories**: Managed via `/api/companies/{id}/categories` endpoints. Each category has a storage-friendly slug (e.g., "portraits", "diplomas", "certificates").
 
 ## API Endpoints
 
@@ -159,16 +165,19 @@ Different content types are stored in separate directories:
 
 #### Create Company with Yandex Storage
 ```http
-POST /companies
+POST /api/companies
 Authorization: Bearer {admin_token}
 Content-Type: application/json
 
 {
   "name": "Acme Corp",
   "storage_type": "yandex_disk",
-  "storage_connection_id": "uuid-of-yandex-connection"
+  "storage_connection_id": "uuid-of-yandex-connection",
+  "storage_folder_path": "acme_corp"
 }
 ```
+
+**Note**: System auto-provisions a default "Vertex AR" company with `storage_type = 'local_disk'` on first startup.
 
 **Response:**
 ```json
@@ -183,13 +192,14 @@ Content-Type: application/json
 
 #### Update Company Storage Type
 ```http
-PATCH /companies/{company_id}
+PATCH /api/companies/{company_id}
 Authorization: Bearer {admin_token}
 Content-Type: application/json
 
 {
   "storage_type": "yandex_disk",
-  "storage_connection_id": "uuid-of-yandex-connection"
+  "storage_connection_id": "uuid-of-yandex-connection",
+  "yandex_disk_folder_id": "/Companies/AcmeCorp"
 }
 ```
 
@@ -417,62 +427,77 @@ except Exception as e:
     url = await local_adapter.save_file(data, path)
 ```
 
-## Folder Selection Procedure
+## Folder Selection Workflow
 
-### Projects and Folders Integration
+### Category-Based Organization
 
-Companies can organize content hierarchically:
+Companies organize content using categories (managed via projects table with storage-friendly slugs):
 
 ```
-Company → Project → Folder → Portrait → Video
+Company → Category → Order/Portrait → Video
 ```
 
-#### Create Project
+#### Create Category
 ```http
-POST /api/projects
+POST /api/companies/{company_id}/categories
 Authorization: Bearer {admin_token}
 Content-Type: application/json
 
 {
-  "company_id": "company-uuid",
-  "name": "2025 Graduation",
-  "description": "Graduate portraits for 2025"
+  "name": "Diplomas",
+  "slug": "diplomas",
+  "description": "AR-enabled diplomas and certificates"
 }
 ```
 
-#### Create Folder
+#### List Categories
 ```http
-POST /api/folders
+GET /api/companies/{company_id}/categories
 Authorization: Bearer {admin_token}
-Content-Type: application/json
+```
 
+**Response:**
+```json
 {
-  "project_id": "project-uuid",
-  "name": "Class 11A",
-  "description": "Students from Class 11A"
+  "items": [
+    {
+      "id": "cat-uuid",
+      "company_id": "company-uuid",
+      "name": "Diplomas",
+      "slug": "diplomas",
+      "folder_count": 0,
+      "portrait_count": 0
+    }
+  ],
+  "total": 1
 }
 ```
 
-#### Assign Portrait to Folder
+#### Create Order with Category
 ```http
-POST /portraits
+POST /api/orders/create
 Authorization: Bearer {admin_token}
 Content-Type: multipart/form-data
 
-client_id: client-uuid
-folder_id: folder-uuid
+company_id: company-uuid
+category_slug: diplomas
+name: John Doe
 image: [file]
+video: [file]
 ```
 
-### Folder-Based Storage Paths
+### Category-Based Storage Paths
 
-When a portrait is assigned to a folder, the storage path reflects the hierarchy:
+Files are organized by category slug in the storage hierarchy:
 
 ```
-{base_path}/companies/{company_id}/projects/{project_id}/folders/{folder_id}/portraits/{portrait_id}/
+{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/
+  ├── Image/       # portraits, videos, previews
+  ├── QR/          # QR codes
+  └── nft_markers/ # NFT marker files
 ```
 
-This allows for better organization and easier bulk operations on folders.
+This allows for better organization and easier bulk operations on categories.
 
 ## Logging and Monitoring
 

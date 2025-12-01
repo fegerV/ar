@@ -1,16 +1,23 @@
 # Order Workflow Storage Folders Implementation
 
 ## Overview
-Enhanced the order workflow to properly organize files in a structured folder hierarchy for local storage, aligning with the existing Yandex Disk organization pattern.
+Enhanced the order workflow to properly organize files in a structured folder hierarchy for local disk storage, aligning with the Yandex Disk organization pattern.
 
 ## Ticket Requirements ✅
-- [x] Enhanced `_create_order_workflow` for local/local_disk storage types
+- [x] Enhanced `_create_order_workflow` for `local_disk` storage type
 - [x] Created folder-management service to resolve/create order directories
-- [x] Implemented proper folder hierarchy: `<storage_root>/<folder_path>/<company_slug>/<content_type>/<order_id>/{Image|QR|nft_markers|nft_cache}`
+- [x] Implemented proper folder hierarchy: `<storage_root>/<folder_path>/<company_slug>/<category_slug>/<order_id>/{Image|QR|nft_markers|nft_cache}`
 - [x] Move generated files from temp workspace to appropriate subfolders
 - [x] Store relative paths in SQLite for public URL compatibility
 - [x] Guard against missing folders/permission issues with descriptive errors
 - [x] Added comprehensive regression test coverage
+
+## Storage Type Reference
+
+The system uses `local_disk` as the canonical local storage type:
+- **Database field**: `companies.storage_type = 'local_disk'`
+- **API references**: All endpoints use `local_disk` identifier
+- **UI display**: "Локальное хранилище" (Russian) / "Local Disk" (English)
 
 ## Changes Made
 
@@ -46,10 +53,11 @@ Enhanced `_create_order_workflow` function to use folder service for local stora
    storage_root/temp/orders/<order_id>/
    ```
 
-2. **Local Storage Detection**: Check if `storage_type` is `local` or `local_disk`
+2. **Local Storage Detection**: Check if `storage_type` is `local_disk`
 
 3. **Folder Structure Creation**: Use `FolderService.ensure_order_structure()`
    - Creates: `Image/`, `QR/`, `nft_markers/`, `nft_cache/` subfolders
+   - Category determined by order parameters (replaces legacy `content_type` CSV field)
 
 4. **File Organization**:
    - Image → `Image/<portrait_id>.jpg`
@@ -109,7 +117,7 @@ All tests passing: **33 tests total**
 <storage_root>/
   <storage_folder_path>/          # From company.storage_folder_path (or company slug)
     <company_slug>/                # Slugified company ID
-      <content_type>/              # portraits, diplomas, certificates, etc.
+      <category_slug>/             # Category from projects table (e.g., "portraits", "diplomas")
         <order_id>/                # UUID of the portrait/order
           Image/                   # Images, videos, previews
             <portrait_id>.jpg
@@ -124,6 +132,8 @@ All tests passing: **33 tests total**
             <portrait_id>.iset
           nft_cache/               # NFT cache files (if any)
 ```
+
+**Note**: Categories are managed via the `/api/companies/{id}/categories` endpoints. Each category has a storage-friendly slug used in the folder path.
 
 ### Example
 ```
@@ -203,18 +213,23 @@ except OSError as e:
 - New orders use new folder structure
 
 ## Storage Type Support
-| Storage Type | Folder Service Used | Structure |
-|-------------|---------------------|-----------|
-| `local` | ✅ Yes | New hierarchy |
-| `local_disk` | ✅ Yes | New hierarchy |
-| `yandex_disk` | ❌ No | Existing Yandex structure |
-| `minio` | ❌ No | Existing MinIO structure |
+| Storage Type | Folder Service Used | Structure | Display Name |
+|-------------|---------------------|-----------|--------------|
+| `local_disk` | ✅ Yes | Hierarchical with categories | "Локальное хранилище" / "Local Disk" |
+| `yandex_disk` | ❌ No | Existing Yandex structure | "Yandex Disk" |
+| `minio` | ❌ No | Existing MinIO structure | "MinIO / S3" |
 
 ## Configuration
 Companies can configure storage via:
-- `storage_type`: "local" or "local_disk" for folder service
+- `storage_type`: `"local_disk"` for local file storage with folder service
 - `storage_folder_path`: Custom folder path (optional, defaults to company slug)
-- `content_types`: Comma-separated list of content types
+- Categories: Managed via `/api/companies/{id}/categories` endpoints (replaces legacy `content_types` CSV)
+
+## Folder Selection Workflow
+When creating an order:
+1. **Company Selection** → determines storage backend
+2. **Category Selection** → determines folder hierarchy (e.g., "portraits", "diplomas")
+3. **Order Creation** → files organized in: `{storage_root}/{folder_path}/{company_slug}/{category_slug}/{order_id}/`
 
 ## Performance Considerations
 1. **Temp Directory**: Files written once to temp, then moved (not copied)
