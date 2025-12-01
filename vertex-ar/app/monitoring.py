@@ -48,6 +48,43 @@ class SystemMonitor:
         self._monitoring_lock = asyncio.Lock()
         self._last_check_start: Optional[datetime] = None
         self._last_check_end: Optional[datetime] = None
+        
+        # Deep resource diagnostics
+        self.process_history_size = getattr(settings, 'MONITORING_PROCESS_HISTORY_SIZE', 100)
+        self.slow_query_threshold_ms = getattr(settings, 'MONITORING_SLOW_QUERY_THRESHOLD_MS', 100)
+        self.slow_query_ring_size = getattr(settings, 'MONITORING_SLOW_QUERY_RING_SIZE', 50)
+        self.slow_endpoint_threshold_ms = getattr(settings, 'MONITORING_SLOW_ENDPOINT_THRESHOLD_MS', 1000)
+        self.slow_endpoint_ring_size = getattr(settings, 'MONITORING_SLOW_ENDPOINT_RING_SIZE', 50)
+        self.tracemalloc_enabled = getattr(settings, 'MONITORING_TRACEMALLOC_ENABLED', False)
+        self.tracemalloc_threshold_mb = getattr(settings, 'MONITORING_TRACEMALLOC_THRESHOLD_MB', 100)
+        self.tracemalloc_top_n = getattr(settings, 'MONITORING_TRACEMALLOC_TOP_N', 10)
+        
+        # Process history: {pid: [{"timestamp": ..., "cpu": ..., "rss_mb": ...}, ...]}
+        self.process_history: Dict[int, List[Dict[str, Any]]] = {}
+        
+        # Slow query ring buffer: [{"timestamp": ..., "query": ..., "duration_ms": ..., "params": ...}, ...]
+        self.slow_queries: List[Dict[str, Any]] = []
+        
+        # Slow endpoint ring buffer: [{"timestamp": ..., "method": ..., "path": ..., "duration_ms": ..., "status": ...}, ...]
+        self.slow_endpoints: List[Dict[str, Any]] = []
+        
+        # Tracemalloc snapshots: [{"timestamp": ..., "memory_mb": ..., "top_allocations": [...]}, ...]
+        self.tracemalloc_snapshots: List[Dict[str, Any]] = []
+        self._last_tracemalloc_snapshot: Optional[datetime] = None
+        
+        # Initialize tracemalloc if enabled
+        if self.tracemalloc_enabled:
+            try:
+                import tracemalloc
+                if not tracemalloc.is_tracing():
+                    tracemalloc.start()
+                    logger.info("Tracemalloc enabled for memory profiling", 
+                               threshold_mb=self.tracemalloc_threshold_mb, 
+                               top_n=self.tracemalloc_top_n)
+            except Exception as e:
+                logger.warning(f"Failed to enable tracemalloc: {e}")
+                self.tracemalloc_enabled = False
+        
         # Load persisted settings from database if available
         self._load_persisted_settings()
 
@@ -598,6 +635,199 @@ class SystemMonitor:
         except Exception as e:
             logger.error(f"Error getting process info: {e}")
             return {}
+
+    def track_process_snapshot(self, pid: int, cpu_percent: float, rss_mb: float) -> None:
+        """
+        Track CPU/RSS snapshot for a process.
+        
+        Args:
+            pid: Process ID
+            cpu_percent: CPU usage percentage
+            rss_mb: Resident set size in MB
+        """
+        if pid not in self.process_history:
+            self.process_history[pid] = []
+        
+        snapshot = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "cpu_percent": round(cpu_percent, 2),
+            "rss_mb": round(rss_mb, 2),
+        }
+        
+        self.process_history[pid].append(snapshot)
+        
+        # Keep only last N snapshots
+        if len(self.process_history[pid]) > self.process_history_size:
+            self.process_history[pid] = self.process_history[pid][-self.process_history_size:]
+
+    def track_slow_query(self, query: str, duration_ms: float, params: Optional[Any] = None) -> None:
+        """
+        Track a slow database query.
+        
+        Args:
+            query: SQL query text
+            duration_ms: Query duration in milliseconds
+            params: Query parameters (optional)
+        """
+        if duration_ms < self.slow_query_threshold_ms:
+            return
+        
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "query": query[:500],  # Truncate long queries
+            "duration_ms": round(duration_ms, 2),
+            "params": str(params)[:200] if params else None,
+        }
+        
+        # Insert in sorted order (slowest first)
+        self.slow_queries.append(entry)
+        self.slow_queries.sort(key=lambda x: x["duration_ms"], reverse=True)
+        
+        # Keep only top N slowest
+        if len(self.slow_queries) > self.slow_query_ring_size:
+            self.slow_queries = self.slow_queries[:self.slow_query_ring_size]
+
+    def track_slow_endpoint(self, method: str, path: str, duration_ms: float, status_code: int) -> None:
+        """
+        Track a slow HTTP endpoint.
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: Request path
+            duration_ms: Request duration in milliseconds
+            status_code: HTTP status code
+        """
+        if duration_ms < self.slow_endpoint_threshold_ms:
+            return
+        
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "method": method,
+            "path": path,
+            "duration_ms": round(duration_ms, 2),
+            "status_code": status_code,
+        }
+        
+        # Insert in sorted order (slowest first)
+        self.slow_endpoints.append(entry)
+        self.slow_endpoints.sort(key=lambda x: x["duration_ms"], reverse=True)
+        
+        # Keep only top N slowest
+        if len(self.slow_endpoints) > self.slow_endpoint_ring_size:
+            self.slow_endpoints = self.slow_endpoints[:self.slow_endpoint_ring_size]
+
+    def check_and_snapshot_memory(self) -> Optional[Dict[str, Any]]:
+        """
+        Check if memory threshold is exceeded and take tracemalloc snapshot if needed.
+        
+        Returns:
+            Snapshot dict if taken, None otherwise
+        """
+        if not self.tracemalloc_enabled:
+            return None
+        
+        try:
+            import tracemalloc
+            
+            # Get current memory usage
+            current_memory_mb = psutil.Process().memory_info().rss / (1024**2)
+            
+            # Check if threshold exceeded and enough time passed since last snapshot
+            if current_memory_mb < self.tracemalloc_threshold_mb:
+                return None
+            
+            # Rate limit snapshots (max one per minute)
+            if self._last_tracemalloc_snapshot:
+                elapsed = (datetime.utcnow() - self._last_tracemalloc_snapshot).total_seconds()
+                if elapsed < 60:
+                    return None
+            
+            # Take snapshot
+            snapshot = tracemalloc.take_snapshot()
+            top_stats = snapshot.statistics('lineno')
+            
+            # Build top allocations list
+            top_allocations = []
+            for stat in top_stats[:self.tracemalloc_top_n]:
+                top_allocations.append({
+                    "file": stat.traceback.format()[0] if stat.traceback else "unknown",
+                    "size_mb": stat.size / (1024**2),
+                    "count": stat.count,
+                })
+            
+            snapshot_entry = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "memory_mb": round(current_memory_mb, 2),
+                "top_allocations": top_allocations,
+            }
+            
+            self.tracemalloc_snapshots.append(snapshot_entry)
+            
+            # Keep only last 20 snapshots
+            if len(self.tracemalloc_snapshots) > 20:
+                self.tracemalloc_snapshots = self.tracemalloc_snapshots[-20:]
+            
+            self._last_tracemalloc_snapshot = datetime.utcnow()
+            
+            logger.info("Memory snapshot taken", 
+                       memory_mb=current_memory_mb, 
+                       threshold_mb=self.tracemalloc_threshold_mb,
+                       top_allocations_count=len(top_allocations))
+            
+            return snapshot_entry
+            
+        except Exception as e:
+            logger.error(f"Error taking memory snapshot: {e}")
+            return None
+
+    def get_hotspots(self) -> Dict[str, Any]:
+        """
+        Get all deep diagnostics data (hotspots).
+        
+        Returns:
+            Dictionary with process history, slow queries, slow endpoints, and memory snapshots
+        """
+        # Calculate process trends
+        process_trends = {}
+        for pid, history in self.process_history.items():
+            if not history:
+                continue
+            
+            cpu_values = [s["cpu_percent"] for s in history]
+            rss_values = [s["rss_mb"] for s in history]
+            
+            process_trends[pid] = {
+                "sample_count": len(history),
+                "cpu_avg": round(sum(cpu_values) / len(cpu_values), 2) if cpu_values else 0,
+                "cpu_max": round(max(cpu_values), 2) if cpu_values else 0,
+                "cpu_min": round(min(cpu_values), 2) if cpu_values else 0,
+                "rss_avg_mb": round(sum(rss_values) / len(rss_values), 2) if rss_values else 0,
+                "rss_max_mb": round(max(rss_values), 2) if rss_values else 0,
+                "rss_min_mb": round(min(rss_values), 2) if rss_values else 0,
+                "first_seen": history[0]["timestamp"],
+                "last_seen": history[-1]["timestamp"],
+            }
+        
+        return {
+            "process_trends": process_trends,
+            "process_history_raw": self.process_history,
+            "slow_queries": {
+                "count": len(self.slow_queries),
+                "threshold_ms": self.slow_query_threshold_ms,
+                "queries": self.slow_queries,
+            },
+            "slow_endpoints": {
+                "count": len(self.slow_endpoints),
+                "threshold_ms": self.slow_endpoint_threshold_ms,
+                "endpoints": self.slow_endpoints,
+            },
+            "memory_snapshots": {
+                "count": len(self.tracemalloc_snapshots),
+                "enabled": self.tracemalloc_enabled,
+                "threshold_mb": self.tracemalloc_threshold_mb,
+                "snapshots": self.tracemalloc_snapshots,
+            },
+        }
 
     def get_service_health(self) -> Dict[str, Any]:
         """Check comprehensive health of various services with response times."""

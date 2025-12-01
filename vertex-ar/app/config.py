@@ -223,6 +223,16 @@ class Settings:
         self.WEB_HEALTH_CHECK_USE_HEAD = os.getenv("WEB_HEALTH_CHECK_USE_HEAD", "false").lower() == "true"
         self.WEB_HEALTH_CHECK_COOLDOWN = int(os.getenv("WEB_HEALTH_CHECK_COOLDOWN", "30"))  # seconds between checks
         
+        # Deep resource diagnostics settings
+        self.MONITORING_PROCESS_HISTORY_SIZE = int(os.getenv("MONITORING_PROCESS_HISTORY_SIZE", "100"))  # snapshots
+        self.MONITORING_SLOW_QUERY_THRESHOLD_MS = float(os.getenv("MONITORING_SLOW_QUERY_THRESHOLD_MS", "100"))  # milliseconds
+        self.MONITORING_SLOW_QUERY_RING_SIZE = int(os.getenv("MONITORING_SLOW_QUERY_RING_SIZE", "50"))  # queries
+        self.MONITORING_SLOW_ENDPOINT_THRESHOLD_MS = float(os.getenv("MONITORING_SLOW_ENDPOINT_THRESHOLD_MS", "1000"))  # milliseconds
+        self.MONITORING_SLOW_ENDPOINT_RING_SIZE = int(os.getenv("MONITORING_SLOW_ENDPOINT_RING_SIZE", "50"))  # endpoints
+        self.MONITORING_TRACEMALLOC_ENABLED = os.getenv("MONITORING_TRACEMALLOC_ENABLED", "false").lower() == "true"
+        self.MONITORING_TRACEMALLOC_THRESHOLD_MB = float(os.getenv("MONITORING_TRACEMALLOC_THRESHOLD_MB", "100"))  # megabytes
+        self.MONITORING_TRACEMALLOC_TOP_N = int(os.getenv("MONITORING_TRACEMALLOC_TOP_N", "10"))  # top allocations
+        
         # Ensure directories exist
         self.STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
         self.STATIC_ROOT.mkdir(parents=True, exist_ok=True)

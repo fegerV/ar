@@ -621,5 +621,250 @@ class TestMonitoringPersistence(unittest.TestCase):
         self.assertFalse(success)
 
 
+class TestDeepDiagnostics(unittest.TestCase):
+    """Test deep diagnostics functionality (hotspots)."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_settings = Mock()
+        self.mock_settings.ALERTING_ENABLED = True
+        self.mock_settings.HEALTH_CHECK_INTERVAL = 60
+        self.mock_settings.CPU_THRESHOLD = 80.0
+        self.mock_settings.MEMORY_THRESHOLD = 85.0
+        self.mock_settings.DISK_THRESHOLD = 90.0
+        self.mock_settings.MONITORING_CONSECUTIVE_FAILURES = 3
+        self.mock_settings.MONITORING_DEDUP_WINDOW = 300
+        self.mock_settings.NOTIFICATION_DEDUP_WINDOW = 300
+        self.mock_settings.MONITORING_PROCESS_HISTORY_SIZE = 100
+        self.mock_settings.MONITORING_SLOW_QUERY_THRESHOLD_MS = 100.0
+        self.mock_settings.MONITORING_SLOW_QUERY_RING_SIZE = 50
+        self.mock_settings.MONITORING_SLOW_ENDPOINT_THRESHOLD_MS = 1000.0
+        self.mock_settings.MONITORING_SLOW_ENDPOINT_RING_SIZE = 50
+        self.mock_settings.MONITORING_TRACEMALLOC_ENABLED = False
+        self.mock_settings.MONITORING_TRACEMALLOC_THRESHOLD_MB = 100.0
+        self.mock_settings.MONITORING_TRACEMALLOC_TOP_N = 10
+    
+    @patch('app.monitoring.settings')
+    def test_track_process_snapshot(self, mock_settings):
+        """Test tracking process snapshots."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track some snapshots
+        monitor.track_process_snapshot(1234, 45.5, 512.3)
+        monitor.track_process_snapshot(1234, 50.2, 520.1)
+        monitor.track_process_snapshot(5678, 25.0, 128.5)
+        
+        # Verify snapshots were stored
+        self.assertIn(1234, monitor.process_history)
+        self.assertIn(5678, monitor.process_history)
+        self.assertEqual(len(monitor.process_history[1234]), 2)
+        self.assertEqual(len(monitor.process_history[5678]), 1)
+        
+        # Verify snapshot data
+        snapshot = monitor.process_history[1234][0]
+        self.assertIn('timestamp', snapshot)
+        self.assertEqual(snapshot['cpu_percent'], 45.5)
+        self.assertEqual(snapshot['rss_mb'], 512.3)
+    
+    @patch('app.monitoring.settings')
+    def test_track_slow_query(self, mock_settings):
+        """Test tracking slow queries."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track queries
+        monitor.track_slow_query("SELECT * FROM users", 150.0, ("param1",))
+        monitor.track_slow_query("SELECT * FROM orders WHERE id = ?", 250.0, (123,))
+        monitor.track_slow_query("UPDATE settings SET value = ?", 180.0, ("new_value",))
+        
+        # Verify queries were stored and sorted by duration
+        self.assertEqual(len(monitor.slow_queries), 3)
+        self.assertEqual(monitor.slow_queries[0]['duration_ms'], 250.0)  # Slowest first
+        self.assertEqual(monitor.slow_queries[1]['duration_ms'], 180.0)
+        self.assertEqual(monitor.slow_queries[2]['duration_ms'], 150.0)
+        
+        # Verify query data
+        query = monitor.slow_queries[0]
+        self.assertIn('timestamp', query)
+        self.assertIn('SELECT * FROM orders', query['query'])
+        self.assertEqual(query['duration_ms'], 250.0)
+        self.assertIn('params', query)
+    
+    @patch('app.monitoring.settings')
+    def test_slow_query_threshold(self, mock_settings):
+        """Test slow query threshold filtering."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track queries below threshold
+        monitor.track_slow_query("SELECT 1", 50.0)
+        monitor.track_slow_query("SELECT 2", 99.0)
+        
+        # Track queries above threshold
+        monitor.track_slow_query("SELECT 3", 100.0)
+        monitor.track_slow_query("SELECT 4", 150.0)
+        
+        # Only queries >= threshold should be stored
+        self.assertEqual(len(monitor.slow_queries), 2)
+        self.assertTrue(all(q['duration_ms'] >= 100.0 for q in monitor.slow_queries))
+    
+    @patch('app.monitoring.settings')
+    def test_track_slow_endpoint(self, mock_settings):
+        """Test tracking slow HTTP endpoints."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track endpoints
+        monitor.track_slow_endpoint("GET", "/api/users", 1500.0, 200)
+        monitor.track_slow_endpoint("POST", "/api/orders", 2500.0, 201)
+        monitor.track_slow_endpoint("GET", "/api/reports", 1800.0, 200)
+        
+        # Verify endpoints were stored and sorted by duration
+        self.assertEqual(len(monitor.slow_endpoints), 3)
+        self.assertEqual(monitor.slow_endpoints[0]['duration_ms'], 2500.0)  # Slowest first
+        self.assertEqual(monitor.slow_endpoints[1]['duration_ms'], 1800.0)
+        self.assertEqual(monitor.slow_endpoints[2]['duration_ms'], 1500.0)
+        
+        # Verify endpoint data
+        endpoint = monitor.slow_endpoints[0]
+        self.assertEqual(endpoint['method'], 'POST')
+        self.assertEqual(endpoint['path'], '/api/orders')
+        self.assertEqual(endpoint['status_code'], 201)
+    
+    @patch('app.monitoring.settings')
+    def test_slow_endpoint_threshold(self, mock_settings):
+        """Test slow endpoint threshold filtering."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track endpoints below threshold
+        monitor.track_slow_endpoint("GET", "/fast", 500.0, 200)
+        monitor.track_slow_endpoint("GET", "/medium", 999.0, 200)
+        
+        # Track endpoints above threshold
+        monitor.track_slow_endpoint("GET", "/slow", 1000.0, 200)
+        monitor.track_slow_endpoint("GET", "/slower", 2000.0, 200)
+        
+        # Only endpoints >= threshold should be stored
+        self.assertEqual(len(monitor.slow_endpoints), 2)
+        self.assertTrue(all(e['duration_ms'] >= 1000.0 for e in monitor.slow_endpoints))
+    
+    @patch('app.monitoring.settings')
+    def test_ring_buffer_size_limit(self, mock_settings):
+        """Test ring buffer size limits."""
+        from app.monitoring import SystemMonitor
+        
+        # Set small ring size for testing
+        self.mock_settings.MONITORING_SLOW_QUERY_RING_SIZE = 3
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Track more queries than ring size
+        for i in range(5):
+            monitor.track_slow_query(f"SELECT {i}", 100.0 + i * 10)
+        
+        # Should keep only top N slowest
+        self.assertEqual(len(monitor.slow_queries), 3)
+        self.assertEqual(monitor.slow_queries[0]['duration_ms'], 140.0)  # Slowest
+        self.assertEqual(monitor.slow_queries[2]['duration_ms'], 120.0)  # Third slowest
+    
+    @patch('app.monitoring.settings')
+    def test_get_hotspots(self, mock_settings):
+        """Test get_hotspots aggregation."""
+        from app.monitoring import SystemMonitor
+        
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        monitor = SystemMonitor()
+        
+        # Add some diagnostic data
+        monitor.track_process_snapshot(1234, 45.0, 512.0)
+        monitor.track_process_snapshot(1234, 50.0, 520.0)
+        monitor.track_slow_query("SELECT * FROM users", 150.0)
+        monitor.track_slow_endpoint("GET", "/api/users", 1500.0, 200)
+        
+        # Get hotspots
+        hotspots = monitor.get_hotspots()
+        
+        # Verify structure
+        self.assertIn('process_trends', hotspots)
+        self.assertIn('slow_queries', hotspots)
+        self.assertIn('slow_endpoints', hotspots)
+        self.assertIn('memory_snapshots', hotspots)
+        
+        # Verify process trends
+        self.assertIn(1234, hotspots['process_trends'])
+        trend = hotspots['process_trends'][1234]
+        self.assertEqual(trend['sample_count'], 2)
+        self.assertEqual(trend['cpu_avg'], 47.5)
+        self.assertEqual(trend['cpu_max'], 50.0)
+        self.assertEqual(trend['cpu_min'], 45.0)
+        
+        # Verify slow queries
+        self.assertEqual(hotspots['slow_queries']['count'], 1)
+        self.assertEqual(hotspots['slow_queries']['threshold_ms'], 100.0)
+        
+        # Verify slow endpoints
+        self.assertEqual(hotspots['slow_endpoints']['count'], 1)
+        self.assertEqual(hotspots['slow_endpoints']['threshold_ms'], 1000.0)
+    
+    @patch('app.monitoring.settings')
+    @patch('app.monitoring.psutil.Process')
+    @patch('tracemalloc.take_snapshot')
+    @patch('tracemalloc.is_tracing')
+    @patch('tracemalloc.start')
+    def test_memory_snapshot_with_tracemalloc(self, mock_start, mock_is_tracing, 
+                                             mock_take_snapshot, mock_process, mock_settings):
+        """Test memory snapshot with tracemalloc enabled."""
+        from app.monitoring import SystemMonitor
+        
+        # Enable tracemalloc in settings
+        self.mock_settings.MONITORING_TRACEMALLOC_ENABLED = True
+        self.mock_settings.MONITORING_TRACEMALLOC_THRESHOLD_MB = 50.0
+        mock_settings.__dict__.update(self.mock_settings.__dict__)
+        mock_is_tracing.return_value = False
+        
+        # Mock process memory
+        mock_mem_info = Mock()
+        mock_mem_info.rss = 100 * 1024 * 1024  # 100 MB
+        mock_process.return_value.memory_info.return_value = mock_mem_info
+        
+        # Mock tracemalloc snapshot
+        mock_stat = Mock()
+        mock_stat.traceback = Mock()
+        mock_stat.traceback.format.return_value = ["test.py:10"]
+        mock_stat.size = 1024 * 1024  # 1 MB
+        mock_stat.count = 100
+        
+        mock_snapshot = Mock()
+        mock_snapshot.statistics.return_value = [mock_stat]
+        mock_take_snapshot.return_value = mock_snapshot
+        
+        monitor = SystemMonitor()
+        
+        # Take snapshot (should succeed because memory > threshold)
+        snapshot = monitor.check_and_snapshot_memory()
+        
+        # Verify snapshot was taken
+        self.assertIsNotNone(snapshot)
+        self.assertIn('timestamp', snapshot)
+        self.assertIn('memory_mb', snapshot)
+        self.assertIn('top_allocations', snapshot)
+        self.assertEqual(len(snapshot['top_allocations']), 1)
+        
+        # Verify it was stored
+        self.assertEqual(len(monitor.tracemalloc_snapshots), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -28,6 +28,45 @@ class Database:
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._initialise_schema()
 
+    def _execute(self, query: str, params: Optional[tuple] = None):
+        """
+        Execute a SQL query with slow query tracking.
+        
+        Args:
+            query: SQL query string
+            params: Query parameters tuple
+            
+        Returns:
+            Cursor object
+        """
+        import time
+        start_time = time.time()
+        
+        try:
+            if params:
+                result = self._connection.execute(query, params)
+            else:
+                result = self._connection.execute(query)
+            
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Track slow queries in monitoring system
+            if duration_ms > 50:  # Only track queries > 50ms to reduce overhead
+                try:
+                    from app.main import system_monitor
+                    if system_monitor:
+                        system_monitor.track_slow_query(query, duration_ms, params)
+                except Exception:
+                    pass  # Silently fail - monitoring shouldn't break DB operations
+            
+            return result
+            
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(f"Query failed after {duration_ms:.2f}ms: {query[:200]}", 
+                        error=str(e), params=params)
+            raise
+
     def _initialise_schema(self) -> None:
         with self._connection:
             self._connection.execute(
