@@ -75,17 +75,8 @@ async def _create_order_workflow(
             detail=f"Company with ID '{company_id}' not found"
         )
     
-    # Validate content_type against company's configured list
-    if content_type:
-        company_content_types = company.get('content_types', '')
-        if company_content_types:
-            allowed_types = [ct.strip() for ct in company_content_types.split(',')]
-            if content_type not in allowed_types:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Content type '{content_type}' is not allowed for this company. Allowed: {', '.join(allowed_types)}"
-                )
-    else:
+    # Use content_type if provided, otherwise default to "portraits"
+    if not content_type:
         content_type = "portraits"  # Default content type
 
     client = database.get_client_by_phone(phone, company_id)

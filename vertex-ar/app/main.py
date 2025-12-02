@@ -161,7 +161,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(ar.router, prefix="/ar", tags=["ar"])
     app.include_router(admin.router, prefix="/admin", tags=["admin"])
-    app.include_router(companies.router, tags=["companies"])
+    app.include_router(companies.router, prefix="/api", tags=["companies"])
     app.include_router(projects.router, tags=["projects"])
     app.include_router(folders.router, tags=["folders"])
     app.include_router(clients.router, prefix="/clients", tags=["clients"])

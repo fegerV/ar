@@ -522,10 +522,6 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN content_types TEXT")
-            except sqlite3.OperationalError:
-                pass
-            try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN storage_folder_path TEXT")
             except sqlite3.OperationalError:
                 pass
@@ -1976,7 +1972,6 @@ class Database:
         storage_type: str = "local_disk", 
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None,  # Deprecated - kept for API compatibility
         storage_folder_path: Optional[str] = "vertex_ar_content",
         backup_provider: Optional[str] = None,
         backup_remote_path: Optional[str] = None,
@@ -2042,7 +2037,6 @@ class Database:
         storage_type: Optional[str] = None,
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None,  # Deprecated - kept for API compatibility
         storage_folder_path: Optional[str] = None,
         backup_provider: Optional[str] = None,
         backup_remote_path: Optional[str] = None,
@@ -2065,7 +2059,6 @@ class Database:
             storage_type: Storage type (optional) - will be normalized
             storage_connection_id: Storage connection ID (optional)
             yandex_disk_folder_id: Yandex Disk folder ID (optional)
-            content_types: Content types CSV string (optional) - DEPRECATED, ignored
             storage_folder_path: Storage folder path (optional)
             backup_provider: Remote backup provider (optional)
             backup_remote_path: Remote backup path (optional)
@@ -2102,8 +2095,6 @@ class Database:
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
-            
-            # content_types is deprecated and ignored - no longer in table schema
             
             if storage_folder_path is not None:
                 updates.append("storage_folder_path = ?")
@@ -2276,8 +2267,7 @@ class Database:
         company_id: str, 
         storage_type: str, 
         storage_connection_id: Optional[str] = None,
-        yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None  # Deprecated - kept for API compatibility
+        yandex_disk_folder_id: Optional[str] = None
     ) -> bool:
         """Update company storage configuration."""
         try:
@@ -2291,8 +2281,6 @@ class Database:
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
-            
-            # content_types is deprecated and ignored - no longer in table schema
             
             params.append(company_id)
             query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
@@ -2324,28 +2312,6 @@ class Database:
             return True
         except Exception as exc:
             logger.error(f"Failed to set Yandex Disk folder: {exc}")
-            return False
-    
-    def update_company_content_types(self, company_id: str, content_types: str) -> bool:
-        """
-        Update content types for a company.
-        
-        Args:
-            company_id: Company ID
-            content_types: Comma-separated content types string
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            self._execute(
-                "UPDATE companies SET content_types = ? WHERE id = ?",
-                (content_types, company_id)
-            )
-            logger.info(f"Updated content types for company {company_id}: {content_types}")
-            return True
-        except Exception as exc:
-            logger.error(f"Failed to update content types: {exc}")
             return False
     
     def set_company_backup_config(
@@ -2398,63 +2364,6 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
-    @staticmethod
-    def serialize_content_types(content_types: List[Dict[str, str]]) -> str:
-        """
-        Serialize content types list to CSV format for database storage.
-        
-        Args:
-            content_types: List of dicts with 'slug' and 'label' keys
-            
-        Returns:
-            CSV string in format "slug1:label1,slug2:label2"
-            
-        Example:
-            >>> Database.serialize_content_types([{"slug": "portraits", "label": "Portraits"}])
-            'portraits:Portraits'
-        """
-        if not content_types:
-            return "portraits:Portraits"
-        
-        parts = []
-        for ct in content_types:
-            slug = ct.get('slug', '').strip()
-            label = ct.get('label', '').strip()
-            if slug and label:
-                parts.append(f"{slug}:{label}")
-        
-        return ",".join(parts) if parts else "portraits:Portraits"
-    
-    @staticmethod
-    def deserialize_content_types(content_types_str: Optional[str]) -> List[Dict[str, str]]:
-        """
-        Deserialize content types CSV string from database to list of dicts.
-        
-        Args:
-            content_types_str: CSV string in format "slug1:label1,slug2:label2"
-            
-        Returns:
-            List of dicts with 'slug' and 'label' keys
-            
-        Example:
-            >>> Database.deserialize_content_types('portraits:Portraits,diplomas:Diplomas')
-            [{'slug': 'portraits', 'label': 'Portraits'}, {'slug': 'diplomas', 'label': 'Diplomas'}]
-        """
-        if not content_types_str or not content_types_str.strip():
-            return [{"slug": "portraits", "label": "Portraits"}]
-        
-        result = []
-        for item in content_types_str.split(','):
-            item = item.strip()
-            if ':' in item:
-                slug, label = item.split(':', 1)
-                slug = slug.strip()
-                label = label.strip()
-                if slug and label:
-                    result.append({"slug": slug, "label": label})
-        
-        return result if result else [{"slug": "portraits", "label": "Portraits"}]
 
     # Storage connection methods
     def create_storage_connection(self, connection_id: str, name: str, storage_type: str, config: Dict[str, Any]) -> bool:
@@ -4059,12 +3968,64 @@ def ensure_default_admin_user(database: "Database") -> None:
 
 
 def ensure_default_company(database: "Database") -> None:
-    """Ensure the default company exists."""
+    """
+    Ensure the default company exists with proper storage configuration.
+    Creates folder hierarchy for local storage if needed.
+    """
+    from app.config import settings
+    from pathlib import Path
+    
     # Check if default company exists
     existing = database.get_company("vertex-ar-default")
-    if not existing:
-        try:
-            database.create_company("vertex-ar-default", "Vertex AR")
-            logger.info("Created default company: Vertex AR")
-        except Exception as exc:
-            logger.error(f"Failed to create default company: {exc}")
+    
+    # Create basic folder hierarchy using FolderService
+    # This runs whether company was just created or already exists
+    try:
+        from app.services.folder_service import FolderService
+        
+        if existing:
+            company = existing
+        else:
+            # Create company with explicit local_disk storage and deterministic folder path
+            try:
+                database.create_company(
+                    company_id="vertex-ar-default",
+                    name="Vertex AR",
+                    storage_type="local_disk",
+                    storage_folder_path="vertex_ar_content",
+                    email="contact@vertex-ar.com",
+                    description="Default company for Vertex AR platform",
+                    city="Moscow",
+                    phone="+7 (495) 000-00-00",
+                    website="https://vertex-ar.com",
+                    manager_name="System Administrator",
+                    manager_phone="+7 (495) 000-00-00",
+                    manager_email="admin@vertex-ar.com"
+                )
+                logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
+                company = database.get_company("vertex-ar-default")
+            except Exception as exc:
+                logger.error(f"Failed to create default company: {exc}")
+                return
+        
+        # Ensure folder hierarchy exists
+        if company:
+            folder_service = FolderService(settings.STORAGE_ROOT)
+            
+            # Create base directory structure for the default company
+            base_path = Path(settings.STORAGE_ROOT) / company.get("storage_folder_path", "vertex_ar_content")
+            base_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create a default "portraits" category folder with standard subfolders
+            portraits_path = base_path / "vertex-ar-default" / "portraits"
+            for subfolder in FolderService.STANDARD_SUBFOLDERS:
+                (portraits_path / subfolder).mkdir(parents=True, exist_ok=True)
+            
+            logger.info(
+                "Created folder hierarchy for default company",
+                base_path=str(base_path),
+                subfolders=FolderService.STANDARD_SUBFOLDERS
+            )
+    except Exception as folder_exc:
+        logger.warning(f"Failed to create folder hierarchy for default company: {folder_exc}")
+        # Don't fail startup if folder creation fails
