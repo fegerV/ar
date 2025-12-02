@@ -458,49 +458,6 @@
                 
                 <div id="alertContainer"></div>
 
-                <!-- Content Type Storage Settings -->
-                <div class="form-group">
-                    <h3>Типы контента</h3>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="portraitsStorage">Хранилище фото (портретов)</label>
-                            <select id="portraitsStorage" class="storage-type-select">
-                                <option value="local">Локальное хранилище</option>
-                                <option value="minio">MinIO</option>
-                                <option value="yandex_disk">Яндекс Диск</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="videosStorage">Хранилище видео</label>
-                            <select id="videosStorage" class="storage-type-select">
-                                <option value="local">Локальное хранилище</option>
-                                <option value="minio">MinIO</option>
-                                <option value="yandex_disk">Яндекс Диск</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="previewsStorage">Хранилище превью</label>
-                            <select id="previewsStorage" class="storage-type-select">
-                                <option value="local">Локальное хранилище</option>
-                                <option value="minio">MinIO</option>
-                                <option value="yandex_disk">Яндекс Диск</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="nftStorage">Хранилище NFT маркеров</label>
-                            <select id="nftStorage" class="storage-type-select">
-                                <option value="local">Локальное хранилище</option>
-                                <option value="minio">MinIO</option>
-                                <option value="yandex_disk">Яндекс Диск</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Yandex Disk Configuration -->
                 <div class="form-group">
                     <h3>Яндекс Диск</h3>
@@ -592,12 +549,6 @@
                             💾 Сохранить настройки
                         </button>
                     </div>
-                </div>
-
-                <div class="btn-group">
-                    <button id="saveStorageConfig" class="btn btn-primary">
-                        💾 Сохранить конфигурацию хранилищ
-                    </button>
                 </div>
             </section>
 
@@ -871,7 +822,8 @@
                         </div>
 
                         <script>
-        // Theme toggle
+                        {% raw %}
+                        // Theme toggle
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -1088,14 +1040,6 @@
                 const result = await response.json();
                 const config = result.config;
                 
-                // Load content type storage settings
-                if (config.content_types) {
-                    document.getElementById('portraitsStorage').value = config.content_types.portraits?.storage_type || 'local';
-                    document.getElementById('videosStorage').value = config.content_types.videos?.storage_type || 'local';
-                    document.getElementById('previewsStorage').value = config.content_types.previews?.storage_type || 'local';
-                    document.getElementById('nftStorage').value = config.content_types.nft_markers?.storage_type || 'local';
-                }
-                
                 // Load MinIO settings
                 if (config.minio) {
                     document.getElementById('minioEndpoint').value = config.minio.endpoint || '';
@@ -1187,39 +1131,6 @@
                 }
             } catch (error) {
                 showAlert('Ошибка при сохранении настроек: ' + error.message, 'error');
-            }
-        }
-
-        // Save storage configuration
-        async function saveStorageConfig() {
-            try {
-                // Save content type configurations
-                const contentTypes = ['portraits', 'videos', 'previews', 'nft_markers'];
-                
-                for (const contentType of contentTypes) {
-                    const storageType = document.getElementById(contentType + 'Storage').value;
-                    
-                    const response = await fetch(`/storage-config/content-type/${contentType}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify({
-                            storage_type: storageType
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (!result.success) {
-                        throw new Error(`Failed to save ${contentType} storage: ${result.detail}`);
-                    }
-                }
-                
-                showAlert('Конфигурация хранилищ сохранена успешно!', 'success');
-            } catch (error) {
-                showAlert('Ошибка при сохранении конфигурации: ' + error.message, 'error');
             }
         }
 
@@ -1532,7 +1443,6 @@
         document.getElementById('getYandexInfo').addEventListener('click', loadStorageInfo);
         document.getElementById('testMinioConnection').addEventListener('click', testMinioConnection);
         document.getElementById('saveMinioConfig').addEventListener('click', saveMinioConfig);
-        document.getElementById('saveStorageConfig').addEventListener('click', saveStorageConfig);
         document.getElementById('saveBackupSettings').addEventListener('click', saveBackupSettings);
         document.getElementById('testBackupCreation').addEventListener('click', testBackupCreation);
         
@@ -1815,6 +1725,7 @@
             loadYandexSettings();
             loadEmailTemplates();
         });
+        {% endraw %}
     </script>
 </body>
 </html>
