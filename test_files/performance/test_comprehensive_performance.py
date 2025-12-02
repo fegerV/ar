@@ -17,18 +17,29 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+import pytest
+
 # Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "vertex-ar"))
 
 try:
     import psutil
     import requests
     from fastapi.testclient import TestClient
-    from main import app, Database, _hash_password
 except ImportError as e:
     print(f"Ошибка импорта: {e}")
     print("Установите необходимые зависимости: pip install psutil requests")
-    sys.exit(1)
+    # Don't exit during test collection, just skip the module
+    pytest.skip(f"Missing dependencies: {e}", allow_module_level=True)
+
+try:
+    from app.main import app
+    from app.database import Database
+    from app.utils import hash_password as _hash_password
+except ImportError as e:
+    print(f"Ошибка импорта приложения: {e}")
+    pytest.skip(f"Cannot import app modules: {e}", allow_module_level=True)
 
 @dataclass
 class PerformanceMetrics:

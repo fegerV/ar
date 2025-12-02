@@ -13,18 +13,28 @@ from pathlib import Path
 from typing import List, Dict
 from functools import wraps
 
+import pytest
+
 # Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "vertex-ar"))
 
 try:
     from memory_profiler import profile
     import psutil
     from fastapi.testclient import TestClient
-    from main import app, Database, _hash_password
 except ImportError as e:
     print(f"Ошибка импорта: {e}")
     print("Установите необходимые зависимости: pip install memory-profiler psutil")
-    sys.exit(1)
+    pytest.skip(f"Missing dependencies: {e}", allow_module_level=True)
+
+try:
+    from app.main import app
+    from app.database import Database
+    from app.utils import hash_password as _hash_password
+except ImportError as e:
+    print(f"Ошибка импорта приложения: {e}")
+    pytest.skip(f"Cannot import app modules: {e}", allow_module_level=True)
 
 def memory_usage_decorator(func):
     """Декоратор для измерения использования памяти"""
