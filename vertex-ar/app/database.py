@@ -14,6 +14,23 @@ from logging_setup import get_logger
 logger = get_logger(__name__)
 
 
+def normalize_storage_type(storage_type: str) -> str:
+    """
+    Normalize storage type to canonical values.
+    
+    Converts legacy 'local' to 'local_disk'.
+    
+    Args:
+        storage_type: The storage type to normalize
+        
+    Returns:
+        The normalized storage type
+    """
+    if storage_type == "local":
+        return "local_disk"
+    return storage_type
+
+
 class Database:
     """Simplified database with just users and AR content."""
 
@@ -199,15 +216,14 @@ class Database:
                     try:
                         self._connection.execute(
                             """INSERT INTO companies (
-                                id, name, storage_type, content_types, storage_folder_path,
+                                id, name, storage_type, storage_folder_path,
                                 email, description, city, phone, website, 
                                 manager_name, manager_phone, manager_email
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 "vertex-ar-default", 
                                 "Vertex AR", 
                                 "local_disk", 
-                                "portraits:Portraits", 
                                 "vertex_ar_content",
                                 "contact@vertex-ar.com",
                                 "Default company for Vertex AR platform",
@@ -514,18 +530,6 @@ class Database:
             except sqlite3.OperationalError:
                 pass
             
-            # Backfill default content_types for existing companies with NULL values
-            try:
-                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE content_types IS NULL")
-                if cursor.fetchone()[0] > 0:
-                    self._connection.execute(
-                        "UPDATE companies SET content_types = 'portraits:Portraits' WHERE content_types IS NULL"
-                    )
-                    self._connection.commit()
-                    logger.info("Backfilled default content_types for existing companies")
-            except sqlite3.OperationalError:
-                pass
-            
             # Backfill default storage_folder_path for existing companies with NULL values
             try:
                 cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_folder_path IS NULL")
@@ -598,6 +602,9 @@ class Database:
                     logger.info(f"Migrated {count} companies from storage_type='local' to 'local_disk'")
             except sqlite3.OperationalError:
                 pass
+            
+            # Drop legacy content_types column from companies table
+            self._migrate_drop_content_types()
 
             # Add foreign key constraint for storage_connection_id
             try:
@@ -777,6 +784,113 @@ class Database:
             
             # Seed default email templates
             self._seed_default_email_templates()
+    
+    def _migrate_drop_content_types(self) -> None:
+        """
+        Migrate companies table to drop the legacy content_types column.
+        
+        This migration:
+        1. Checks if content_types column exists
+        2. Creates a new table without the column
+        3. Copies all data from old table to new table
+        4. Normalizes storage_type values (local -> local_disk)
+        5. Drops old table and renames new table
+        6. Recreates indexes
+        
+        Logs all operations for operator visibility.
+        """
+        try:
+            # Check if content_types column exists
+            cursor = self._connection.execute("PRAGMA table_info(companies)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if "content_types" not in columns:
+                logger.info("Migration: content_types column not found in companies table (already migrated)")
+                return
+            
+            logger.info("Migration: Starting content_types column removal from companies table")
+            
+            with self._lock:
+                # Start transaction
+                self._connection.execute("BEGIN TRANSACTION")
+                
+                try:
+                    # Create new table without content_types column
+                    self._connection.execute("""
+                        CREATE TABLE companies_new (
+                            id TEXT PRIMARY KEY,
+                            name TEXT NOT NULL UNIQUE,
+                            storage_type TEXT NOT NULL DEFAULT 'local_disk',
+                            storage_connection_id TEXT,
+                            yandex_disk_folder_id TEXT,
+                            storage_folder_path TEXT,
+                            backup_provider TEXT,
+                            backup_remote_path TEXT,
+                            email TEXT,
+                            description TEXT,
+                            city TEXT,
+                            phone TEXT,
+                            website TEXT,
+                            social_links TEXT,
+                            manager_name TEXT,
+                            manager_phone TEXT,
+                            manager_email TEXT,
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    
+                    # Copy data from old table to new table with normalized storage_type
+                    # Build dynamic column list excluding content_types
+                    copy_columns = [col for col in columns if col != "content_types"]
+                    columns_str = ", ".join(copy_columns)
+                    
+                    # Use CASE to normalize storage_type during copy
+                    select_columns = []
+                    for col in copy_columns:
+                        if col == "storage_type":
+                            select_columns.append("CASE WHEN storage_type = 'local' THEN 'local_disk' ELSE storage_type END")
+                        else:
+                            select_columns.append(col)
+                    select_str = ", ".join(select_columns)
+                    
+                    self._connection.execute(f"""
+                        INSERT INTO companies_new ({columns_str})
+                        SELECT {select_str}
+                        FROM companies
+                    """)
+                    
+                    # Get count for logging
+                    cursor = self._connection.execute("SELECT COUNT(*) FROM companies_new")
+                    migrated_count = cursor.fetchone()[0]
+                    
+                    # Drop old table
+                    self._connection.execute("DROP TABLE companies")
+                    
+                    # Rename new table
+                    self._connection.execute("ALTER TABLE companies_new RENAME TO companies")
+                    
+                    # Recreate index for storage_connection_id
+                    self._connection.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_companies_storage ON companies(storage_connection_id)"
+                    )
+                    
+                    # Commit transaction
+                    self._connection.commit()
+                    
+                    logger.info(
+                        f"Migration: Successfully dropped content_types column from companies table. "
+                        f"Migrated {migrated_count} companies with normalized storage_type values."
+                    )
+                    
+                except Exception as e:
+                    # Rollback on any error
+                    self._connection.execute("ROLLBACK")
+                    logger.error(f"Migration: Failed to drop content_types column: {e}", exc_info=True)
+                    raise
+                    
+        except Exception as e:
+            logger.error(f"Migration: Error checking content_types column: {e}", exc_info=True)
+            # Don't raise - allow app to continue even if migration fails
 
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         with self._lock:
@@ -1862,7 +1976,7 @@ class Database:
         storage_type: str = "local_disk", 
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None,
+        content_types: Optional[str] = None,  # Deprecated - kept for API compatibility
         storage_folder_path: Optional[str] = "vertex_ar_content",
         backup_provider: Optional[str] = None,
         backup_remote_path: Optional[str] = None,
@@ -1878,21 +1992,24 @@ class Database:
     ) -> None:
         """Create a new company."""
         try:
+            # Normalize storage_type to canonical value
+            normalized_storage_type = normalize_storage_type(storage_type)
+            
             self._execute(
                 """INSERT INTO companies (
                     id, name, storage_type, storage_connection_id, yandex_disk_folder_id, 
-                    content_types, storage_folder_path, backup_provider, backup_remote_path,
+                    storage_folder_path, backup_provider, backup_remote_path,
                     email, description, city, phone, website, social_links,
                     manager_name, manager_phone, manager_email
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    company_id, name, storage_type, storage_connection_id, yandex_disk_folder_id, 
-                    content_types, storage_folder_path, backup_provider, backup_remote_path,
+                    company_id, name, normalized_storage_type, storage_connection_id, yandex_disk_folder_id, 
+                    storage_folder_path, backup_provider, backup_remote_path,
                     email, description, city, phone, website, social_links,
                     manager_name, manager_phone, manager_email
                 ),
             )
-            logger.info(f"Created company: {name} with storage: {storage_type}")
+            logger.info(f"Created company: {name} with storage: {normalized_storage_type}")
         except sqlite3.IntegrityError as exc:
             logger.error(f"Failed to create company: {exc}")
             raise ValueError("company_already_exists") from exc
@@ -1925,7 +2042,7 @@ class Database:
         storage_type: Optional[str] = None,
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None,
+        content_types: Optional[str] = None,  # Deprecated - kept for API compatibility
         storage_folder_path: Optional[str] = None,
         backup_provider: Optional[str] = None,
         backup_remote_path: Optional[str] = None,
@@ -1945,10 +2062,10 @@ class Database:
         Args:
             company_id: Company ID
             name: Company name (optional)
-            storage_type: Storage type (optional)
+            storage_type: Storage type (optional) - will be normalized
             storage_connection_id: Storage connection ID (optional)
             yandex_disk_folder_id: Yandex Disk folder ID (optional)
-            content_types: Content types CSV string (optional)
+            content_types: Content types CSV string (optional) - DEPRECATED, ignored
             storage_folder_path: Storage folder path (optional)
             backup_provider: Remote backup provider (optional)
             backup_remote_path: Remote backup path (optional)
@@ -1974,8 +2091,9 @@ class Database:
                 params.append(name)
             
             if storage_type is not None:
+                # Normalize storage_type to canonical value
                 updates.append("storage_type = ?")
-                params.append(storage_type)
+                params.append(normalize_storage_type(storage_type))
             
             if storage_connection_id is not None:
                 updates.append("storage_connection_id = ?")
@@ -1985,9 +2103,7 @@ class Database:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
             
-            if content_types is not None:
-                updates.append("content_types = ?")
-                params.append(content_types)
+            # content_types is deprecated and ignored - no longer in table schema
             
             if storage_folder_path is not None:
                 updates.append("storage_folder_path = ?")
@@ -2067,7 +2183,7 @@ class Database:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
-                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
+                   c.yandex_disk_folder_id, c.storage_folder_path,
                    c.backup_provider, c.backup_remote_path,
                    c.email, c.description, c.city, c.phone, c.website, c.social_links,
                    c.manager_name, c.manager_phone, c.manager_email,
@@ -2100,7 +2216,7 @@ class Database:
         """
         query = """
             SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id,
-                   c.yandex_disk_folder_id, c.content_types, c.storage_folder_path,
+                   c.yandex_disk_folder_id, c.storage_folder_path,
                    c.backup_provider, c.backup_remote_path,
                    c.email, c.description, c.city, c.phone, c.website, c.social_links,
                    c.manager_name, c.manager_phone, c.manager_email,
@@ -2161,27 +2277,28 @@ class Database:
         storage_type: str, 
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
-        content_types: Optional[str] = None
+        content_types: Optional[str] = None  # Deprecated - kept for API compatibility
     ) -> bool:
         """Update company storage configuration."""
         try:
+            # Normalize storage_type to canonical value
+            normalized_storage_type = normalize_storage_type(storage_type)
+            
             # Build dynamic update query
             updates = ["storage_type = ?", "storage_connection_id = ?"]
-            params: List[Any] = [storage_type, storage_connection_id]
+            params: List[Any] = [normalized_storage_type, storage_connection_id]
             
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
             
-            if content_types is not None:
-                updates.append("content_types = ?")
-                params.append(content_types)
+            # content_types is deprecated and ignored - no longer in table schema
             
             params.append(company_id)
             query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
             
             self._execute(query, tuple(params))
-            logger.info(f"Updated company {company_id} storage to {storage_type}")
+            logger.info(f"Updated company {company_id} storage to {normalized_storage_type}")
             return True
         except Exception as exc:
             logger.error(f"Failed to update company storage: {exc}")
