@@ -482,56 +482,77 @@
                 <button class="close" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info" style="margin-bottom: 1.5rem;">
+                    <strong>ℹ️ Регистрация подключения к хранилищу</strong>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+                        Сначала зарегистрируйте подключение к удалённому хранилищу, затем привяжите компании к этому подключению. 
+                        Все учётные данные шифруются перед сохранением.
+                    </p>
+                </div>
                 <form id="storageForm">
                     <div class="form-group">
-                        <label for="storageName">Название хранилища *</label>
-                        <input type="text" id="storageName" class="form-control" required>
+                        <label for="storageName">Название подключения *</label>
+                        <input type="text" id="storageName" class="form-control" required placeholder="Например: Основное MinIO хранилище">
+                        <small class="text-muted">Понятное имя для идентификации подключения</small>
                     </div>
 
                     <div class="form-group">
                         <label for="storageType">Тип хранилища *</label>
                         <select id="storageType" class="form-control" onchange="updateConfigFields()" required>
-                            <option value="">Выберите тип</option>
-                            <option value="minio">MinIO</option>
+                            <option value="">Выберите тип хранилища</option>
+                            <option value="minio">MinIO / S3-совместимое</option>
                             <option value="yandex_disk">Яндекс Диск</option>
                         </select>
+                        <small class="text-muted">Выберите провайдера облачного хранилища</small>
                     </div>
 
                     <!-- MinIO Configuration -->
                     <div id="minioConfig" style="display: none;">
+                        <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Параметры MinIO / S3</h4>
                         <div class="form-group">
-                            <label for="minioEndpoint">Endpoint *</label>
-                            <input type="text" id="minioEndpoint" class="form-control" placeholder="localhost:9000">
+                            <label for="minioEndpoint">Endpoint (адрес сервера) *</label>
+                            <input type="text" id="minioEndpoint" class="form-control" placeholder="minio.example.com:9000">
+                            <small class="text-muted">Адрес и порт MinIO сервера (без http://)</small>
                         </div>
                         <div class="form-group">
-                            <label for="minioAccessKey">Access Key *</label>
-                            <input type="text" id="minioAccessKey" class="form-control">
+                            <label for="minioAccessKey">Access Key (ключ доступа) *</label>
+                            <input type="text" id="minioAccessKey" class="form-control" placeholder="minioadmin">
+                            <small class="text-muted">Идентификатор доступа (будет зашифрован)</small>
                         </div>
                         <div class="form-group">
-                            <label for="minioSecretKey">Secret Key *</label>
-                            <input type="password" id="minioSecretKey" class="form-control">
+                            <label for="minioSecretKey">Secret Key (секретный ключ) *</label>
+                            <input type="password" id="minioSecretKey" class="form-control" placeholder="••••••••">
+                            <small class="text-muted">Секретный ключ (будет зашифрован и не отображается после сохранения)</small>
                         </div>
                         <div class="form-group">
-                            <label for="minioBucket">Bucket *</label>
-                            <input type="text" id="minioBucket" class="form-control" value="vertex-ar">
+                            <label for="minioBucket">Bucket (корзина) *</label>
+                            <input type="text" id="minioBucket" class="form-control" value="vertex-ar" placeholder="vertex-ar">
+                            <small class="text-muted">Имя корзины для хранения файлов</small>
                         </div>
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" id="minioSecure">
                                 Использовать HTTPS
                             </label>
+                            <small class="text-muted" style="display: block; margin-left: 1.5rem;">Включить для защищённого соединения (SSL/TLS)</small>
                         </div>
                     </div>
 
                     <!-- Yandex Disk Configuration -->
                     <div id="yandexConfig" style="display: none;">
+                        <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Параметры Яндекс Диска</h4>
                         <div class="form-group">
-                            <label for="yandexToken">OAuth Token *</label>
-                            <textarea id="yandexToken" class="form-control" rows="3" placeholder="OAuth токен от Яндекс Диска"></textarea>
+                            <label for="yandexToken">OAuth Token (токен доступа) *</label>
+                            <textarea id="yandexToken" class="form-control" rows="3" placeholder="y0_AgA..."></textarea>
+                            <small class="text-muted">
+                                OAuth токен от Яндекс Диска (будет зашифрован). 
+                                <a href="https://yandex.ru/dev/disk/poligon/" target="_blank">Получить токен</a>
+                            </small>
                         </div>
                         <div class="form-group">
-                            <label for="yandexBasePath">Базовый путь</label>
-                            <input type="text" id="yandexBasePath" class="form-control" value="vertex-ar">
+                            <label for="yandexBasePath">Базовый путь (необязательно)</label>
+                            <input type="text" id="yandexBasePath" class="form-control" value="vertex-ar" placeholder="vertex-ar">
+                            <small class="text-muted">Корневая папка для хранения файлов на Яндекс Диске</small>
                         </div>
                     </div>
                 </form>
@@ -584,8 +605,8 @@
                             <tr>
                                 <th>Название</th>
                                 <th>Тип</th>
+                                <th>Здоровье</th>
                                 <th>Статус</th>
-                                <th>Тест</th>
                                 <th>Действия</th>
                             </tr>
                         </thead>
@@ -593,33 +614,46 @@
                 `;
 
                 storageConnections.forEach(storage => {
+                    // Determine health status
+                    let healthBadge = '';
+                    let healthIcon = '';
+                    if (storage.is_tested && storage.is_active) {
+                        healthBadge = 'success';
+                        healthIcon = '✓';
+                    } else if (!storage.is_tested) {
+                        healthBadge = 'warning';
+                        healthIcon = '⚠';
+                    } else if (!storage.is_active) {
+                        healthBadge = 'secondary';
+                        healthIcon = '⏸';
+                    }
+                    
                     html += `
                         <tr>
                             <td>
                                 <strong>${storage.name}</strong>
-                                ${storage.is_tested ? '<span class="badge badge-success ml-1">✓</span>' : ''}
+                                <br><small class="text-muted">ID: ${storage.id}</small>
                             </td>
                             <td>
                                 <span class="badge badge-${storage.type === 'minio' ? 'info' : 'warning'}">
-                                    ${storage.type === 'minio' ? 'MinIO' : 'Яндекс Диск'}
+                                    ${storage.type === 'minio' ? 'MinIO / S3' : 'Яндекс Диск'}
                                 </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-${healthBadge}" title="${storage.test_result || 'Не тестировалось'}">
+                                    ${healthIcon} ${storage.is_tested && storage.is_active ? 'Здоров' : !storage.is_tested ? 'Не тестировано' : 'Неактивно'}
+                                </span>
+                                ${storage.test_result ? `<br><small class="text-muted" style="max-width: 200px; display: block;">${storage.test_result}</small>` : ''}
                             </td>
                             <td>
                                 <span class="badge badge-${storage.is_active ? 'success' : 'secondary'}">
-                                    ${storage.is_active ? 'Активно' : 'Неактивно'}
+                                    ${storage.is_active ? 'Активно' : 'Отключено'}
                                 </span>
                             </td>
                             <td>
-                                ${storage.is_tested ? 
-                                    `<span class="badge badge-success">Пройден</span>` : 
-                                    `<span class="badge badge-warning">Не тестировалось</span>`
-                                }
-                                ${storage.test_result ? `<br><small class="text-muted">${storage.test_result}</small>` : ''}
-                            </td>
-                            <td>
-                                <button class="btn btn-outline btn-sm" onclick="testStorage('${storage.id}')">Тест</button>
-                                <button class="btn btn-outline btn-sm" onclick="editStorage('${storage.id}')">Изменить</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteStorage('${storage.id}')">Удалить</button>
+                                <button class="btn btn-outline btn-sm" onclick="testStorage('${storage.id}')" title="Проверить подключение">🔍 Тест</button>
+                                <button class="btn btn-outline btn-sm" onclick="editStorage('${storage.id}')" title="Редактировать">✏️</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteStorage('${storage.id}')" title="Удалить">🗑️</button>
                             </td>
                         </tr>
                     `;
