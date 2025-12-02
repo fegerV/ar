@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.database import Database
+from app.encryption import encryption_manager
 from app.models import (
     CompanyStorageUpdate,
     MessageResponse,
@@ -22,6 +23,70 @@ from logging_setup import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+def _encrypt_sensitive_config_fields(config: Dict[str, Any], storage_type: str) -> Dict[str, Any]:
+    """Encrypt sensitive fields in storage config based on storage type."""
+    encrypted_config = config.copy()
+    
+    if storage_type == 'yandex_disk':
+        # Encrypt OAuth token
+        if 'oauth_token' in encrypted_config and encrypted_config['oauth_token']:
+            encrypted_config['oauth_token'] = encryption_manager.encrypt(encrypted_config['oauth_token'])
+            
+    elif storage_type == 'minio':
+        # Encrypt access_key and secret_key
+        if 'access_key' in encrypted_config and encrypted_config['access_key']:
+            encrypted_config['access_key'] = encryption_manager.encrypt(encrypted_config['access_key'])
+        if 'secret_key' in encrypted_config and encrypted_config['secret_key']:
+            encrypted_config['secret_key'] = encryption_manager.encrypt(encrypted_config['secret_key'])
+    
+    return encrypted_config
+
+
+def _decrypt_sensitive_config_fields(config: Dict[str, Any], storage_type: str) -> Dict[str, Any]:
+    """Decrypt sensitive fields in storage config based on storage type."""
+    decrypted_config = config.copy()
+    
+    try:
+        if storage_type == 'yandex_disk':
+            # Decrypt OAuth token
+            if 'oauth_token' in decrypted_config and decrypted_config['oauth_token']:
+                # Check if it's already encrypted (base64-like)
+                if encryption_manager.is_encrypted(decrypted_config['oauth_token']):
+                    decrypted_config['oauth_token'] = encryption_manager.decrypt(decrypted_config['oauth_token'])
+                    
+        elif storage_type == 'minio':
+            # Decrypt access_key and secret_key
+            if 'access_key' in decrypted_config and decrypted_config['access_key']:
+                if encryption_manager.is_encrypted(decrypted_config['access_key']):
+                    decrypted_config['access_key'] = encryption_manager.decrypt(decrypted_config['access_key'])
+            if 'secret_key' in decrypted_config and decrypted_config['secret_key']:
+                if encryption_manager.is_encrypted(decrypted_config['secret_key']):
+                    decrypted_config['secret_key'] = encryption_manager.decrypt(decrypted_config['secret_key'])
+    except Exception as exc:
+        logger.error(f"Error decrypting config fields: {exc}")
+        # Return original config if decryption fails
+        return config
+    
+    return decrypted_config
+
+
+def _mask_sensitive_config_fields(config: Dict[str, Any], storage_type: str) -> Dict[str, Any]:
+    """Mask sensitive fields in storage config for API responses."""
+    masked_config = config.copy()
+    
+    if storage_type == 'yandex_disk':
+        if 'oauth_token' in masked_config and masked_config['oauth_token']:
+            masked_config['oauth_token'] = '***' + masked_config['oauth_token'][-8:] if len(masked_config['oauth_token']) > 8 else '***'
+            
+    elif storage_type == 'minio':
+        if 'access_key' in masked_config and masked_config['access_key']:
+            masked_config['access_key'] = '***' + masked_config['access_key'][-4:] if len(masked_config['access_key']) > 4 else '***'
+        if 'secret_key' in masked_config and masked_config['secret_key']:
+            masked_config['secret_key'] = '***' + masked_config['secret_key'][-4:] if len(masked_config['secret_key']) > 4 else '***'
+    
+    return masked_config
 
 
 def get_database() -> Database:
@@ -226,7 +291,7 @@ async def list_storage_connections(
     active_only: bool = True,
     tested_only: bool = False,
 ) -> List[StorageConnectionResponse]:
-    """Get list of storage connections."""
+    """Get list of storage connections with masked sensitive fields."""
     username = _get_admin_user(request)
     database = get_database()
     
@@ -237,7 +302,7 @@ async def list_storage_connections(
                 id=conn['id'],
                 name=conn['name'],
                 type=conn['type'],
-                config=conn['config'],
+                config=_mask_sensitive_config_fields(conn['config'], conn['type']),
                 is_active=bool(conn['is_active']),
                 is_tested=bool(conn['is_tested']),
                 test_result=conn.get('test_result'),
@@ -259,7 +324,7 @@ async def create_storage_connection(
     request: Request,
     storage: StorageConnectionCreate,
 ) -> StorageConnectionResponse:
-    """Create a new storage connection."""
+    """Create a new storage connection with encrypted sensitive fields."""
     username = _get_admin_user(request)
     database = get_database()
     
@@ -275,11 +340,14 @@ async def create_storage_connection(
     connection_id = f"storage-{uuid4().hex[:8]}"
     
     try:
+        # Encrypt sensitive fields before storing
+        encrypted_config = _encrypt_sensitive_config_fields(storage.config, storage.type)
+        
         success = database.create_storage_connection(
             connection_id=connection_id,
             name=storage.name,
             storage_type=storage.type,
-            config=storage.config,
+            config=encrypted_config,
         )
         
         if not success:
@@ -295,11 +363,13 @@ async def create_storage_connection(
                 detail="Failed to retrieve created storage connection"
             )
         
+        logger.info(f"Storage connection created: {connection_id} ({storage.name}, type={storage.type}) by {username}")
+        
         return StorageConnectionResponse(
             id=created['id'],
             name=created['name'],
             type=created['type'],
-            config=created['config'],
+            config=_mask_sensitive_config_fields(created['config'], created['type']),
             is_active=bool(created['is_active']),
             is_tested=bool(created['is_tested']),
             test_result=created.get('test_result'),
@@ -321,7 +391,7 @@ async def get_storage_connection(
     request: Request,
     connection_id: str,
 ) -> StorageConnectionResponse:
-    """Get storage connection by ID."""
+    """Get storage connection by ID with masked sensitive fields."""
     username = _get_admin_user(request)
     database = get_database()
     
@@ -336,7 +406,7 @@ async def get_storage_connection(
         id=connection['id'],
         name=connection['name'],
         type=connection['type'],
-        config=connection['config'],
+        config=_mask_sensitive_config_fields(connection['config'], connection['type']),
         is_active=bool(connection['is_active']),
         is_tested=bool(connection['is_tested']),
         test_result=connection.get('test_result'),
@@ -351,7 +421,7 @@ async def update_storage_connection(
     connection_id: str,
     storage_update: StorageConnectionUpdate,
 ) -> StorageConnectionResponse:
-    """Update storage connection."""
+    """Update storage connection with encrypted sensitive fields."""
     username = _get_admin_user(request)
     database = get_database()
     
@@ -374,10 +444,15 @@ async def update_storage_connection(
                 )
     
     try:
+        # Encrypt sensitive fields if config is being updated
+        encrypted_config = None
+        if storage_update.config is not None:
+            encrypted_config = _encrypt_sensitive_config_fields(storage_update.config, existing['type'])
+        
         success = database.update_storage_connection(
             connection_id=connection_id,
             name=storage_update.name,
-            config=storage_update.config,
+            config=encrypted_config,
             is_active=storage_update.is_active,
         )
         
@@ -390,13 +465,14 @@ async def update_storage_connection(
         # Reset test status if config changed
         if storage_update.config is not None:
             database.update_storage_connection_test_result(connection_id, False, "Configuration changed - retest required")
+            logger.info(f"Storage connection updated: {connection_id} by {username}")
         
         updated = database.get_storage_connection(connection_id)
         return StorageConnectionResponse(
             id=updated['id'],
             name=updated['name'],
             type=updated['type'],
-            config=updated['config'],
+            config=_mask_sensitive_config_fields(updated['config'], updated['type']),
             is_active=bool(updated['is_active']),
             is_tested=bool(updated['is_tested']),
             test_result=updated.get('test_result'),
@@ -456,7 +532,7 @@ async def test_storage_connection(
     request: Request,
     test_request: StorageTestRequest,
 ) -> StorageTestResponse:
-    """Test a storage connection."""
+    """Test a storage connection (decrypts credentials for testing)."""
     username = _get_admin_user(request)
     database = get_database()
     
@@ -468,8 +544,12 @@ async def test_storage_connection(
             detail="Storage connection not found"
         )
     
+    # Decrypt config for testing
+    decrypted_connection = connection.copy()
+    decrypted_connection['config'] = _decrypt_sensitive_config_fields(connection['config'], connection['type'])
+    
     # Test the connection
-    result = await _test_storage_connection(connection)
+    result = await _test_storage_connection(decrypted_connection)
     
     # Update test result in database
     database.update_storage_connection_test_result(
@@ -477,6 +557,8 @@ async def test_storage_connection(
         result.success,
         result.message
     )
+    
+    logger.info(f"Storage connection tested: {test_request.connection_id} - {'SUCCESS' if result.success else 'FAILED'} by {username}")
     
     return result
 

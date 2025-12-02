@@ -296,18 +296,26 @@ const CompanyManager = {
         const storageFolder = document.getElementById('storageFolder').value.trim();
 
         if (!companyName) {
-            this.showToast('Введите название компании', 'error');
+            this.showToast('❌ Введите название компании', 'error');
             return;
         }
 
         if (!storageType) {
-            this.showToast('Выберите тип хранилища', 'error');
+            this.showToast('❌ Выберите тип хранилища', 'error');
             return;
         }
 
-        if (storageType !== 'local' && storageType !== 'local_disk' && !storageConnectionId) {
-            this.showToast('Выберите подключение к хранилищу', 'error');
-            return;
+        // Validate remote storage requirements
+        if (storageType === 'minio' || storageType === 'yandex_disk') {
+            if (!storageConnectionId) {
+                this.showToast(`❌ Для ${storageType === 'minio' ? 'MinIO' : 'Яндекс Диска'} необходимо выбрать протестированное подключение`, 'error');
+                return;
+            }
+            
+            if (storageType === 'yandex_disk' && !storageFolder) {
+                this.showToast('❌ Для Яндекс Диска необходимо указать папку для хранения файлов', 'error');
+                return;
+            }
         }
 
         const payload = {
@@ -378,41 +386,87 @@ const CompanyManager = {
         const storageType = event.target.value;
         const storageConnectionGroup = document.getElementById('storageConnectionGroup');
         const storageFolderGroup = document.getElementById('storageFolderGroup');
+        const storageHelpText = document.getElementById('storageHelpText');
+
+        // Clear previous selections
+        document.getElementById('storageConnection').value = '';
+        document.getElementById('storageFolder').value = '';
 
         if (storageType === 'local' || storageType === 'local_disk') {
             storageConnectionGroup.style.display = 'none';
             storageFolderGroup.style.display = 'block';
             document.getElementById('storageConnection').required = false;
-        } else if (storageType === 'yandex_disk') {
+            
+            // Update help text for local storage
+            if (storageHelpText) {
+                storageHelpText.innerHTML = 'ℹ️ Локальное хранилище: файлы сохраняются на сервере. Укажите путь к папке для хранения.';
+            }
+        } else if (storageType === 'minio' || storageType === 'yandex_disk') {
             storageConnectionGroup.style.display = 'block';
             storageFolderGroup.style.display = 'block';
             document.getElementById('storageConnection').required = true;
+            
+            // Show/hide folder required indicator
+            const folderRequired = document.getElementById('folderRequired');
+            if (folderRequired) {
+                folderRequired.style.display = storageType === 'yandex_disk' ? 'inline' : 'none';
+            }
+            
+            // Update help text for remote storage
+            if (storageHelpText) {
+                const typeName = storageType === 'minio' ? 'MinIO' : 'Яндекс Диск';
+                const folderNote = storageType === 'yandex_disk' ? ' Папка обязательна.' : '';
+                storageHelpText.innerHTML = `ℹ️ Удалённое хранилище ${typeName}: сначала выберите настроенное подключение (с галочкой ✓), затем укажите папку.${folderNote}`;
+            }
+            
             await this.populateStorageConnections(storageType);
         } else {
             storageConnectionGroup.style.display = 'none';
             storageFolderGroup.style.display = 'none';
+            
+            if (storageHelpText) {
+                storageHelpText.innerHTML = '';
+            }
         }
     },
 
     async populateStorageConnections(storageType) {
         const select = document.getElementById('storageConnection');
-        select.innerHTML = '<option value="">Выберите подключение</option>';
+        select.innerHTML = '<option value="">— Выберите протестированное подключение —</option>';
 
-        const connections = this.state.storageConnections.filter(conn => {
-            return conn.storage_type === storageType && conn.is_active && conn.is_tested;
-        });
+        try {
+            // Fetch all storage connections
+            const response = await fetch('/storages?active_only=true&tested_only=true', {
+                credentials: 'include'
+            });
 
-        if (connections.length === 0) {
-            select.innerHTML += '<option value="" disabled>Нет активных подключений. Создайте в разделе "Хранилища"</option>';
-            return;
+            if (!response.ok) {
+                throw new Error('Failed to load storage connections');
+            }
+
+            const connections = await response.json();
+            
+            // Filter by storage type
+            const filteredConnections = connections.filter(conn => {
+                return conn.type === storageType && conn.is_active && conn.is_tested;
+            });
+
+            if (filteredConnections.length === 0) {
+                select.innerHTML += `<option value="" disabled>❌ Нет протестированных подключений. Настройте в разделе "Хранилища"</option>`;
+                return;
+            }
+
+            filteredConnections.forEach(conn => {
+                const option = document.createElement('option');
+                option.value = conn.id;
+                option.textContent = `✓ ${conn.name} (${conn.type === 'minio' ? 'MinIO' : 'Яндекс Диск'})`;
+                option.title = conn.test_result || 'Подключение протестировано';
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading storage connections:', error);
+            select.innerHTML += '<option value="" disabled>❌ Ошибка загрузки подключений</option>';
         }
-
-        connections.forEach(conn => {
-            const option = document.createElement('option');
-            option.value = conn.id;
-            option.textContent = conn.name;
-            select.appendChild(option);
-        });
     },
 
     async openFolderModal() {

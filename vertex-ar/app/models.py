@@ -155,6 +155,19 @@ class CompanyCreate(BaseModel):
         if v is not None and v.strip():
             return validate_email(v)
         return v
+    
+    def model_post_init(self, __context):
+        """Validate storage configuration after all fields are set."""
+        # Remote storage types must have a connection
+        if self.storage_type in ['minio', 'yandex_disk']:
+            if not self.storage_connection_id:
+                raise ValueError(f'{self.storage_type} storage requires storage_connection_id')
+            
+            # Yandex Disk also requires a folder
+            if self.storage_type == 'yandex_disk' and not self.yandex_disk_folder_id:
+                raise ValueError('yandex_disk storage requires yandex_disk_folder_id (folder path)')
+        
+        return super().model_post_init(__context) if hasattr(super(), 'model_post_init') else None
 
 
 class CompanyResponse(BaseModel):
@@ -262,6 +275,15 @@ class CompanyUpdate(BaseModel):
         if v is not None and v.strip():
             return validate_email(v)
         return v
+    
+    def model_post_init(self, __context):
+        """Validate storage configuration after all fields are set (for updates)."""
+        # If storage_type is being updated to remote, ensure connection is provided
+        if self.storage_type in ['minio', 'yandex_disk']:
+            if self.storage_connection_id is not None and not self.storage_connection_id:
+                raise ValueError(f'{self.storage_type} storage requires storage_connection_id')
+        
+        return super().model_post_init(__context) if hasattr(super(), 'model_post_init') else None
 
 
 # Company backup configuration models
@@ -303,6 +325,36 @@ class StorageConnectionCreate(BaseModel):
         if v not in ['minio', 'yandex_disk']:
             raise ValueError('type must be one of: minio, yandex_disk')
         return v
+    
+    @field_validator('config')
+    @classmethod
+    def validate_config_fields(cls, v: Dict[str, Any], info) -> Dict[str, Any]:
+        """Validate required fields based on storage type."""
+        if not hasattr(info, 'data') or 'type' not in info.data:
+            return v
+        
+        storage_type = info.data.get('type')
+        
+        if storage_type == 'yandex_disk':
+            # Yandex Disk requires OAuth token
+            if not v.get('oauth_token'):
+                raise ValueError('Yandex Disk requires oauth_token in config')
+            if not v.get('oauth_token').strip():
+                raise ValueError('oauth_token cannot be empty')
+                
+        elif storage_type == 'minio':
+            # MinIO requires endpoint, access_key, secret_key, and bucket
+            required_fields = ['endpoint', 'access_key', 'secret_key', 'bucket']
+            missing_fields = [field for field in required_fields if not v.get(field)]
+            if missing_fields:
+                raise ValueError(f'MinIO requires the following fields in config: {", ".join(missing_fields)}')
+            
+            # Validate non-empty
+            for field in required_fields:
+                if not str(v.get(field)).strip():
+                    raise ValueError(f'{field} cannot be empty')
+        
+        return v
 
 
 class StorageConnectionUpdate(BaseModel):
@@ -315,6 +367,29 @@ class StorageConnectionUpdate(BaseModel):
     def validate_connection_name(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
+        return v
+    
+    @field_validator('config')
+    @classmethod
+    def validate_config_fields(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Validate config fields if provided (type is not available in update)."""
+        if v is None:
+            return v
+        
+        # For updates, we validate based on what fields are present
+        # since we don't know the type here
+        if 'oauth_token' in v:
+            # Yandex Disk field
+            if v['oauth_token'] is not None and not str(v['oauth_token']).strip():
+                raise ValueError('oauth_token cannot be empty')
+        
+        # MinIO fields
+        minio_fields = ['endpoint', 'access_key', 'secret_key', 'bucket']
+        for field in minio_fields:
+            if field in v and v[field] is not None:
+                if not str(v[field]).strip():
+                    raise ValueError(f'{field} cannot be empty')
+        
         return v
 
 
