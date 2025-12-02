@@ -1,0 +1,45 @@
+version: '3.8'
+
+# Минимальный compose файл для тестирования Nginx
+# Использование: docker compose -f docker-compose.test.yml up -d
+
+services:
+  # Простой тестовый сервер вместо FastAPI
+  test-app:
+    image: nginx:alpine
+    container_name: test_app_backend
+    command: sh -c 'echo "<!DOCTYPE html><html><body><h1>Test Backend OK</h1><p>Nginx proxy works!</p></body></html>" > /usr/share/nginx/html/index.html && nginx -g "daemon off;"'
+    expose:
+      - "80"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Nginx с нашей конфигурацией
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: test_nginx_proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.test.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      test-app:
+        condition: service_healthy
+    networks:
+      - test-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  test-network:
+    driver: bridge
