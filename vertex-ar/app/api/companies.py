@@ -15,8 +15,6 @@ from app.models import (
     PaginatedCompaniesResponse,
     MessageResponse,
     YandexFolderUpdate,
-    CompanyContentTypesUpdate,
-    ContentTypeItem,
     CompanyStorageTypeUpdate,
     CompanyStorageFolderUpdate,
     CompanyStorageInfoResponse,
@@ -703,127 +701,6 @@ async def set_company_yandex_folder(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update company"
-        )
-
-
-@router.post("/companies/{company_id}/content-types", response_model=dict)
-async def update_company_content_types(
-    request: Request,
-    company_id: str,
-    content_types_update: CompanyContentTypesUpdate,
-) -> dict:
-    """
-    Update content types for a company.
-    
-    Accepts a list of content types with labels (and optional slugs).
-    Slugs are auto-generated from labels if not provided.
-    At least one content type with a unique slug is required.
-    Returns the normalized list for immediate UI feedback.
-    """
-    username = _get_admin_user(request)
-    database = get_database()
-    
-    # Get company
-    company = database.get_company(company_id)
-    if not company:
-        logger.error(
-            "Company not found",
-            company_id=company_id,
-            user=username
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
-        )
-    
-    # Build comma-separated content types string
-    # Format: slug1:label1,slug2:label2
-    content_types_parts = []
-    normalized_list = []
-    
-    for item in content_types_update.content_types:
-        content_types_parts.append(f"{item.slug}:{item.label}")
-        normalized_list.append({
-            "slug": item.slug,
-            "label": item.label
-        })
-    
-    content_types_str = ",".join(content_types_parts)
-    
-    # Save to database
-    try:
-        success = database.update_company_content_types(company_id, content_types_str)
-        if not success:
-            logger.error(
-                "Failed to update company content types in database",
-                company_id=company_id,
-                content_types=content_types_str,
-                user=username
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update content types"
-            )
-        
-        logger.info(
-            "Updated company content types",
-            company_id=company_id,
-            content_types=content_types_str,
-            user=username
-        )
-        
-        # Provision storage hierarchy for new content types
-        from app.main import get_current_app
-        app = get_current_app()
-        storage_manager = app.state.storage_manager
-        
-        category_slugs = [item.slug for item in content_types_update.content_types]
-        
-        try:
-            provision_result = await storage_manager.provision_company_storage(
-                company_id,
-                category_slugs
-            )
-            
-            if not provision_result.get('success', False):
-                logger.warning(
-                    "Storage hierarchy provisioning failed",
-                    company_id=company_id,
-                    error=provision_result.get('error')
-                )
-            else:
-                logger.info(
-                    "Storage hierarchy provisioned for content types",
-                    company_id=company_id,
-                    categories=len(category_slugs),
-                    paths_created=provision_result.get('total_paths_created', 0)
-                )
-        except Exception as prov_exc:
-            logger.error(
-                "Failed to provision storage hierarchy for content types",
-                company_id=company_id,
-                error=str(prov_exc),
-                exc_info=prov_exc
-            )
-        
-        return {
-            "success": True,
-            "content_types": normalized_list,
-            "content_types_str": content_types_str
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error(
-            "Failed to update company content types",
-            error=str(exc),
-            company_id=company_id,
-            user=username
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update content types"
         )
 
 

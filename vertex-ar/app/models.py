@@ -82,7 +82,6 @@ class CompanyCreate(BaseModel):
     storage_type: str = Field(default="local_disk", description="Storage type")
     storage_connection_id: Optional[str] = Field(default=None, description="Storage connection ID for remote storage")
     yandex_disk_folder_id: Optional[str] = Field(default=None, description="Yandex Disk folder ID for storing orders")
-    content_types: Optional[str] = Field(default=None, description="Comma-separated list of content types for this company")
     storage_folder_path: Optional[str] = Field(default="vertex_ar_content", description="Storage folder path for local storage")
     backup_provider: Optional[str] = Field(default=None, description="Remote backup provider (e.g., yandex_disk, google_drive)")
     backup_remote_path: Optional[str] = Field(default=None, description="Remote path for backups")
@@ -164,7 +163,6 @@ class CompanyResponse(BaseModel):
     storage_type: str
     storage_connection_id: Optional[str] = None
     yandex_disk_folder_id: Optional[str] = None
-    content_types: Optional[str] = None
     storage_folder_path: Optional[str] = None
     backup_provider: Optional[str] = None
     backup_remote_path: Optional[str] = None
@@ -189,7 +187,6 @@ class CompanyUpdate(BaseModel):
     storage_type: Optional[str] = Field(None, description="Storage type")
     storage_connection_id: Optional[str] = Field(None, description="Storage connection ID for remote storage")
     yandex_disk_folder_id: Optional[str] = Field(None, description="Yandex Disk folder ID for storing orders")
-    content_types: Optional[str] = Field(None, description="Comma-separated list of content types for this company")
     storage_folder_path: Optional[str] = Field(None, description="Storage folder path for local storage")
     backup_provider: Optional[str] = Field(None, description="Remote backup provider")
     backup_remote_path: Optional[str] = Field(None, description="Remote path for backups")
@@ -355,7 +352,6 @@ class CompanyStorageUpdate(BaseModel):
     storage_type: str
     storage_connection_id: Optional[str] = None
     yandex_disk_folder_id: Optional[str] = None
-    content_types: Optional[str] = None
     
     @field_validator('storage_type')
     @classmethod
@@ -430,45 +426,6 @@ class CompanyContentType(BaseModel):
     """Response model for a single content type."""
     slug: str = Field(..., description="URL-safe slug")
     label: str = Field(..., description="Human-readable label")
-
-
-class ContentTypeItem(BaseModel):
-    label: str = Field(..., min_length=1, max_length=100, description="Human-readable label for content type")
-    slug: Optional[str] = Field(None, max_length=100, description="URL-safe slug (auto-generated if not provided)")
-    
-    @field_validator('label')
-    @classmethod
-    def validate_label(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError('Content type label is required')
-        return v.strip()
-
-
-class CompanyContentTypesUpdate(BaseModel):
-    content_types: List[ContentTypeItem] = Field(..., min_length=1, description="List of content types for the company")
-    
-    @field_validator('content_types')
-    @classmethod
-    def validate_content_types(cls, v: List[ContentTypeItem]) -> List[ContentTypeItem]:
-        if not v:
-            raise ValueError('At least one content type is required')
-        
-        # Auto-generate slugs if not provided
-        seen_slugs = set()
-        for item in v:
-            if not item.slug:
-                # Generate slug from label
-                import re
-                slug = re.sub(r'[^a-z0-9-]+', '-', item.label.lower().strip())
-                slug = re.sub(r'-+', '-', slug).strip('-')
-                item.slug = slug
-            
-            # Check for duplicate slugs
-            if item.slug in seen_slugs:
-                raise ValueError(f'Duplicate slug: {item.slug}')
-            seen_slugs.add(item.slug)
-        
-        return v
 
 
 class YandexDiskFolder(BaseModel):
