@@ -1,41 +1,41 @@
 [
   {
-    "timestamp": "2025-11-28T18:07:39.721199",
+    "timestamp": "2025-12-02T12:52:32.182398",
     "iteration": 0,
     "cpu_percent": 0.0,
-    "memory_mb": 148.01171875,
+    "memory_mb": 178.61328125,
     "open_files": 2,
     "threads": 1
   },
   {
-    "timestamp": "2025-11-28T18:07:40.223623",
+    "timestamp": "2025-12-02T12:52:32.685040",
     "iteration": 1,
     "cpu_percent": 0.0,
-    "memory_mb": 148.01171875,
+    "memory_mb": 178.61328125,
     "open_files": 2,
     "threads": 1
   },
   {
-    "timestamp": "2025-11-28T18:07:40.725847",
+    "timestamp": "2025-12-02T12:52:33.188381",
     "iteration": 2,
     "cpu_percent": 0.0,
-    "memory_mb": 148.01171875,
+    "memory_mb": 178.61328125,
     "open_files": 2,
     "threads": 1
   },
   {
-    "timestamp": "2025-11-28T18:07:41.228343",
+    "timestamp": "2025-12-02T12:52:33.691729",
     "iteration": 3,
     "cpu_percent": 0.0,
-    "memory_mb": 148.01171875,
+    "memory_mb": 178.61328125,
     "open_files": 2,
     "threads": 1
   },
   {
-    "timestamp": "2025-11-28T18:07:41.730697",
+    "timestamp": "2025-12-02T12:52:34.195479",
     "iteration": 4,
     "cpu_percent": 0.0,
-    "memory_mb": 148.01171875,
+    "memory_mb": 178.61328125,
     "open_files": 2,
     "threads": 1
   }

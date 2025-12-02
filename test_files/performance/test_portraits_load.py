@@ -17,8 +17,11 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+import pytest
+
 # Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "vertex-ar"))
 
 try:
     import psutil
@@ -27,7 +30,7 @@ try:
 except ImportError as e:
     print(f"Ошибка импорта: {e}")
     print("Установите необходимые зависимости: pip install psutil requests pillow")
-    sys.exit(1)
+    pytest.skip(f"Missing dependencies: {e}", allow_module_level=True)
 
 @dataclass
 class LoadTestMetrics:

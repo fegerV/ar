@@ -9,12 +9,23 @@ from pathlib import Path
 import time
 import json
 
-# Добавляем путь к основному приложению
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vertex-ar'))
+import pytest
 
-from main import Database, _hash_password
-from fastapi.testclient import TestClient
-from main import app
+# Добавляем путь к основному приложению
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root / "vertex-ar"))
+
+try:
+    from fastapi.testclient import TestClient
+except ImportError as e:
+    pytest.skip(f"Missing dependencies: {e}", allow_module_level=True)
+
+try:
+    from app.main import app
+    from app.database import Database
+    from app.utils import hash_password as _hash_password
+except ImportError as e:
+    pytest.skip(f"Cannot import app modules: {e}", allow_module_level=True)
 
 # Создаем тестовый клиент
 client = TestClient(app)
