@@ -763,24 +763,6 @@
                 </div>
             </div>
             
-            <!-- Content Types Management -->
-            <div class="content-types-section" style="margin-top: 1.5rem; padding: 1rem; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem;">🏷️ Типы контента</h3>
-                <div style="padding: 0.75rem; background: var(--bg-color); border-radius: var(--border-radius); margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-color); opacity: 0.9;">
-                    <strong>Информация:</strong> Типы контента используются для организации файлов в папки Yandex Disk. 
-                    Каждый тип соответствует названию подпапки (например, "Портреты" → папка "Портреты", "Дипломы AR" → папка "Дипломы AR").
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                        <input type="text" id="newContentTypeInput" class="company-input" placeholder="Новый тип контента..." style="flex: 1; min-width: 200px;">
-                        <button id="addContentTypeBtn" onclick="addContentType()" class="company-btn" disabled>➕ Добавить</button>
-                    </div>
-                    <div id="contentTypesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
-                        <p style="text-align: center; opacity: 0.6; padding: 1rem;">Типы контента появятся здесь</p>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Storage Management -->
             <div class="storage-management-section" style="margin-top: 1.5rem; padding: 1rem; background: var(--light-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
                 <h3 style="margin-bottom: 1rem; font-size: 1rem;">💾 Управление хранилищем</h3>
@@ -831,12 +813,6 @@
                                 style="flex: 1; min-width: 200px;">
                             <small id="storageFolderInputError" class="input-error" style="display: none; color: var(--danger-color); font-size: 0.75rem; margin-top: 0.25rem;"></small>
                         </div>
-                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.25rem;">
-                            <label for="storageFolderContentType" style="font-size: 0.85rem; font-weight: 500; color: var(--text-color);">Тип контента (опционально):</label>
-                            <select id="storageFolderContentType" class="company-select" style="flex: 1; min-width: 200px;">
-                                <option value="">Не указан</option>
-                            </select>
-                        </div>
                     </div>
                     
                     <!-- Action Buttons -->
@@ -886,10 +862,13 @@
                         <input type="email" id="clientEmail" name="client_email" placeholder="example@domain.com">
                     </div>
                     <div class="form-group">
-                        <label for="contentType">Тип контента *</label>
-                        <select id="contentType" name="content_type" required>
-                            <option value="">Выберите тип контента...</option>
+                        <label for="folderPicker">Папка назначения *</label>
+                        <select id="folderPicker" name="folder_id" required>
+                            <option value="">Выберите папку...</option>
                         </select>
+                        <small style="display: block; margin-top: 0.25rem; color: var(--secondary-color); font-size: 0.85rem;">
+                            Выберите папку для сохранения файлов заказа
+                        </small>
                     </div>
                     <div class="form-group">
                         <label for="clientPhoto">Фото клиента *</label>
