@@ -11,7 +11,6 @@ const CompanyManager = {
         currentFolders: [],
         currentPath: '/',
         selectedFolder: null,
-        contentTypes: [],
         backupProviders: [],
         isLoading: false
     },
@@ -29,7 +28,6 @@ const CompanyManager = {
         document.getElementById('saveCompanyBtn').addEventListener('click', () => this.saveCompany());
         document.getElementById('storageType').addEventListener('change', (e) => this.handleStorageTypeChange(e));
         document.getElementById('selectFolderBtn').addEventListener('click', () => this.openFolderModal());
-        document.getElementById('addContentTypeBtn').addEventListener('click', () => this.addContentType());
         document.getElementById('createFolderBtn').addEventListener('click', () => this.createFolder());
         document.getElementById('selectFolderConfirmBtn').addEventListener('click', () => this.confirmFolderSelection());
         document.getElementById('saveBackupConfigBtn').addEventListener('click', () => this.saveBackupConfig());
@@ -157,7 +155,6 @@ const CompanyManager = {
         tbody.innerHTML = this.state.companies.map(company => {
             const isDefault = company.id === 'vertex-ar-default';
             const storageTypeBadge = this.getStorageTypeBadge(company.storage_type);
-            const contentTypesCount = company.content_types ? company.content_types.length : 0;
             const backupStatus = this.getBackupStatus(company);
             const createdDate = new Date(company.created_at).toLocaleDateString('ru-RU');
 
@@ -172,7 +169,6 @@ const CompanyManager = {
                         ${company.storage_folder_path || company.yandex_disk_folder_id || '-'}
                     </td>
                     <td>${company.client_count || 0}</td>
-                    <td>${contentTypesCount} типов</td>
                     <td>${backupStatus}</td>
                     <td>${createdDate}</td>
                     <td>
@@ -197,12 +193,12 @@ const CompanyManager = {
 
     getStorageTypeBadge(storageType) {
         const badges = {
-            'local': '<span class="badge badge-local">LOCAL</span>',
-            'local_disk': '<span class="badge badge-local">LOCAL DISK</span>',
-            'yandex_disk': '<span class="badge badge-yandex">YANDEX</span>',
+            'local': '<span class="badge badge-local">Локальный диск</span>',
+            'local_disk': '<span class="badge badge-local">Локальное хранилище</span>',
+            'yandex_disk': '<span class="badge badge-yandex">Yandex Disk</span>',
             's3': '<span class="badge badge-s3">S3</span>'
         };
-        return badges[storageType] || '<span class="badge badge-secondary">UNKNOWN</span>';
+        return badges[storageType] || '<span class="badge badge-secondary">Неизвестно</span>';
     },
 
     getBackupStatus(company) {
@@ -214,7 +210,6 @@ const CompanyManager = {
 
     openCreateCompanyModal() {
         this.state.currentCompany = null;
-        this.state.contentTypes = [{ label: 'Portraits', slug: 'portraits' }];
         
         document.getElementById('companyModalTitle').textContent = 'Создать компанию';
         document.getElementById('companyName').value = '';
@@ -224,7 +219,6 @@ const CompanyManager = {
         document.getElementById('storageConnectionGroup').style.display = 'none';
         document.getElementById('storageFolderGroup').style.display = 'none';
         
-        this.renderContentTypes();
         this.showModal('companyModal');
     },
 
@@ -254,9 +248,6 @@ const CompanyManager = {
                 document.getElementById('storageFolder').value = company.storage_folder_path || company.yandex_disk_folder_id;
                 document.getElementById('storageFolderGroup').style.display = 'block';
             }
-
-            this.state.contentTypes = company.content_types || [{ label: 'Portraits', slug: 'portraits' }];
-            this.renderContentTypes();
             
             this.showModal('companyModal');
         } catch (error) {
@@ -322,8 +313,7 @@ const CompanyManager = {
         const payload = {
             name: companyName,
             storage_type: storageType,
-            storage_connection_id: storageConnectionId || null,
-            content_types: this.state.contentTypes.length > 0 ? this.state.contentTypes : null
+            storage_connection_id: storageConnectionId || null
         };
 
         if (storageType === 'yandex_disk' && storageFolder) {
@@ -337,20 +327,6 @@ const CompanyManager = {
         try {
             let response;
             if (this.state.currentCompany) {
-                if (this.state.contentTypes.length > 0) {
-                    const contentTypesResponse = await fetch(`/api/companies/${this.state.currentCompany.id}/content-types`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ content_types: this.state.contentTypes })
-                    });
-
-                    if (!contentTypesResponse.ok) {
-                        const error = await contentTypesResponse.json();
-                        throw new Error(error.detail || 'Ошибка обновления типов контента');
-                    }
-                }
-
                 if (storageFolder && storageType === 'yandex_disk') {
                     const folderResponse = await fetch(`/api/companies/${this.state.currentCompany.id}/yandex-disk-folder`, {
                         method: 'POST',
@@ -555,50 +531,6 @@ const CompanyManager = {
         document.getElementById('storageFolder').value = this.state.selectedFolder.path;
         this.closeFolderModal();
         this.showToast(`Выбрана папка: ${this.state.selectedFolder.name}`, 'success');
-    },
-
-    renderContentTypes() {
-        const container = document.getElementById('contentTypesList');
-        
-        if (this.state.contentTypes.length === 0) {
-            container.innerHTML = '<div class="form-help">Типы контента не заданы</div>';
-            return;
-        }
-
-        container.innerHTML = this.state.contentTypes.map((ct, index) => `
-            <div class="content-type-item">
-                <input 
-                    type="text" 
-                    value="${ct.label}" 
-                    onchange="CompanyManager.updateContentType(${index}, this.value)"
-                    placeholder="Название типа контента"
-                >
-                <button onclick="CompanyManager.removeContentType(${index})">
-                    ✕
-                </button>
-            </div>
-        `).join('');
-    },
-
-    addContentType() {
-        this.state.contentTypes.push({ label: '', slug: '' });
-        this.renderContentTypes();
-    },
-
-    updateContentType(index, label) {
-        if (index >= 0 && index < this.state.contentTypes.length) {
-            this.state.contentTypes[index].label = label;
-            this.state.contentTypes[index].slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-        }
-    },
-
-    removeContentType(index) {
-        if (this.state.contentTypes.length <= 1) {
-            this.showToast('Должен остаться хотя бы один тип контента', 'warning');
-            return;
-        }
-        this.state.contentTypes.splice(index, 1);
-        this.renderContentTypes();
     },
 
     async configureBackup(companyId) {
