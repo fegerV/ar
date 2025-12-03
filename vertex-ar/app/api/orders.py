@@ -28,7 +28,7 @@ router = APIRouter()
 def get_database() -> Database:
     """Return shared database instance."""
     app = get_current_app()
-    return app.state.database  # type: ignore[attr-defined]
+    return app.state.database
 
 
 legacy_router = APIRouter()
@@ -74,7 +74,7 @@ async def _create_order_workflow(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Company with ID '{company_id}' not found"
         )
-    
+
     # Use content_type if provided, otherwise default to "portraits"
     if not content_type:
         content_type = "portraits"  # Default content type
@@ -94,16 +94,16 @@ async def _create_order_workflow(
 
     portrait_id = str(uuid.uuid4())
     video_id = str(uuid.uuid4())
-    
+
     # Determine if we should use Yandex Disk storage
     yandex_disk_folder_id = company.get('yandex_disk_folder_id')
     storage_type = company.get('storage_type', 'local')
     use_yandex_storage = storage_type == 'yandex_disk' and yandex_disk_folder_id
     use_local_storage = storage_type in ('local', 'local_disk')
-    
+
     # Initialize folder service for local storage
     folder_service = FolderService(storage_root) if use_local_storage else None
-    
+
     # Create temp directory for NFT marker generation (always local)
     temp_dir = storage_root / "temp" / "orders" / portrait_id
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -123,7 +123,7 @@ async def _create_order_workflow(
         temp_video_path = temp_dir / f"{video_id}.mp4"
         with open(temp_video_path, "wb") as video_file:
             video_file.write(video_content)
-        
+
         # Initialize paths (will be updated based on storage type)
         image_path = temp_image_path
         video_path = temp_video_path
@@ -142,7 +142,7 @@ async def _create_order_workflow(
         try:
             image_preview = PreviewGenerator.generate_image_preview(image_content)
             if image_preview:
-                image_preview_path = temp_dir / f"{portrait_id}_preview.jpg"
+                image_preview_path = temp_dir / f"{portrait_id}_preview.webp"
                 with open(image_preview_path, "wb") as preview_file:
                     preview_file.write(image_preview)
                 logger.info(
@@ -164,7 +164,7 @@ async def _create_order_workflow(
         try:
             video_preview = PreviewGenerator.generate_video_preview(video_content)
             if video_preview:
-                video_preview_path = temp_dir / f"{video_id}_preview.jpg"
+                video_preview_path = temp_dir / f"{video_id}_preview.webp"
                 with open(video_preview_path, "wb") as preview_file:
                     preview_file.write(video_preview)
                 logger.info(
@@ -200,18 +200,18 @@ async def _create_order_workflow(
         qr_buffer = BytesIO()
         qr_image.save(qr_buffer, format="PNG")
         qr_code_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
-        
+
         # Upload to Yandex Disk if configured
         if use_yandex_storage:
             try:
                 from storage_manager import get_storage_manager
                 from app.storage_yandex import YandexDiskStorageAdapter
-                
+
                 storage_manager = get_storage_manager(storage_root)
-                
+
                 # Get the company-specific adapter
                 adapter = storage_manager.get_company_adapter(company_id, content_type)
-                
+
                 # Ensure it's a Yandex Disk adapter
                 if isinstance(adapter, YandexDiskStorageAdapter):
                     # Create folder structure on Yandex Disk
@@ -221,7 +221,7 @@ async def _create_order_workflow(
                         content_type,
                         order_id
                     )
-                    
+
                     logger.info(
                         "Created order structure on Yandex Disk",
                         folder_id=yandex_disk_folder_id,
@@ -229,42 +229,42 @@ async def _create_order_workflow(
                         order_id=order_id,
                         results=structure_result
                     )
-                    
+
                     # Upload image to Yandex Disk
                     yandex_image_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{portrait_id}.jpg"
                     await adapter.save_file(image_content, yandex_image_path)
                     image_path = Path(yandex_image_path)  # Store logical path
                     logger.info("Uploaded image to Yandex Disk", path=yandex_image_path)
-                    
+
                     # Upload video to Yandex Disk
                     yandex_video_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{video_id}.mp4"
                     await adapter.save_file(video_content, yandex_video_path)
                     video_path = Path(yandex_video_path)  # Store logical path
                     logger.info("Uploaded video to Yandex Disk", path=yandex_video_path)
-                    
+
                     # Upload previews if they exist
                     if image_preview_path:
                         with open(image_preview_path, "rb") as f:
                             preview_data = f.read()
-                        yandex_preview_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{portrait_id}_preview.jpg"
+                        yandex_preview_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{portrait_id}_preview.webp"
                         await adapter.save_file(preview_data, yandex_preview_path)
                         image_preview_path = Path(yandex_preview_path)
                         logger.info("Uploaded image preview to Yandex Disk", path=yandex_preview_path)
-                    
+
                     if video_preview_path:
                         with open(video_preview_path, "rb") as f:
                             preview_data = f.read()
-                        yandex_video_preview_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{video_id}_preview.jpg"
+                        yandex_video_preview_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/Image/{video_id}_preview.webp"
                         await adapter.save_file(preview_data, yandex_video_preview_path)
                         video_preview_path = Path(yandex_video_preview_path)
                         logger.info("Uploaded video preview to Yandex Disk", path=yandex_video_preview_path)
-                    
+
                     # Upload QR code
                     qr_bytes = qr_buffer.getvalue()
                     yandex_qr_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/QR/{portrait_id}_qr.png"
                     await adapter.save_file(qr_bytes, yandex_qr_path)
                     logger.info("Uploaded QR code to Yandex Disk", path=yandex_qr_path)
-                    
+
                     # Upload NFT markers
                     for marker_file, subdir in [
                         (marker_result.fset_path, "nft_markers"),
@@ -278,7 +278,7 @@ async def _create_order_workflow(
                             yandex_marker_path = f"{yandex_disk_folder_id}/{content_type}/{order_id}/{subdir}/{marker_filename}"
                             await adapter.save_file(marker_data, yandex_marker_path)
                             logger.info("Uploaded NFT marker to Yandex Disk", path=yandex_marker_path)
-                    
+
                     logger.info(
                         "Successfully uploaded all order artifacts to Yandex Disk",
                         order_id=order_id,
@@ -291,7 +291,7 @@ async def _create_order_workflow(
                         adapter_type=type(adapter).__name__
                     )
                     use_yandex_storage = False
-                    
+
             except Exception as yandex_exc:
                 logger.error(
                     "Failed to upload to Yandex Disk, falling back to local storage",
@@ -303,7 +303,7 @@ async def _create_order_workflow(
                 use_yandex_storage = False
                 use_local_storage = True
                 folder_service = FolderService(storage_root)
-        
+
         # Handle local storage if configured or fallback from Yandex
         if use_local_storage and folder_service:
             try:
@@ -314,7 +314,7 @@ async def _create_order_workflow(
                     content_type,
                     order_id
                 )
-                
+
                 logger.info(
                     "Created order structure on local storage",
                     company_id=company_id,
@@ -322,49 +322,49 @@ async def _create_order_workflow(
                     order_id=order_id,
                     results=structure_result
                 )
-                
+
                 # Move image to Image subfolder
                 final_image_path = folder_service.build_order_path(
                     company, content_type, order_id, "Image"
                 ) / f"{portrait_id}.jpg"
                 folder_service.move_file(temp_image_path, final_image_path)
-                image_path = Path(folder_service.build_relative_path(
+                image_path = normalize_path(folder_service.build_relative_path(
                     company, content_type, order_id, f"{portrait_id}.jpg", "Image"
                 ))
-                logger.info("Moved image to local storage", path=str(image_path))
-                
+                logger.info("Moved image to local storage", path=image_path)
+
                 # Move video to Image subfolder
                 final_video_path = folder_service.build_order_path(
                     company, content_type, order_id, "Image"
                 ) / f"{video_id}.mp4"
                 folder_service.move_file(temp_video_path, final_video_path)
-                video_path = Path(folder_service.build_relative_path(
+                video_path = normalize_path(folder_service.build_relative_path(
                     company, content_type, order_id, f"{video_id}.mp4", "Image"
                 ))
-                logger.info("Moved video to local storage", path=str(video_path))
-                
+                logger.info("Moved video to local storage", path=video_path)
+
                 # Move image preview if exists
                 if image_preview_path and image_preview_path.exists():
                     final_image_preview_path = folder_service.build_order_path(
                         company, content_type, order_id, "Image"
-                    ) / f"{portrait_id}_preview.jpg"
+                    ) / f"{portrait_id}_preview.webp"
                     folder_service.move_file(image_preview_path, final_image_preview_path)
-                    image_preview_path = Path(folder_service.build_relative_path(
-                        company, content_type, order_id, f"{portrait_id}_preview.jpg", "Image"
+                    image_preview_path = normalize_path(folder_service.build_relative_path(
+                        company, content_type, order_id, f"{portrait_id}_preview.webp", "Image"
                     ))
-                    logger.info("Moved image preview to local storage", path=str(image_preview_path))
-                
+                    logger.info("Moved image preview to local storage", path=image_preview_path)
+
                 # Move video preview if exists
                 if video_preview_path and video_preview_path.exists():
                     final_video_preview_path = folder_service.build_order_path(
                         company, content_type, order_id, "Image"
-                    ) / f"{video_id}_preview.jpg"
+                    ) / f"{video_id}_preview.webp"
                     folder_service.move_file(video_preview_path, final_video_preview_path)
-                    video_preview_path = Path(folder_service.build_relative_path(
-                        company, content_type, order_id, f"{video_id}_preview.jpg", "Image"
+                    video_preview_path = normalize_path(folder_service.build_relative_path(
+                        company, content_type, order_id, f"{video_id}_preview.webp", "Image"
                     ))
-                    logger.info("Moved video preview to local storage", path=str(video_preview_path))
-                
+                    logger.info("Moved video preview to local storage", path=video_preview_path)
+
                 # Save QR code to QR subfolder
                 qr_bytes = qr_buffer.getvalue()
                 qr_filename = f"{portrait_id}_qr.png"
@@ -374,7 +374,7 @@ async def _create_order_workflow(
                 with open(qr_path, "wb") as qr_file:
                     qr_file.write(qr_bytes)
                 logger.info("Saved QR code to local storage", path=str(qr_path))
-                
+
                 # Move NFT markers to nft_markers subfolder
                 for marker_file in [marker_result.fset_path, marker_result.fset3_path, marker_result.iset_path]:
                     if marker_file and Path(marker_file).exists():
@@ -383,7 +383,7 @@ async def _create_order_workflow(
                             company, content_type, order_id, "nft_markers"
                         ) / marker_filename
                         folder_service.move_file(Path(marker_file), final_marker_path)
-                        
+
                         # Update marker_result with new paths (relative)
                         relative_marker_path = folder_service.build_relative_path(
                             company, content_type, order_id, marker_filename, "nft_markers"
@@ -394,18 +394,18 @@ async def _create_order_workflow(
                             marker_result.fset3_path = relative_marker_path
                         elif marker_file == marker_result.iset_path:
                             marker_result.iset_path = relative_marker_path
-                        
+
                         logger.info("Moved NFT marker to local storage", path=relative_marker_path)
-                
+
                 # Clean up temp directory
                 folder_service.cleanup_temp_directory(temp_dir)
-                
+
                 logger.info(
                     "Successfully organized all order artifacts in local storage",
                     order_id=order_id,
                     company_id=company_id
                 )
-                
+
             except (PermissionError, OSError) as storage_exc:
                 logger.error(
                     "Failed to organize files in local storage folder structure",
@@ -506,8 +506,8 @@ async def create_order(
 ) -> OrderResponse:
     """Create a new order with client, portrait, and primary video."""
     return await _create_order_workflow(
-        phone, name, image, video, username, description, 
-        endpoint="orders", company_id=company_id, subscription_end=subscription_end, 
+        phone, name, image, video, username, description,
+        endpoint="orders", company_id=company_id, subscription_end=subscription_end,
         email=email, content_type=content_type
     )
 
@@ -532,7 +532,7 @@ async def create_order_legacy(
 ) -> OrderResponse:
     """Legacy compatibility endpoint for /api/orders/create."""
     return await _create_order_workflow(
-        phone, name, image, video, username, description, 
-        endpoint="api/orders", company_id=company_id, subscription_end=subscription_end, 
+        phone, name, image, video, username, description,
+        endpoint="api/orders", company_id=company_id, subscription_end=subscription_end,
         email=email, content_type=content_type
     )

@@ -8,7 +8,6 @@ from typing import Optional
 from app.auth import AuthSecurityManager, TokenManager
 from app.database import Database
 from app.models import TokenResponse, UserLogin
-from app.main import get_current_app
 from app.config import settings
 from app.rate_limiter import create_rate_limit_dependency
 from app.utils import hash_password, verify_password
@@ -22,18 +21,24 @@ security = HTTPBearer(auto_error=False)
 
 def get_database() -> Database:
     """Get database instance."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     return app.state.database
 
 
 def get_token_manager() -> TokenManager:
     """Get token manager instance."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     return app.state.tokens
 
 
 def get_auth_security() -> AuthSecurityManager:
     """Get auth security manager instance."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     return app.state.auth_security
 

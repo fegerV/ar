@@ -72,13 +72,14 @@ class CompanyBootstrap:
                 # Ensure default company always has correct immutable storage settings
                 # This protects against manual database modifications or bugs
                 if (existing.get("storage_type") != "local_disk" or
-                    existing.get("storage_folder_path") != "vertex_ar_content"):
+                        existing.get("storage_folder_path") != "content"):
                     self.database.update_company(
                         "vertex-ar-default",
                         storage_type="local_disk",
-                        storage_folder_path="vertex_ar_content"
+                        storage_folder_path="content"
                     )
-                    logger.info("Corrected default company storage settings to local_disk/vertex_ar_content")
+                    logger.info(
+                        "Corrected default company storage settings to local_disk/content")
                 company = existing
             else:
                 # Create company with explicit local_disk storage and deterministic folder path
@@ -87,7 +88,7 @@ class CompanyBootstrap:
                         company_id="vertex-ar-default",
                         name="Vertex AR",
                         storage_type="local_disk",
-                        storage_folder_path="vertex_ar_content",
+                        storage_folder_path="content",
                         email="contact@vertex-ar.com",
                         description="Default company for Vertex AR platform",
                         city="Moscow",
@@ -97,17 +98,20 @@ class CompanyBootstrap:
                         manager_phone="+7 (495) 000-00-00",
                         manager_email="admin@vertex-ar.com"
                     )
-                    logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
+                    logger.info(
+                        "Created default company 'Vertex AR' with storage_type=local_disk")
                     company = self.database.get_company("vertex-ar-default")
                 except Exception as exc:
                     logger.error(f"Failed to create default company: {exc}")
-                    raise CompanyBootstrapError(f"Failed to create default company: {exc}") from exc
+                    raise CompanyBootstrapError(
+                        f"Failed to create default company: {exc}") from exc
 
             return company
 
         except Exception as e:
             logger.error(f"Error in ensure_default_company: {e}")
-            raise CompanyBootstrapError(f"Failed to ensure default company: {e}") from e
+            raise CompanyBootstrapError(
+                f"Failed to ensure default company: {e}") from e
 
     def seed_default_categories(self, company_id: str = "vertex-ar-default") -> List[Dict[str, Any]]:
         """
@@ -127,7 +131,8 @@ class CompanyBootstrap:
 
             for category_data in self.DEFAULT_CATEGORIES:
                 # Check if category already exists
-                existing = self.database.get_category_by_slug(company_id, category_data["slug"])
+                existing = self.database.get_category_by_slug(
+                    company_id, category_data["slug"])
 
                 if not existing:
                     # Create category
@@ -155,7 +160,8 @@ class CompanyBootstrap:
 
         except Exception as e:
             logger.error(f"Error seeding default categories: {e}")
-            raise CompanyBootstrapError(f"Failed to seed default categories: {e}") from e
+            raise CompanyBootstrapError(
+                f"Failed to seed default categories: {e}") from e
 
     def seed_default_folders(self, company_id: str = "vertex-ar-default") -> List[Dict[str, Any]]:
         """
@@ -178,21 +184,22 @@ class CompanyBootstrap:
 
             for category in categories:
                 # Check if any folders exist for this category
-                existing_folders = self.database.list_folders(project_id=category["id"])
+                existing_folders = self.database.list_folders(
+                    project_id=category["id"])
 
                 if not existing_folders:
                     # Create default folder for category
                     folder_id = f"folder-{uuid.uuid4().hex[:8]}"
-                    folder_name = f"Default {category['name']}"
+                    folder_name = category['name']
 
                     folder = self.database.create_folder(
                         folder_id=folder_id,
                         project_id=category["id"],
                         name=folder_name,
-                        description=f"Default folder for {category['name']}"
+                        description=f"Folder for {category['name']}"
                     )
                     logger.info(
-                        f"Created default folder: {folder_name} "
+                        f"Created folder: {folder_name} "
                         f"for category {category['name']}"
                     )
                     created_folders.append(folder)
@@ -207,7 +214,8 @@ class CompanyBootstrap:
 
         except Exception as e:
             logger.error(f"Error seeding default folders: {e}")
-            raise CompanyBootstrapError(f"Failed to seed default folders: {e}") from e
+            raise CompanyBootstrapError(
+                f"Failed to seed default folders: {e}") from e
 
     def create_filesystem_hierarchy(
         self,
@@ -229,7 +237,8 @@ class CompanyBootstrap:
         """
         try:
             if categories is None:
-                categories = self.database.list_categories(company_id=company["id"])
+                categories = self.database.list_categories(
+                    company_id=company["id"])
 
             # Extract category slugs
             category_slugs = [cat["slug"] for cat in categories]
@@ -238,7 +247,8 @@ class CompanyBootstrap:
             folder_service = FolderService(self.storage_root)
 
             # Provision folder hierarchy using FolderService
-            result = folder_service.provision_company_hierarchy(company, category_slugs)
+            result = folder_service.provision_company_hierarchy(
+                company, category_slugs)
 
             if result.get("success"):
                 logger.info(
@@ -258,7 +268,8 @@ class CompanyBootstrap:
 
         except Exception as e:
             logger.error(f"Error creating filesystem hierarchy: {e}")
-            raise CompanyBootstrapError(f"Failed to create filesystem hierarchy: {e}") from e
+            raise CompanyBootstrapError(
+                f"Failed to create filesystem hierarchy: {e}") from e
 
     def bootstrap_complete_company(self) -> Dict[str, Any]:
         """
@@ -301,4 +312,5 @@ class CompanyBootstrap:
 
         except Exception as e:
             logger.error(f"Complete company bootstrap failed: {e}")
-            raise CompanyBootstrapError(f"Complete company bootstrap failed: {e}") from e
+            raise CompanyBootstrapError(
+                f"Complete company bootstrap failed: {e}") from e

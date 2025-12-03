@@ -13,10 +13,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.api.auth import get_current_user, require_admin
+# Import auth functions directly to avoid circular imports
+# from app.api.auth import get_current_user, require_admin
 from app.database import Database
 from app.models import ARContentResponse
-from app.main import get_current_app
+# Remove direct import from main to avoid circular import
+# from app.main import get_current_app
 from app.rate_limiter import create_rate_limit_dependency
 from logging_setup import get_logger
 
@@ -26,17 +28,115 @@ logger = get_logger(__name__)
 
 def get_database() -> Database:
     """Get database instance."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     return app.state.database
 
 
 def get_templates() -> Jinja2Templates:
     """Get Jinja2 templates instance."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     if not hasattr(app.state, 'templates'):
         BASE_DIR = app.state.config["BASE_DIR"]
         app.state.templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
     return app.state.templates
+
+
+async def get_current_user(
+    request: Request,
+    # Import security here to avoid circular import
+    credentials=None
+):
+    """Get current authenticated user - simplified version to avoid circular import."""
+    # Import here to avoid circular import
+    from app.main import get_current_app
+    from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+    from fastapi import HTTPException, status
+
+    if credentials is None:
+        security = HTTPBearer(auto_error=False)
+        # Try to get credentials from request
+        auth_header = request.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+        if not token:
+            token = request.cookies.get("authToken")
+        if not token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    else:
+        token = credentials.credentials if credentials else None
+        if not token:
+            token = request.cookies.get("authToken")
+        if not token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    # Get token manager
+    app = get_current_app()
+    tokens = app.state.tokens
+    username = tokens.verify_token(token)
+    if username is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
+
+    database = app.state.database
+    user = database.get_user(username)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is deactivated")
+
+    return user
+
+
+async def require_admin(request: Request) -> str:
+    """Require admin role for endpoint access. Returns username.
+
+    Can authenticate via:
+    1. Authorization Bearer token header
+    2. authToken cookie
+    """
+    # Import here to avoid circular import
+    from app.main import get_current_app
+    from fastapi import HTTPException, status
+
+    app = get_current_app()
+    tokens = app.state.tokens
+    database = app.state.database
+
+    token = None
+
+    # Try to get token from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+
+    # If no header token, try cookie
+    if not token:
+        token = request.cookies.get("authToken")
+
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    username = tokens.verify_token(token)
+    if username is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired or invalid")
+
+    user = database.get_user(username)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    if not user.get("is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    return username
 
 
 @router.post("/upload", response_model=ARContentResponse, dependencies=[Depends(create_rate_limit_dependency("10/minute"))])
@@ -53,84 +153,84 @@ async def upload_ar_content(
     app = get_current_app()
     base_url = app.state.config["BASE_URL"]
     storage_root = app.state.config["STORAGE_ROOT"]
-    
+
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
-    
+
     if not video.content_type or not video.content_type.startswith("video/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid video file")
-    
+
     # Generate UUID for files
     content_id = str(uuid.uuid4())
-    
+
     # Create storage directories
     user_storage = storage_root / "ar_content" / username
     user_storage.mkdir(parents=True, exist_ok=True)
     content_dir = user_storage / content_id
     content_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Read file contents for preview generation
     image.file.seek(0)
     image_content = await image.read()
     video.file.seek(0)
     video_content = await video.read()
-    
+
     # Save image
     image_path = content_dir / f"{content_id}.jpg"
     with open(image_path, "wb") as f:
         f.write(image_content)
-    
+
     # Save video
     video_path = content_dir / f"{content_id}.mp4"
     with open(video_path, "wb") as f:
         f.write(video_content)
-    
+
     # Generate previews
     from preview_generator import PreviewGenerator
-    
+
     image_preview_path = None
     video_preview_path = None
-    
+
     try:
         # Generate image preview
         image_preview = PreviewGenerator.generate_image_preview(image_content)
         if image_preview:
-            image_preview_path = content_dir / f"{content_id}_preview.jpg"
+            image_preview_path = content_dir / f"{content_id}_preview.webp"
             with open(image_preview_path, "wb") as f:
                 f.write(image_preview)
             logger.info(f"Image preview created: {image_preview_path}")
     except Exception as e:
         logger.error(f"Error generating image preview: {e}")
-    
+
     try:
         # Generate video preview
         video_preview = PreviewGenerator.generate_video_preview(video_content)
         if video_preview:
-            video_preview_path = content_dir / f"{content_id}_video_preview.jpg"
+            video_preview_path = content_dir / f"{content_id}_video_preview.webp"
             with open(video_preview_path, "wb") as f:
                 f.write(video_preview)
             logger.info(f"Video preview created: {video_preview_path}")
     except Exception as e:
         logger.error(f"Error generating video preview: {e}")
-    
+
     # Generate QR code
     ar_url = f"{base_url}/ar/{content_id}"
     qr_img = qrcode.make(ar_url)
     qr_buffer = BytesIO()
     qr_img.save(qr_buffer, format="PNG")
     qr_base64 = base64.b64encode(qr_buffer.getvalue()).decode()
-    
+
     # Generate NFT markers with increased image size limits
     from nft_marker_generator import NFTMarkerConfig, NFTMarkerGenerator
     nft_generator = NFTMarkerGenerator(storage_root)
     config = NFTMarkerConfig(
-        feature_density="high", 
+        feature_density="high",
         levels=3,
         max_image_size=8192,  # Increased from 4096 to support larger images
         max_image_area=50_000_000  # Increased from 16_777_216 to support larger images
     )
     marker_result = nft_generator.generate_marker(str(image_path), content_id, config)
-    
+
     # Create database record
     database = get_database()
     db_record = database.create_ar_content(
@@ -146,7 +246,7 @@ async def upload_ar_content(
         ar_url=ar_url,
         qr_code=qr_base64,
     )
-    
+
     return ARContentResponse(
         id=content_id,
         ar_url=ar_url,
@@ -174,22 +274,22 @@ async def view_ar_content(request: Request, content_id: str) -> HTMLResponse:
     record = database.get_ar_content(content_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AR content not found")
-    
+
     # Increment view count
     database.increment_view_count(content_id)
     logger.info("AR content viewed", extra={"content_id": content_id})
-    
+
     # Prepare video URL
     app = get_current_app()
     base_url = app.state.config["BASE_URL"]
     video_url = f"{base_url}/storage/{Path(record['video_path']).relative_to(app.state.config['STORAGE_ROOT'])}"
-    
+
     # Prepare record data for template
     record_data = {
         "id": record["id"],
         "video_url": video_url,
     }
-    
+
     templates = get_templates()
     return templates.TemplateResponse("ar_page.html", {"request": request, "record": record_data})
 

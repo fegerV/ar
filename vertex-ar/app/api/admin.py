@@ -18,13 +18,15 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.auth import require_admin
 from app.database import Database
-from app.main import get_current_app
+# Remove direct import from main to avoid circular import
+# from app.main import get_current_app
 from app.models import ARContentResponse
 from app.rate_limiter import create_rate_limit_dependency
 from app.utils import verify_password as _verify_password
 from logging_setup import get_logger
 from nft_marker_generator import analyze_image
 from utils import format_bytes, get_disk_usage, get_storage_usage
+from preview_generator import normalize_path
 
 logger = get_logger(__name__)
 
@@ -91,6 +93,8 @@ def _build_public_url(path: Optional[str]) -> str:
     path_str = str(path)
     if path_str.startswith(("http://", "https://", "data:")):
         return path_str
+    # Import here to avoid circular import
+    from app.main import get_current_app
     app = get_current_app()
     base_url = app.state.config["BASE_URL"]
     storage_root = Path(app.state.config["STORAGE_ROOT"])
@@ -145,6 +149,8 @@ def _calculate_lifecycle_info(record: Dict[str, Any]) -> Dict[str, Any]:
 def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[Dict[str, Any]]:
     serialized: List[Dict[str, Any]] = []
     total = max(total_count, len(records)) or 1
+    # Import here to avoid circular import
+    from app.main import get_current_app
     base_url = get_current_app().state.config["BASE_URL"]
     for idx, record in enumerate(records):
         order_position = total - idx
@@ -190,6 +196,7 @@ router = APIRouter()
 
 def get_database() -> Database:
     """Get database instance."""
+    # Import here to avoid circular import
     from app.main import get_current_app
     app = get_current_app()
     if not hasattr(app.state, 'database'):
@@ -204,6 +211,7 @@ def get_database() -> Database:
 
 def get_templates() -> Jinja2Templates:
     """Get Jinja2 templates instance."""
+    # Import here to avoid circular import
     from app.main import get_current_app
     app = get_current_app()
     if not hasattr(app.state, 'templates'):
@@ -945,7 +953,7 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
         "portrait_image_url": portrait_image_url,
         "portrait_preview_url": portrait_preview_url,
         "portrait_preview_download_url": portrait_preview_download_url,
-        "portrait_preview_filename": f"{portrait_id}_preview.jpg",
+        "portrait_preview_filename": f"{portrait_id}_preview.webp",
         "image_analysis": image_analysis_data,
         "marker_info": marker_info,
         "folder_info": folder_info,  # Add folder information to context
@@ -1422,3 +1430,4 @@ async def admin_storage_page(request: Request):
     except Exception as exc:
         logger.error(f"Error rendering admin storage page: {exc}")
         return RedirectResponse(url="/admin/login", status_code=302)
+
