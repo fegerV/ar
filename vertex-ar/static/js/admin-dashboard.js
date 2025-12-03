@@ -24,9 +24,10 @@ const AdminDashboard = {
         yandexFolders: [],
         storageConfig: null,
         storageFolders: [],
-        storageLoading: false
+        storageLoading: false,
+        // Cache for company folders to avoid repeated API calls
+        companyFoldersCache: {}
     },
-    
     // State persistence using localStorage instead of cookies
     saveState() {
         try {
@@ -42,14 +43,14 @@ const AdminDashboard = {
             console.warn('Failed to save state to localStorage:', error);
         }
     },
-    
+
     loadState() {
         try {
             const savedState = localStorage.getItem('admin-dashboard-state');
             if (savedState) {
                 const parsedState = JSON.parse(savedState);
                 this.state = { ...this.state, ...parsedState };
-                
+
                 // Apply saved theme
                 if (this.state.theme) {
                     document.documentElement.setAttribute('data-theme', this.state.theme);
@@ -59,7 +60,7 @@ const AdminDashboard = {
             console.warn('Failed to load state from localStorage:', error);
         }
     },
-    
+
     // Update state and save
     setState(updates) {
         this.state = { ...this.state, ...updates };
@@ -71,16 +72,16 @@ const AdminDashboard = {
 function initializeDashboard() {
     // Load saved state
     AdminDashboard.loadState();
-    
+
     // Apply theme
     applyTheme();
-    
+
     // Update current company name in UI
     const currentNameElement = document.getElementById('currentCompanyName');
     if (currentNameElement && AdminDashboard.state.currentCompany) {
         currentNameElement.textContent = AdminDashboard.state.currentCompany.name || 'Vertex AR';
     }
-    
+
     // Load initial data
     loadStatistics();
     loadSystemInfo();
@@ -89,20 +90,20 @@ function initializeDashboard() {
     loadStorageOptions();
     loadBackupStats();
     loadNotifications();
-    
+
     // Load config for current company
     const currentCompanyId = AdminDashboard.state.currentCompany?.id;
     if (currentCompanyId) {
         loadCompanyConfig(currentCompanyId);
     }
-    
+
     addLog('Админ панель загружена', 'info');
-    
+
     // Auto-refresh data if enabled
     if (AdminDashboard.state.autoRefresh) {
         startAutoRefresh();
     }
-    
+
     // Initialize event listeners
     initializeEventListeners();
 }
@@ -111,7 +112,7 @@ function initializeDashboard() {
 function applyTheme() {
     const theme = AdminDashboard.state.theme;
     document.documentElement.setAttribute('data-theme', theme);
-    
+
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
         themeToggle.textContent = theme === 'light' ? '🌙' : '☀️';
@@ -121,10 +122,10 @@ function applyTheme() {
 function toggleTheme() {
     const currentTheme = AdminDashboard.state.theme;
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
+
     AdminDashboard.setState({ theme: newTheme });
     applyTheme();
-    
+
     addLog(`Тема изменена на: ${newTheme}`, 'info');
 }
 
@@ -145,17 +146,18 @@ function refreshData() {
     loadCompanies();
     loadBackupStats();
     loadRecords(); // Also reload records with current company context
-    
+
     // Refresh storage config and folders for current company
     const currentCompanyId = AdminDashboard.state.currentCompany?.id;
     if (currentCompanyId) {
+        // Clear folder cache to force refresh
+        delete AdminDashboard.state.companyFoldersCache[currentCompanyId];
         loadCompanyStorageConfig(currentCompanyId);
         loadStorageFolders(currentCompanyId);
     }
-    
+
     addLog('Данные обновлены автоматически', 'info');
 }
-
 // Event listeners initialization
 function initializeEventListeners() {
     // Theme toggle
@@ -163,57 +165,57 @@ function initializeEventListeners() {
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
     }
-    
+
     // Form submissions
     const orderForm = document.getElementById('orderForm');
     if (orderForm) {
         orderForm.addEventListener('submit', handleOrderSubmit);
     }
-    
+
     // File upload preview
     const imageInput = document.getElementById('clientPhoto');
     if (imageInput) {
         imageInput.addEventListener('change', handleImagePreview);
     }
-    
+
     // Company management
     const companyInput = document.getElementById('companyNameInput');
     if (companyInput) {
-        companyInput.addEventListener('keypress', function(e) {
+        companyInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 createCompany();
             }
         });
     }
-    
+
     // Yandex folder select change listener
     const yandexFolderSelect = document.getElementById('yandexFolderSelect');
     const saveYandexFolderBtn = document.getElementById('saveYandexFolderBtn');
     if (yandexFolderSelect && saveYandexFolderBtn) {
-        yandexFolderSelect.addEventListener('change', function() {
+        yandexFolderSelect.addEventListener('change', function () {
             saveYandexFolderBtn.disabled = !this.value;
         });
     }
-    
+
     // Storage folder input listeners
     const newStorageFolderInput = document.getElementById('newStorageFolderInput');
     const addStorageFolderBtn = document.getElementById('addStorageFolderBtn');
     if (newStorageFolderInput && addStorageFolderBtn) {
-        newStorageFolderInput.addEventListener('input', function() {
+        newStorageFolderInput.addEventListener('input', function () {
             addStorageFolderBtn.disabled = !this.value.trim();
         });
-        newStorageFolderInput.addEventListener('keypress', function(e) {
+        newStorageFolderInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 createStorageFolder();
             }
         });
     }
-    
+
     // Notifications toggle
     const notificationToggle = document.getElementById('notificationToggle');
     if (notificationToggle) {
-        notificationToggle.addEventListener('click', function() {
+        notificationToggle.addEventListener('click', function () {
             const dropdown = document.getElementById('notificationDropdown');
             if (dropdown) {
                 dropdown.classList.toggle('active');
@@ -221,29 +223,29 @@ function initializeEventListeners() {
             }
         });
     }
-    
+
     // Search functionality
     const searchInput = document.getElementById('advancedSearch');
     if (searchInput) {
         let searchTimeout;
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function (e) {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 performSearch(e.target.value);
             }, 300);
         });
     }
-    
+
     // Clear logs button
     const clearLogsBtn = document.getElementById('clearLogsBtn');
     if (clearLogsBtn) {
         clearLogsBtn.addEventListener('click', clearLogs);
     }
-    
+
     // Clear notifications button
     const markNotificationsRead = document.getElementById('markNotificationsRead');
     if (markNotificationsRead) {
-        markNotificationsRead.addEventListener('click', function() {
+        markNotificationsRead.addEventListener('click', function () {
             updateNotifications([]);
             const badge = document.getElementById('notificationBadge');
             if (badge) {
@@ -253,68 +255,68 @@ function initializeEventListeners() {
             addLog('Уведомления очищены', 'info');
         });
     }
-    
+
     // Modal close buttons
     document.querySelectorAll('.modal-close').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const modal = this.closest('.modal');
             if (modal) {
                 modal.classList.remove('active');
             }
         });
     });
-    
+
     // Lightbox close
     const lightboxClose = document.querySelector('.lightbox-close');
     if (lightboxClose) {
         lightboxClose.addEventListener('click', closeLightbox);
     }
-    
+
     // Click outside modal to close
     document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', function(e) {
+        modal.addEventListener('click', function (e) {
             if (e.target === this) {
                 this.classList.remove('active');
             }
         });
     });
-    
+
     // Click outside lightbox to close
     const lightbox = document.querySelector('.lightbox');
     if (lightbox) {
-        lightbox.addEventListener('click', function(e) {
+        lightbox.addEventListener('click', function (e) {
             if (e.target === this) {
                 closeLightbox();
             }
         });
     }
-    
+
     // Advanced search with debounce
     const advancedSearch = document.getElementById('advancedSearch');
     if (advancedSearch) {
         const debouncedSearch = debounce((query) => {
             performSearch(query);
         }, 500);
-        
+
         advancedSearch.addEventListener('input', (e) => {
             debouncedSearch(e.target.value);
         });
     }
-    
+
     // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         // Escape to close modals/lightbox
         if (e.key === 'Escape') {
             closeAllModals();
             closeLightbox();
         }
-        
+
         // Ctrl+R to refresh data
         if (e.ctrlKey && e.key === 'r') {
             e.preventDefault();
             refreshData();
         }
-        
+
         // Ctrl+T to toggle theme
         if (e.ctrlKey && e.key === 't') {
             e.preventDefault();
@@ -327,15 +329,15 @@ function initializeEventListeners() {
 async function loadStatistics() {
     try {
         showLoading();
-        
+
         // Include current company ID in the request
         const companyId = AdminDashboard.state.currentCompany?.id;
         const url = companyId ? `/admin/stats?company_id=${encodeURIComponent(companyId)}` : '/admin/stats';
-        
+
         const response = await fetch(url, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             updateStatistics(data);
@@ -345,8 +347,8 @@ async function loadStatistics() {
             try {
                 const errorData = await response.json();
                 if (errorData.detail) {
-                    errorDetail = typeof errorData.detail === 'string' 
-                        ? errorData.detail 
+                    errorDetail = typeof errorData.detail === 'string'
+                        ? errorData.detail
                         : JSON.stringify(errorData.detail);
                 }
             } catch (e) {
@@ -374,14 +376,14 @@ function updateStatistics(data) {
         'storageUsed': data.storage_used || '0 B',
         'storageAvailable': data.storage_available || '0 B'
     };
-    
+
     Object.entries(elements).forEach(([id, value]) => {
         const element = document.getElementById(id);
         if (element) {
             element.textContent = value;
         }
     });
-    
+
     // Update lifecycle status counts if available
     if (data.status_counts) {
         const statusElements = {
@@ -389,7 +391,7 @@ function updateStatistics(data) {
             'statusExpiring': data.status_counts.expiring || 0,
             'statusArchived': data.status_counts.archived || 0
         };
-        
+
         Object.entries(statusElements).forEach(([id, value]) => {
             const element = document.getElementById(id);
             if (element) {
@@ -397,7 +399,7 @@ function updateStatistics(data) {
             }
         });
     }
-    
+
     // Update storage progress bars
     updateStorageProgress(data.storage_usage_percent || 0);
 }
@@ -415,7 +417,7 @@ async function loadSystemInfo() {
         const response = await fetch('/admin/system-info', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             updateSystemInfo(data);
@@ -435,45 +437,45 @@ function updateSystemInfo(data) {
         'systemCPU': data.cpu_usage || 'N/A',
         'systemHost': data.hostname || 'N/A'
     };
-    
+
     Object.entries(elements).forEach(([id, value]) => {
         const element = document.getElementById(id);
         if (element) {
             element.textContent = value;
         }
     });
-    
+
     // Update platform info
     const platformElement = document.getElementById('systemPlatform');
     if (platformElement && data.platform) {
         platformElement.textContent = data.platform;
     }
-    
+
     // Update progress bars
     if (data.memory_percent !== undefined && data.memory_percent !== null) {
         const memoryBar = document.getElementById('memoryUsageBar');
         if (memoryBar) {
             memoryBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
-            memoryBar.style.backgroundColor = data.memory_percent > 80 ? '#dc3545' : 
-                                           data.memory_percent > 60 ? '#ffc107' : '#28a745';
+            memoryBar.style.backgroundColor = data.memory_percent > 80 ? '#dc3545' :
+                data.memory_percent > 60 ? '#ffc107' : '#28a745';
         }
     }
-    
+
     if (data.disk_percent !== undefined && data.disk_percent !== null) {
         const diskBar = document.getElementById('diskUsageBar');
         if (diskBar) {
             diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
-            diskBar.style.backgroundColor = data.disk_percent > 80 ? '#dc3545' : 
-                                          data.disk_percent > 60 ? '#ffc107' : '#28a745';
+            diskBar.style.backgroundColor = data.disk_percent > 80 ? '#dc3545' :
+                data.disk_percent > 60 ? '#ffc107' : '#28a745';
         }
     }
-    
+
     if (data.cpu_percent !== undefined && data.cpu_percent !== null) {
         const cpuBar = document.getElementById('cpuUsageBar');
         if (cpuBar) {
             cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
-            cpuBar.style.backgroundColor = data.cpu_percent > 80 ? '#dc3545' : 
-                                         data.cpu_percent > 60 ? '#ffc107' : '#28a745';
+            cpuBar.style.backgroundColor = data.cpu_percent > 80 ? '#dc3545' :
+                data.cpu_percent > 60 ? '#ffc107' : '#28a745';
         }
     }
 }
@@ -482,31 +484,31 @@ function updateSystemInfo(data) {
 async function loadRecords() {
     try {
         AdminDashboard.setState({ isLoading: true });
-        
+
         // Build URL with filters
         const companyId = AdminDashboard.state.currentCompany?.id;
         const statusFilter = AdminDashboard.state.statusFilter;
-        
+
         let url = '/admin/records';
         const params = [];
         if (companyId) {
             params.push(`company_id=${encodeURIComponent(companyId)}`);
         }
-        
+
         // If status filter is active, use search endpoint instead
         if (statusFilter) {
             url = '/admin/search';
             params.push(`status=${encodeURIComponent(statusFilter)}`);
         }
-        
+
         if (params.length > 0) {
             url += '?' + params.join('&');
         }
-        
+
         const response = await fetch(url, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             const records = statusFilter ? (data.results || []) : (data.records || []);
@@ -517,8 +519,8 @@ async function loadRecords() {
             try {
                 const errorData = await response.json();
                 if (errorData.detail) {
-                    errorDetail = typeof errorData.detail === 'string' 
-                        ? errorData.detail 
+                    errorDetail = typeof errorData.detail === 'string'
+                        ? errorData.detail
                         : JSON.stringify(errorData.detail);
                 }
             } catch (e) {
@@ -537,9 +539,9 @@ async function loadRecords() {
 
 // Filter records by lifecycle status
 function filterByStatus(status) {
-    AdminDashboard.setState({ 
+    AdminDashboard.setState({
         statusFilter: status === AdminDashboard.state.statusFilter ? null : status,
-        currentPage: 1 
+        currentPage: 1
     });
     loadRecords();
     addLog(`Фильтр по статусу: ${status || 'все'}`, 'info');
@@ -551,22 +553,22 @@ function displayRecords(records = null) {
     const startIndex = (currentPage - 1) * recordsPerPage;
     const endIndex = startIndex + recordsPerPage;
     const pageRecords = recordsToDisplay.slice(startIndex, endIndex);
-    
+
     const tbody = document.querySelector('.records-table tbody');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '';
-    
+
     if (pageRecords.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">Нет записей</td></tr>';
         return;
     }
-    
+
     pageRecords.forEach(record => {
         const row = createRecordRow(record);
         tbody.appendChild(row);
     });
-    
+
     if (!records) {
         updatePagination();
     }
@@ -576,16 +578,16 @@ function createRecordRow(record) {
     const row = document.createElement('tr');
     const placeholderImage = '/static/images/placeholder.svg';
     const noImageText = 'Нет фото';
-    
+
     // Generate status indicator with tooltip
     const statusInfo = getStatusIndicator(record.status, record.days_remaining);
-    
+
     row.innerHTML = `
         <td>
-            ${record.id ? 
-                `<a href="/admin/order/${record.id}" class="order-link" title="Открыть детальную информацию">${record.order_number || ''}</a>` : 
-                `${record.order_number || ''}`
-            }
+            ${record.id ?
+            `<a href="/admin/order/${record.id}" class="order-link" title="Открыть детальную информацию">${record.order_number || ''}</a>` :
+            `${record.order_number || ''}`
+        }
         </td>
         <td>
             <span class="status-indicator" title="${statusInfo.tooltip}">
@@ -593,48 +595,48 @@ function createRecordRow(record) {
             </span>
         </td>
         <td>
-            ${record.portrait_path ? 
-                `<img src="${record.portrait_path}" 
-                     alt="Portrait" 
+            ${record.portrait_path ?
+            `<img src="${record.portrait_path}"
+                     alt="Portrait"
                      class="portrait-preview"
                      onclick="showLightbox('${record.portrait_path}')"
                      onerror="this.src='${placeholderImage}'; this.onerror=null;"
-                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;">` : 
-                `<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">${noImageText}</div>`
-            }
+                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;">` :
+            `<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">${noImageText}</div>`
+        }
         </td>
         <td>
-            ${record.active_video_url ? 
-                `<video src="${record.active_video_url}" 
-                       class="video-preview" 
+            ${record.active_video_url ?
+            `<video src="${record.active_video_url}"
+                       class="video-preview"
                        style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;"
                        onclick="showVideoLightbox('${record.active_video_url}')"
                        muted
-                       preload="metadata"></video>` : 
-                '<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">Нет видео</div>'
-            }
+                       preload="metadata"></video>` :
+            '<div style="width: 50px; height: 50px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.7rem;">Нет видео</div>'
+        }
         </td>
         <td>${record.client_name || ''}</td>
         <td>${record.client_phone || ''}</td>
         <td>${record.views || 0}</td>
         <td>
-            ${record.permanent_url ? 
-                `<div style="display: flex; gap: 0.25rem;">
+            ${record.permanent_url ?
+            `<div style="display: flex; gap: 0.25rem;">
                     <button class="link-button small" onclick="window.open('${record.permanent_url}', '_blank')" title="Открыть в новой вкладке">Открыть</button>
                     <button class="link-button small" onclick="copyToClipboard('${record.permanent_url}')" title="Скопировать ссылку">Копировать</button>
-                </div>` : 
-                'Нет ссылки'
-            }
+                </div>` :
+            'Нет ссылки'
+        }
         </td>
         <td>
-            ${record.qr_code ? 
-                `<img src="${record.qr_code}" 
-                     alt="QR Code" 
+            ${record.qr_code ?
+            `<img src="${record.qr_code}"
+                     alt="QR Code"
                      class="qr-preview"
                      onclick="showLightbox('${record.qr_code}')"
-                     style="width: 30px; height: 30px; cursor: pointer;">` : 
-                '<div style="width: 30px; height: 30px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.6rem;">Нет QR</div>'
-            }
+                     style="width: 30px; height: 30px; cursor: pointer;">` :
+            '<div style="width: 30px; height: 30px; background: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--secondary-color); font-size: 0.6rem;">Нет QR</div>'
+        }
         </td>
         <td>${record.created_at ? new Date(record.created_at).toLocaleString('ru-RU') : ''}</td>
         <td>
@@ -652,16 +654,16 @@ function getStatusIndicator(status, daysRemaining) {
         'expiring': { icon: '🔴', text: 'Истекает', color: '#dc3545' },
         'archived': { icon: '⚫️', text: 'Архив', color: '#6c757d' }
     };
-    
+
     const statusInfo = statusMap[status] || statusMap['active'];
     let tooltip = statusInfo.text;
-    
+
     if (status === 'expiring' && daysRemaining !== null && daysRemaining !== undefined) {
         tooltip = `${statusInfo.text}: ${daysRemaining} ${getDaysText(daysRemaining)}`;
     } else if (status === 'archived' && daysRemaining !== null && daysRemaining < 0) {
         tooltip = `${statusInfo.text}: истек ${Math.abs(daysRemaining)} ${getDaysText(Math.abs(daysRemaining))} назад`;
     }
-    
+
     return { icon: statusInfo.icon, tooltip, color: statusInfo.color };
 }
 
@@ -678,22 +680,22 @@ function getDaysText(days) {
 function updatePagination() {
     const { allRecords, currentPage, recordsPerPage } = AdminDashboard.state;
     const totalPages = Math.ceil(allRecords.length / recordsPerPage);
-    
+
     const pagination = document.querySelector('.pagination');
     if (!pagination) return;
-    
+
     pagination.innerHTML = '';
-    
+
     // Previous button
     const prevBtn = createPaginationButton('←', currentPage - 1, currentPage === 1);
     pagination.appendChild(prevBtn);
-    
+
     // Page numbers
     for (let i = 1; i <= Math.min(totalPages, 5); i++) {
         const btn = createPaginationButton(i, i, i === currentPage);
         pagination.appendChild(btn);
     }
-    
+
     // Next button
     const nextBtn = createPaginationButton('→', currentPage + 1, currentPage === totalPages);
     pagination.appendChild(nextBtn);
@@ -704,14 +706,14 @@ function createPaginationButton(text, page, isDisabled) {
     button.textContent = text;
     button.className = 'pagination-btn';
     button.disabled = isDisabled;
-    
+
     if (!isDisabled) {
         button.addEventListener('click', () => {
             AdminDashboard.setState({ currentPage: page });
             displayRecords();
         });
     }
-    
+
     return button;
 }
 
@@ -720,7 +722,7 @@ function handleImagePreview(e) {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const preview = document.getElementById('imagePreview');
             if (preview) {
                 preview.src = e.target.result;
@@ -747,7 +749,7 @@ async function loadCompanies() {
         const response = await fetch('/companies', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             updateCompanySelect(data.items || data.companies || []);
@@ -761,9 +763,9 @@ async function loadCompanies() {
 function updateCompanySelect(companies) {
     const select = document.getElementById('companySelect');
     if (!select) return;
-    
+
     select.innerHTML = '<option value="">Выберите компанию</option>';
-    
+
     companies.forEach(company => {
         const option = document.createElement('option');
         option.value = company.id;
@@ -776,26 +778,26 @@ function updateCompanySelect(companies) {
 async function loadStorageOptions() {
     const select = document.getElementById('companyStorageSelect');
     if (!select) return;
-    
+
     try {
         const response = await fetch('/storage-options', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const options = await response.json();
-            
+
             select.innerHTML = '';
             options.forEach(option => {
                 const optionElement = document.createElement('option');
                 optionElement.value = option.id;
                 optionElement.textContent = option.name;
-                
+
                 // Add connection ID as data attribute for remote storage
                 if (option.connection_id) {
                     optionElement.setAttribute('data-connection-id', option.connection_id);
                 }
-                
+
                 select.appendChild(optionElement);
             });
         }
@@ -811,25 +813,25 @@ async function createCompany() {
     const name = nameInput?.value?.trim();
     const storageType = storageSelect?.value || 'local';
     let storageConnectionId = null;
-    
+
     if (!name) {
         showToast('Введите название компании', 'warning');
         return;
     }
-    
+
     // Get storage connection ID if not local
     if (storageType !== 'local') {
         const selectedOption = storageSelect.options[storageSelect.selectedIndex];
         storageConnectionId = selectedOption?.getAttribute('data-connection-id');
     }
-    
+
     try {
-        const companyData = { 
+        const companyData = {
             name,
             storage_type: storageType,
             storage_connection_id: storageConnectionId
         };
-        
+
         const response = await fetch('/companies', {
             method: 'POST',
             headers: {
@@ -838,12 +840,12 @@ async function createCompany() {
             body: JSON.stringify(companyData),
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const result = await response.json();
             showToast('Компания создана успешно', 'success');
             addLog(`Создана компания: ${name}`, 'success');
-            
+
             if (nameInput) nameInput.value = '';
             loadCompanies();
         } else {
@@ -859,45 +861,51 @@ async function createCompany() {
 async function switchCompany() {
     const select = document.getElementById('companySelect');
     const companyId = select?.value;
-    
+
     if (!companyId) {
         showToast('Выберите компанию', 'warning');
         return;
     }
-    
+
     try {
         const response = await fetch(`/companies/${companyId}/select`, {
             method: 'POST',
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const result = await response.json();
             const companyName = result.name || 'Unknown';
-            
-            AdminDashboard.setState({ 
-                currentCompany: { 
-                    id: companyId, 
-                    name: companyName 
+
+            AdminDashboard.setState({
+                currentCompany: {
+                    id: companyId,
+                    name: companyName
                 }
             });
-            
+
             const currentNameElement = document.getElementById('currentCompanyName');
             if (currentNameElement) {
                 currentNameElement.textContent = companyName;
             }
-            
+
             if (select) select.value = '';
-            
+
             showToast(`Переключились на компанию: ${companyName}`, 'success');
             addLog(`Выбрана компания: ${companyName}`, 'info');
-            
+
+            // Reset folder cache for the new company
+            delete AdminDashboard.state.companyFoldersCache[companyId];
+
             // Load company config (Yandex folder and content types)
             await loadCompanyConfig(companyId);
-            
+
             // Reload data for new company
             loadRecords();
             loadStatistics();
+
+            // Reset folder state and re-validate
+            removeFolderValidationMessage();
         } else {
             const error = await response.json();
             showToast(`Ошибка: ${error.detail || 'Не удалось переключить компанию'}`, 'error');
@@ -906,28 +914,26 @@ async function switchCompany() {
         showToast('Ошибка сети', 'error');
         addLog(`Ошибка сети при переключении компании: ${error.message}`, 'error');
     }
-}
-
-// Delete company functionality
+}// Delete company functionality
 function showDeleteCompanyModal() {
     const select = document.getElementById('companySelect');
     const companyId = select?.value;
-    
+
     if (!companyId) {
         showToast('Выберите компанию для удаления', 'warning');
         return;
     }
-    
+
     const companyOption = select.querySelector(`option[value="${companyId}"]`);
     const companyName = companyOption ? companyOption.textContent.replace(/ \([^)]*\)/, '') : 'Unknown';
-    
+
     AdminDashboard.setState({ selectedCompanyToDelete: { id: companyId, name: companyName } });
-    
+
     const messageElement = document.getElementById('deleteCompanyMessage');
     if (messageElement) {
         messageElement.textContent = `Вы уверены, что хотите удалить компанию "${companyName}"? Все данные будут удалены без возможности восстановления.`;
     }
-    
+
     const modal = document.getElementById('deleteCompanyModal');
     if (modal) {
         modal.classList.add('active');
@@ -944,24 +950,24 @@ function hideDeleteCompanyModal() {
 
 async function confirmDeleteCompany() {
     const { selectedCompanyToDelete } = AdminDashboard.state;
-    
+
     if (!selectedCompanyToDelete) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     try {
         showLoading();
-        
+
         const response = await fetch(`/companies/${selectedCompanyToDelete.id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             showToast(`Компания "${selectedCompanyToDelete.name}" удалена`, 'success');
             addLog(`Удалена компания: ${selectedCompanyToDelete.name}`, 'success');
-            
+
             hideDeleteCompanyModal();
             loadCompanies();
             loadRecords();
@@ -982,18 +988,18 @@ async function confirmDeleteCompany() {
 async function loadYandexFolders() {
     const select = document.getElementById('yandexFolderSelect');
     if (!select) return;
-    
+
     try {
         showLoading('Загрузка папок Yandex Disk...');
-        
+
         const response = await fetch('/api/yandex-disk/folders', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const folders = await response.json();
             AdminDashboard.state.yandexFolders = folders;
-            
+
             select.innerHTML = '<option value="">Выберите папку...</option>';
             folders.forEach(folder => {
                 const option = document.createElement('option');
@@ -1001,7 +1007,7 @@ async function loadYandexFolders() {
                 option.textContent = folder.name;
                 select.appendChild(option);
             });
-            
+
             showToast('Папки загружены успешно', 'success');
             addLog('Загружены папки Yandex Disk', 'info');
         } else {
@@ -1022,21 +1028,21 @@ async function saveYandexFolder() {
     const select = document.getElementById('yandexFolderSelect');
     const saveBtn = document.getElementById('saveYandexFolderBtn');
     const selectedFolder = select?.value;
-    
+
     if (!selectedFolder) {
         showToast('Выберите папку для сохранения', 'warning');
         return;
     }
-    
+
     const companyId = AdminDashboard.state.currentCompany?.id;
     if (!companyId) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     try {
         if (saveBtn) saveBtn.disabled = true;
-        
+
         const response = await fetch(`/api/companies/${companyId}/yandex-disk-folder`, {
             method: 'PUT',
             headers: {
@@ -1045,20 +1051,20 @@ async function saveYandexFolder() {
             body: JSON.stringify({ folder_path: selectedFolder }),
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const result = await response.json();
-            
+
             if (!AdminDashboard.state.companyConfigs[companyId]) {
                 AdminDashboard.state.companyConfigs[companyId] = {};
             }
             AdminDashboard.state.companyConfigs[companyId].yandex_folder = selectedFolder;
-            
+
             const currentFolderElement = document.getElementById('currentYandexFolder');
             if (currentFolderElement) {
                 currentFolderElement.textContent = selectedFolder;
             }
-            
+
             showToast('Папка сохранена успешно', 'success');
             addLog(`Сохранена папка Yandex Disk: ${selectedFolder}`, 'success');
         } else {
@@ -1076,19 +1082,19 @@ async function saveYandexFolder() {
 
 async function loadCompanyConfig(companyId) {
     if (!companyId) return;
-    
+
     try {
         const response = await fetch(`/api/companies/${companyId}/yandex-disk-folder`, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             if (!AdminDashboard.state.companyConfigs[companyId]) {
                 AdminDashboard.state.companyConfigs[companyId] = {};
             }
             AdminDashboard.state.companyConfigs[companyId].yandex_folder = data.folder_path;
-            
+
             const currentFolderElement = document.getElementById('currentYandexFolder');
             if (currentFolderElement) {
                 currentFolderElement.textContent = data.folder_path || 'Не выбрана';
@@ -1097,99 +1103,167 @@ async function loadCompanyConfig(companyId) {
     } catch (error) {
         console.error('Error loading company config:', error);
     }
-    
+
     // Load folders for the folder picker
-    await loadFoldersForPicker(companyId);
-    
+    try {
+        await loadFoldersForPicker(companyId);
+    } catch (error) {
+        console.error('Error loading folders for picker:', error);
+        // Show error UI near the dropdown
+        const folderPicker = document.getElementById('folderPicker');
+        if (folderPicker) {
+            showFolderPickerError('Не удалось загрузить список папок. Пожалуйста, проверьте подключение к серверу.');
+        }
+    }
+
     // Load storage configuration
     await loadCompanyStorageConfig(companyId);
-    
+
     // Load storage folders if applicable
     await loadStorageFolders(companyId);
-}
-
-// Folder Picker Management
+}// Folder Picker Management
 async function loadFoldersForPicker(companyId) {
     const folderPicker = document.getElementById('folderPicker');
     if (!folderPicker) return;
-    
+
+    // Clear picker and show loading state
+    folderPicker.innerHTML = '<option value="">Загрузка папок...</option>';
+    folderPicker.disabled = true;
+
     try {
-        // Load categories for this company
-        const response = await fetch(`/api/companies/${companyId}/categories?page=1&page_size=100`, {
-            credentials: 'include'
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to load categories');
-        }
-        
-        const data = await response.json();
-        const categories = data.items || [];
-        
-        // Clear existing options
-        folderPicker.innerHTML = '<option value="">Выберите папку...</option>';
-        
-        if (categories.length === 0) {
-            folderPicker.innerHTML += '<option value="" disabled>Нет доступных папок</option>';
+        // Check cache first
+        if (AdminDashboard.state.companyFoldersCache[companyId]) {
+            const cachedFolders = AdminDashboard.state.companyFoldersCache[companyId];
+            updateFolderPickerOptions(cachedFolders, folderPicker);
+            addLog('Папки для заказа загружены из кэша', 'info');
             return;
         }
-        
-        // Load folders for each category and populate picker
-        for (const category of categories) {
-            const foldersResponse = await fetch(`/api/folders?project_id=${category.id}&page=1&page_size=100`, {
-                credentials: 'include'
-            });
-            
-            if (foldersResponse.ok) {
-                const foldersData = await foldersResponse.json();
-                const folders = foldersData.items || [];
-                
-                if (folders.length > 0) {
-                    // Add category group
-                    const optgroup = document.createElement('optgroup');
-                    optgroup.label = category.name;
-                    
-                    folders.forEach(folder => {
-                        const option = document.createElement('option');
-                        option.value = folder.id;
-                        option.textContent = folder.name;
-                        optgroup.appendChild(option);
-                    });
-                    
-                    folderPicker.appendChild(optgroup);
-                }
-            }
+
+        // Load folders for this company from the new local-folder API
+        const response = await fetch(`/api/folders?company_id=${companyId}&page=1&page_size=100`, {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load folders');
         }
-        
+
+        const data = await response.json();
+        const folders = data.items || [];
+
+        // Cache the folders
+        AdminDashboard.state.companyFoldersCache[companyId] = folders;
+
+        updateFolderPickerOptions(folders, folderPicker);
         addLog('Папки для заказа загружены', 'info');
     } catch (error) {
         console.error('Error loading folders for picker:', error);
         folderPicker.innerHTML = '<option value="">Ошибка загрузки папок</option>';
+
+        // Show error message near the dropdown
+        showFolderPickerError('Не удалось загрузить список папок. Пожалуйста, проверьте подключение к серверу.');
+
         addLog(`Ошибка загрузки папок: ${error.message}`, 'error');
+    } finally {
+        folderPicker.disabled = false;
     }
 }
 
+function updateFolderPickerOptions(folders, folderPicker) {
+    // Clear existing options
+    folderPicker.innerHTML = '<option value="">Выберите папку...</option>';
+
+    if (folders.length === 0) {
+        folderPicker.innerHTML += '<option value="" disabled>Нет доступных папок</option>';
+        return;
+    }
+
+    // Group folders by project/category if available
+    const groupedFolders = {};
+    folders.forEach(folder => {
+        const projectName = folder.project_name || 'Без категории';
+        if (!groupedFolders[projectName]) {
+            groupedFolders[projectName] = [];
+        }
+        groupedFolders[projectName].push(folder);
+    });
+
+    // Populate picker with grouped folders
+    Object.keys(groupedFolders).forEach(projectName => {
+        if (Object.keys(groupedFolders).length > 1) {
+            const optGroup = document.createElement('optgroup');
+            optGroup.label = projectName;
+
+            groupedFolders[projectName].forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                option.textContent = folder.name;
+                optGroup.appendChild(option);
+            });
+
+            folderPicker.appendChild(optGroup);
+        } else {
+            // No grouping needed if all folders are in the same project
+            groupedFolders[projectName].forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                option.textContent = folder.name;
+                folderPicker.appendChild(option);
+            });
+        }
+    });
+
+    // Set default to company's primary folder if available
+    const companyId = AdminDashboard.state.currentCompany?.id;
+    const companyConfig = AdminDashboard.state.companyConfigs[companyId];
+    if (companyConfig && companyConfig.primary_folder_id) {
+        folderPicker.value = companyConfig.primary_folder_id;
+    }
+}
+
+function showFolderPickerError(message) {
+    // Remove any existing error messages
+    const existingError = document.getElementById('folderPickerError');
+    if (existingError) {
+        existingError.remove();
+    }
+
+    // Create error message element
+    const errorElement = document.createElement('div');
+    errorElement.id = 'folderPickerError';
+    errorElement.className = 'folder-picker-error';
+    errorElement.innerHTML = `
+        <span class="error-icon">⚠️</span>
+        <span class="error-text">${message}</span>
+    `;
+
+    // Insert after the folder picker
+    const folderPicker = document.getElementById('folderPicker');
+    if (folderPicker && folderPicker.parentNode) {
+        folderPicker.parentNode.insertBefore(errorElement, folderPicker.nextSibling);
+    }
+}
 // Storage Folder Management
 async function loadCompanyStorageConfig(companyId) {
     if (!companyId) {
         console.warn('No company ID provided for storage config');
         return;
     }
-    
+
     try {
         AdminDashboard.state.storageLoading = true;
-        
+
         const response = await fetch(`/api/companies/${companyId}/storage-info`, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             AdminDashboard.state.storageConfig = data;
-            
+
             // Update UI elements if they exist
             updateStorageConfigDisplay(data);
-            
+
             addLog(`Загружена конфигурация хранилища для компании: ${data.company_name}`, 'info');
         } else {
             const error = await response.json();
@@ -1210,14 +1284,14 @@ function updateStorageConfigDisplay(config) {
     if (storageTypeElement) {
         storageTypeElement.textContent = config.storage_type || 'local';
     }
-    
+
     // Update storage status
     const storageStatusElement = document.getElementById('storageStatus');
     if (storageStatusElement) {
         storageStatusElement.textContent = config.status_message || 'Не настроено';
         storageStatusElement.className = config.is_configured ? 'status-configured' : 'status-unconfigured';
     }
-    
+
     // Update folder path if available
     const folderPathElement = document.getElementById('storageFolderPath');
     if (folderPathElement && config.storage_folder_path) {
@@ -1230,12 +1304,12 @@ async function loadStorageFolders(companyId) {
         console.warn('No company ID provided for loading folders');
         return;
     }
-    
+
     const company = AdminDashboard.state.storageConfig;
     if (!company) {
         await loadCompanyStorageConfig(companyId);
     }
-    
+
     // Only load folders for remote storage types
     const storageType = AdminDashboard.state.storageConfig?.storage_type;
     if (storageType === 'local') {
@@ -1243,7 +1317,7 @@ async function loadStorageFolders(companyId) {
         updateStorageFoldersList([]);
         return;
     }
-    
+
     if (storageType === 'yandex_disk') {
         await loadYandexDiskFolders(companyId);
     } else {
@@ -1257,16 +1331,16 @@ async function loadStorageFolders(companyId) {
 async function loadYandexDiskFolders(companyId) {
     try {
         AdminDashboard.state.storageLoading = true;
-        
+
         const response = await fetch(`/api/yandex-disk/folders?company_id=${encodeURIComponent(companyId)}`, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             AdminDashboard.state.storageFolders = data.items || [];
             updateStorageFoldersList(data.items || []);
-            
+
             addLog(`Загружено папок: ${data.items?.length || 0}`, 'info');
         } else {
             const error = await response.json();
@@ -1289,12 +1363,12 @@ async function loadYandexDiskFolders(companyId) {
 function updateStorageFoldersList(folders) {
     const foldersListElement = document.getElementById('storageFoldersList');
     if (!foldersListElement) return;
-    
+
     if (!folders || folders.length === 0) {
         foldersListElement.innerHTML = '<p style="text-align: center; opacity: 0.6; padding: 1rem;">Папки отсутствуют или не применимы для данного типа хранилища</p>';
         return;
     }
-    
+
     foldersListElement.innerHTML = '';
     folders.forEach(folder => {
         const item = document.createElement('div');
@@ -1320,35 +1394,35 @@ async function createStorageFolder() {
     const input = document.getElementById('newStorageFolderInput');
     const addBtn = document.getElementById('addStorageFolderBtn');
     const folderName = input?.value?.trim();
-    
+
     if (!folderName) {
         showToast('Введите название папки', 'warning');
         return;
     }
-    
+
     // Client-side validation
     if (!validateFolderName(folderName)) {
         showToast('Название папки может содержать только буквы, цифры, дефис и подчёркивание', 'error');
         return;
     }
-    
+
     const companyId = AdminDashboard.state.currentCompany?.id;
     if (!companyId) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     const storageType = AdminDashboard.state.storageConfig?.storage_type;
-    
+
     try {
         if (addBtn) addBtn.disabled = true;
-        
+
         // Optimistic UI update
         const optimisticFolder = { name: folderName, path: folderName };
         const currentFolders = [...AdminDashboard.state.storageFolders];
         AdminDashboard.state.storageFolders = [...currentFolders, optimisticFolder];
         updateStorageFoldersList(AdminDashboard.state.storageFolders);
-        
+
         let response;
         if (storageType === 'local') {
             // For local storage, use the storage folder endpoint
@@ -1369,23 +1443,23 @@ async function createStorageFolder() {
             updateStorageFoldersList(currentFolders);
             return;
         }
-        
+
         if (response.ok) {
             const result = await response.json();
-            
+
             if (input) input.value = '';
-            
+
             // Reload folders to get actual state
             await loadStorageFolders(companyId);
             await loadCompanyStorageConfig(companyId);
-            
+
             showToast('Папка создана успешно', 'success');
             addLog(`Создана папка хранилища: ${folderName}`, 'success');
         } else {
             // Revert optimistic update on error
             AdminDashboard.state.storageFolders = currentFolders;
             updateStorageFoldersList(currentFolders);
-            
+
             const error = await response.json();
             showToast(`Ошибка: ${error.detail || 'Не удалось создать папку'}`, 'error');
             addLog(`Ошибка создания папки: ${error.detail}`, 'error');
@@ -1395,7 +1469,7 @@ async function createStorageFolder() {
         const currentFolders = AdminDashboard.state.storageFolders.filter(f => f.name !== folderName);
         AdminDashboard.state.storageFolders = currentFolders;
         updateStorageFoldersList(currentFolders);
-        
+
         console.error('Error creating storage folder:', error);
         showToast('Ошибка сети при создании папки', 'error');
         addLog(`Ошибка сети при создании папки: ${error.message}`, 'error');
@@ -1408,20 +1482,20 @@ async function deleteStorageFolder(folderPath) {
     if (!confirm(`Удалить папку "${folderPath}"?`)) {
         return;
     }
-    
+
     const companyId = AdminDashboard.state.currentCompany?.id;
     if (!companyId) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     const storageType = AdminDashboard.state.storageConfig?.storage_type;
-    
+
     // Optimistic UI update
     const currentFolders = [...AdminDashboard.state.storageFolders];
     AdminDashboard.state.storageFolders = currentFolders.filter(f => f.path !== folderPath && f.name !== folderPath);
     updateStorageFoldersList(AdminDashboard.state.storageFolders);
-    
+
     try {
         if (storageType === 'local') {
             // For local storage, we might not have a delete endpoint
@@ -1439,21 +1513,21 @@ async function deleteStorageFolder(folderPath) {
             updateStorageFoldersList(currentFolders);
             return;
         }
-        
+
         showToast('Папка удалена успешно', 'success');
         addLog(`Удалена папка хранилища: ${folderPath}`, 'success');
-        
+
         // Reload folders to get actual state
         await loadStorageFolders(companyId);
         await loadCompanyStorageConfig(companyId);
-        
+
     } catch (error) {
         // Revert optimistic update on error
         AdminDashboard.state.storageFolders = currentFolders;
         updateStorageFoldersList(currentFolders);
-        
+
         console.error('Error deleting storage folder:', error);
-        
+
         // Handle specific error cases
         if (error.message && error.message.includes('permission')) {
             showToast('Ошибка: Недостаточно прав для удаления папки', 'error');
@@ -1462,7 +1536,7 @@ async function deleteStorageFolder(folderPath) {
         } else {
             showToast('Ошибка при удалении папки', 'error');
         }
-        
+
         addLog(`Ошибка удаления папки: ${error.message}`, 'error');
     }
 }
@@ -1471,9 +1545,9 @@ async function deleteStorageFolder(folderPath) {
 function handleImagePreview(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         showImagePreview(e.target.result);
     };
     reader.readAsDataURL(file);
@@ -1499,14 +1573,14 @@ function hideImagePreview() {
 function showLightbox(imageSrc) {
     const lightbox = document.querySelector('.lightbox');
     const lightboxContent = document.querySelector('.lightbox-content');
-    
+
     if (lightbox && lightboxContent) {
         // Remove any existing video element
         const existingVideo = lightbox.querySelector('.lightbox-video');
         if (existingVideo) {
             existingVideo.remove();
         }
-        
+
         // Show image
         lightboxContent.style.display = 'block';
         lightboxContent.src = imageSrc;
@@ -1518,17 +1592,17 @@ function showLightbox(imageSrc) {
 function showVideoLightbox(videoSrc) {
     const lightbox = document.querySelector('.lightbox');
     const lightboxContent = document.querySelector('.lightbox-content');
-    
+
     if (lightbox && lightboxContent) {
         // Hide image
         lightboxContent.style.display = 'none';
-        
+
         // Remove existing video if any
         const existingVideo = lightbox.querySelector('.lightbox-video');
         if (existingVideo) {
             existingVideo.remove();
         }
-        
+
         // Create video element
         const videoElement = document.createElement('video');
         videoElement.src = videoSrc;
@@ -1539,10 +1613,10 @@ function showVideoLightbox(videoSrc) {
         videoElement.style.maxHeight = '90%';
         videoElement.style.display = 'block';
         videoElement.style.margin = 'auto';
-        
+
         // Insert video after the image content
         lightboxContent.parentNode.insertBefore(videoElement, lightboxContent.nextSibling);
-        
+
         lightbox.classList.add('active');
         addLog('Открыт просмотр видео', 'info');
     }
@@ -1571,7 +1645,7 @@ function fallbackCopyTextToClipboard(text) {
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    
+
     try {
         const successful = document.execCommand('copy');
         if (successful) {
@@ -1584,7 +1658,7 @@ function fallbackCopyTextToClipboard(text) {
         console.error('Fallback: Oops, unable to copy', err);
         showToast('Не удалось скопировать ссылку', 'error');
     }
-    
+
     document.body.removeChild(textArea);
 }
 
@@ -1597,13 +1671,13 @@ function closeLightbox() {
             existingVideo.pause();
             existingVideo.remove();
         }
-        
+
         // Show image content again
         const lightboxContent = lightbox.querySelector('.lightbox-content');
         if (lightboxContent) {
             lightboxContent.style.display = 'block';
         }
-        
+
         lightbox.classList.remove('active');
     }
 }
@@ -1634,16 +1708,16 @@ function closeAllModals() {
 function showToast(message, type = 'info') {
     const container = document.querySelector('.toast-container');
     if (!container) return;
-    
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
+
     container.appendChild(toast);
-    
+
     // Trigger animation
     setTimeout(() => toast.classList.add('show'), 10);
-    
+
     // Auto remove
     setTimeout(() => {
         toast.classList.remove('show');
@@ -1656,7 +1730,7 @@ function showLoading(text = 'Загрузка...', status = '') {
     const overlay = document.querySelector('.loading-overlay');
     const loadingText = document.getElementById('loadingText');
     const loadingStatus = document.getElementById('loadingStatus');
-    
+
     if (overlay) {
         overlay.classList.add('active');
     }
@@ -1686,7 +1760,7 @@ function updateLoadingStatus(status) {
 function addLog(message, type = 'info') {
     // This would typically send logs to a logging endpoint
     console.log(`[${type.toUpperCase()}] ${message}`);
-    
+
     // For debugging, you could also display logs in the UI
     const logContainer = document.getElementById('logContainer');
     if (logContainer) {
@@ -1695,7 +1769,7 @@ function addLog(message, type = 'info') {
         logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
         logContainer.appendChild(logEntry);
         logContainer.scrollTop = logContainer.scrollHeight;
-        
+
         // Limit log entries
         while (logContainer.children.length > 100) {
             logContainer.removeChild(logContainer.firstChild);
@@ -1709,7 +1783,7 @@ async function loadBackupStats() {
         const response = await fetch('/backups/stats', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             updateBackupStats(data);
@@ -1729,7 +1803,7 @@ function updateBackupStats(data) {
         'backupSize': data.total_size_mb ? formatBytes(data.total_size_mb * 1024 * 1024) : '0 B',
         'lastBackup': data.last_backup ? new Date(data.last_backup).toLocaleString('ru-RU') : 'N/A'
     };
-    
+
     Object.entries(elements).forEach(([id, value]) => {
         const element = document.getElementById(id);
         if (element) {
@@ -1748,13 +1822,13 @@ async function deleteRecord(recordId) {
     if (!confirm('Вы уверены, что хотите удалить эту запись?')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`/admin/records/${recordId}`, {
             method: 'DELETE',
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             showToast('Запись удалена', 'success');
             addLog(`Удалена запись: ${recordId}`, 'success');
@@ -1804,12 +1878,12 @@ const lazyLoadFeatures = () => {
     setTimeout(() => {
         // Initialize tooltips
         initializeTooltips();
-        
+
         // Load charts if needed
         if (document.querySelector('.chart-container')) {
             loadCharts();
         }
-        
+
         // Initialize keyboard shortcuts help
         initializeKeyboardHelp();
     }, 1000);
@@ -1819,18 +1893,18 @@ const lazyLoadFeatures = () => {
 function initializeTooltips() {
     // Simple tooltip implementation
     document.querySelectorAll('[data-tooltip]').forEach(element => {
-        element.addEventListener('mouseenter', function(e) {
+        element.addEventListener('mouseenter', function (e) {
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             tooltip.textContent = this.getAttribute('data-tooltip');
             document.body.appendChild(tooltip);
-            
+
             const rect = this.getBoundingClientRect();
             tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
             tooltip.style.top = rect.top - tooltip.offsetHeight - 5 + 'px';
         });
-        
-        element.addEventListener('mouseleave', function() {
+
+        element.addEventListener('mouseleave', function () {
             const tooltip = document.querySelector('.tooltip');
             if (tooltip) tooltip.remove();
         });
@@ -1852,16 +1926,61 @@ function initializeKeyboardHelp() {
         Ctrl+T - Переключить тему
         Escape - Закрыть модальные окна
     `;
-    
+
     // You could display this in a help modal or tooltip
     console.log(helpText);
 }
 
 // Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+// Add CSS styles for error and validation messages
+(function () {
+    const style = document.createElement('style');
+    style.textContent = `
+        .folder-picker-error {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .folder-picker-error .error-icon {
+            font-size: 16px;
+        }
+
+        .folder-validation-message {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .folder-validation-message .warning-icon {
+            font-size: 16px;
+        }
+
+        #orderForm button[type="submit"].disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+document.addEventListener('DOMContentLoaded', function () {
     initializeDashboard();
     lazyLoadFeatures();
-    
     // Performance monitoring
     if (window.performance && window.performance.now) {
         const loadTime = Math.round(performance.now());
@@ -1877,11 +1996,11 @@ function showToast(message, type = 'info') {
         console.warn('Toast container not found');
         return;
     }
-    
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    
+
     // Add icon based on type
     const icon = document.createElement('span');
     icon.className = 'toast-icon';
@@ -1899,14 +2018,14 @@ function showToast(message, type = 'info') {
             icon.textContent = 'ℹ️';
     }
     toast.insertBefore(icon, toast.firstChild);
-    
+
     toastContainer.appendChild(toast);
-    
+
     // Trigger animation
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
-    
+
     // Remove after 3 seconds
     setTimeout(() => {
         toast.classList.remove('show');
@@ -1922,7 +2041,7 @@ function showToast(message, type = 'info') {
 function showLightbox(imageSrc) {
     const lightbox = document.getElementById('lightbox');
     const lightboxContent = document.getElementById('lightboxContent');
-    
+
     if (lightbox && lightboxContent) {
         lightboxContent.src = imageSrc;
         lightbox.classList.add('active');
@@ -1948,35 +2067,113 @@ function closeAllModals() {
 function toggleOrderForm() {
     const formElement = document.getElementById('orderForm');
     const btn = document.querySelector('.create-ar-btn');
-    
+
     if (!formElement || !btn) return;
-    
+
     const isActive = formElement.classList.contains('active');
-    
+
     if (isActive) {
         formElement.classList.remove('active');
         btn.textContent = '+ Создать AR контент';
     } else {
         formElement.classList.add('active');
         btn.textContent = '− Скрыть форму';
-        
-        const companyId = AdminDashboard.state.currentCompany?.id;
-        const currentConfig = AdminDashboard.state.companyConfigs[companyId] || {};
-        const contentTypes = currentConfig.content_types || [];
-        
-        if (contentTypes.length === 0) {
-            showToast('Предупреждение: Типы контента не настроены. Настройте их в секции управления компаниями.', 'warning');
+
+        // Check folder availability instead of content_types
+        validateFolderAvailability();
+    }
+}
+
+function validateFolderAvailability() {
+    const companyId = AdminDashboard.state.currentCompany?.id;
+
+    // Remove any existing validation messages
+    removeFolderValidationMessage();
+
+    // Check if we have folders for this company
+    const cachedFolders = AdminDashboard.state.companyFoldersCache[companyId];
+    if (cachedFolders && cachedFolders.length === 0) {
+        // Show inline helper message and disable submit button
+        showFolderValidationMessage(
+            'Нет доступных папок. Пожалуйста, создайте папки в настройках компании.',
+            true
+        );
+        return false;
+    }
+
+    // If we don't have cached folders, try to load them
+    if (!cachedFolders) {
+        showFolderValidationMessage(
+            'Проверка доступных папок...',
+            false
+        );
+
+        // Load folders and revalidate
+        loadFoldersForPicker(companyId).then(() => {
+            const updatedFolders = AdminDashboard.state.companyFoldersCache[companyId];
+            if (updatedFolders && updatedFolders.length === 0) {
+                showFolderValidationMessage(
+                    'Нет доступных папок. Пожалуйста, создайте папки в настройках компании.',
+                    true
+                );
+            } else {
+                removeFolderValidationMessage();
+            }
+        });
+    }
+
+    return true;
+}
+
+function showFolderValidationMessage(message, disableSubmit) {
+    // Remove any existing validation messages
+    removeFolderValidationMessage();
+
+    // Create validation message element
+    const messageElement = document.createElement('div');
+    messageElement.id = 'folderValidationMessage';
+    messageElement.className = 'folder-validation-message';
+    messageElement.innerHTML = `
+        <span class="warning-icon">⚠️</span>
+        <span class="message-text">${message}</span>
+    `;
+
+    // Insert before the order form
+    const formElement = document.getElementById('orderForm');
+    if (formElement && formElement.parentNode) {
+        formElement.parentNode.insertBefore(messageElement, formElement);
+    }
+
+    // Disable submit button if needed
+    if (disableSubmit) {
+        const submitButton = document.querySelector('#orderForm button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.classList.add('disabled');
         }
     }
 }
 
+function removeFolderValidationMessage() {
+    const existingMessage = document.getElementById('folderValidationMessage');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+
+    // Re-enable submit button
+    const submitButton = document.querySelector('#orderForm button[type="submit"]');
+    if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.classList.remove('disabled');
+    }
+}
 // Order form submission
 async function handleOrderSubmit(e) {
     e.preventDefault();
-    
+
     const form = e.target;
     const formData = new FormData();
-    
+
     // Get form values
     const clientName = document.getElementById('clientName').value.trim();
     const clientPhone = document.getElementById('clientPhone').value.trim();
@@ -1984,24 +2181,35 @@ async function handleOrderSubmit(e) {
     const folderId = document.getElementById('folderPicker').value.trim();
     const clientPhoto = document.getElementById('clientPhoto').files[0];
     const clientVideo = document.getElementById('clientVideo').files[0];
-    const clientNotes = document.getElementById('clientNotes').value.trim();
-    
+    const videoDescription = document.getElementById('videoDescription').value.trim();
+    const companyId = AdminDashboard.state.currentCompany?.id || 'vertex-ar-default';
+
     // Validation
     if (!clientName) {
         showToast('Имя клиента обязательно', 'error');
         return;
     }
-    
+
     if (!clientPhone) {
         showToast('Телефон клиента обязателен', 'error');
         return;
     }
-    
+
     if (!folderId) {
         showToast('Выберите папку назначения', 'error');
         return;
     }
-    
+
+    if (!videoDescription) {
+        showToast('Примечание к видео обязательно', 'error');
+        return;
+    }
+
+    // Additional validation for folder availability
+    const cachedFolders = AdminDashboard.state.companyFoldersCache[companyId]; if (cachedFolders && cachedFolders.length === 0) {
+        showToast('Нет доступных папок. Пожалуйста, создайте папки в настройках компании.', 'error');
+        return;
+    }
     // Validate email format if provided
     if (clientEmail) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2010,28 +2218,28 @@ async function handleOrderSubmit(e) {
             return;
         }
     }
-    
+
     if (!clientPhoto) {
         showToast('Фото клиента обязательно', 'error');
         return;
     }
-    
+
     if (!clientVideo) {
         showToast('Видео клиента обязательно', 'error');
         return;
     }
-    
+
     // Validate file types
     if (!clientPhoto.type.startsWith('image/')) {
         showToast('Выберите файл изображения', 'error');
         return;
     }
-    
+
     if (!clientVideo.type.startsWith('video/')) {
         showToast('Выберите видеофайл', 'error');
         return;
     }
-    
+
     // Append data with correct field names for API
     formData.append('name', clientName);
     formData.append('phone', clientPhone);
@@ -2041,38 +2249,35 @@ async function handleOrderSubmit(e) {
     formData.append('folder_id', folderId);
     formData.append('image', clientPhoto);
     formData.append('video', clientVideo);
-    if (clientNotes) {
-        formData.append('description', clientNotes);
-    }
-    
+    formData.append('description', videoDescription);
+
+
     // Add current company_id from state
-    const companyId = AdminDashboard.state.currentCompany?.id || 'vertex-ar-default';
     formData.append('company_id', companyId);
-    
     try {
         showLoading('Создание AR контента', 'Загрузка файлов...');
-        
+
         // Simulate progress updates
         setTimeout(() => updateLoadingStatus('Обработка изображения...'), 500);
         setTimeout(() => updateLoadingStatus('Обработка видео...'), 1500);
         setTimeout(() => updateLoadingStatus('Генерация AR портрета...'), 3000);
-        
+
         const response = await fetch('/orders/create', {
             method: 'POST',
             body: formData,
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             updateLoadingStatus('Завершение...');
             const result = await response.json();
             showToast('AR контент создан успешно', 'success');
             addLog(`Создан заказ для клиента: ${clientName}`, 'success');
-            
+
             // Reset form
             form.reset();
             hideImagePreview();
-            
+
             // Toggle form visibility
             const formElement = document.getElementById('orderForm');
             const btn = document.querySelector('.create-ar-btn');
@@ -2080,11 +2285,11 @@ async function handleOrderSubmit(e) {
                 formElement.classList.remove('active');
                 btn.textContent = '+ Создать AR контент';
             }
-            
+
             // Reload data
             loadRecords();
             loadStatistics();
-            
+
         } else {
             let errorMessage = 'Ошибка при создании заказа';
             try {
@@ -2100,7 +2305,7 @@ async function handleOrderSubmit(e) {
                 // If response is not JSON, use status text
                 errorMessage = `Ошибка ${response.status}: ${response.statusText}`;
             }
-            
+
             showToast(errorMessage, 'error');
             addLog(`Ошибка при создании заказа: ${errorMessage}`, 'error');
         }
@@ -2117,31 +2322,31 @@ async function handleOrderSubmit(e) {
 function addLog(message, type = 'info') {
     const logContainer = document.getElementById('logContainer');
     if (!logContainer) return;
-    
+
     // Remove empty message if exists
     const emptyMessage = logContainer.querySelector('.log-empty');
     if (emptyMessage) {
         emptyMessage.remove();
     }
-    
+
     const logEntry = document.createElement('div');
     logEntry.className = `log-entry log-${type}`;
-    
+
     const timestamp = new Date().toLocaleTimeString('ru-RU');
     logEntry.innerHTML = `
         <span class="log-time">${timestamp}</span>
         <span class="log-message">${message}</span>
         <span class="log-type">${type}</span>
     `;
-    
+
     logContainer.appendChild(logEntry);
-    
+
     // Keep only last 50 log entries
     const entries = logContainer.querySelectorAll('.log-entry');
     if (entries.length > 50) {
         entries[0].remove();
     }
-    
+
     // Scroll to bottom
     logContainer.scrollTop = logContainer.scrollHeight;
 }
@@ -2150,7 +2355,7 @@ function addLog(message, type = 'info') {
 function clearLogs() {
     const logContainer = document.getElementById('logContainer');
     if (!logContainer) return;
-    
+
     logContainer.innerHTML = '<p class="log-empty">Логи появятся во время работы системы</p>';
     addLog('Логи очищены', 'info');
 }
@@ -2159,7 +2364,7 @@ function clearLogs() {
 function initializeTooltips() {
     // Basic tooltip implementation
     document.querySelectorAll('[title]').forEach(element => {
-        element.addEventListener('mouseenter', function(e) {
+        element.addEventListener('mouseenter', function (e) {
             // Could implement tooltip display here
         });
     });
@@ -2177,7 +2382,7 @@ async function loadNotifications() {
         const response = await fetch('/notifications?limit=10', {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             updateNotifications(data || []);
@@ -2194,19 +2399,19 @@ async function loadNotifications() {
 function updateNotifications(notifications) {
     const notificationList = document.getElementById('notificationList');
     const notificationBadge = document.getElementById('notificationBadge');
-    
+
     if (!notificationList || !notificationBadge) return;
-    
+
     if (notifications.length === 0) {
         notificationList.innerHTML = '<p class="notification-empty">Новых уведомлений нет</p>';
         notificationBadge.classList.add('hidden');
         notificationBadge.textContent = '0';
         return;
     }
-    
+
     notificationBadge.textContent = notifications.length;
     notificationBadge.classList.remove('hidden');
-    
+
     notificationList.innerHTML = '';
     notifications.forEach(notification => {
         const notifElement = document.createElement('div');
@@ -2225,38 +2430,38 @@ async function performSearch(query = '', filters = {}) {
     try {
         let url = '/admin/search?';
         const params = [];
-        
+
         if (query && query.trim()) {
             params.push(`q=${encodeURIComponent(query.trim())}`);
         }
-        
+
         if (filters.dateFrom) {
             params.push(`date_from=${encodeURIComponent(filters.dateFrom)}`);
         }
-        
+
         if (filters.dateTo) {
             params.push(`date_to=${encodeURIComponent(filters.dateTo)}`);
         }
-        
+
         if (filters.minViews !== undefined && filters.minViews !== '') {
             params.push(`min_views=${filters.minViews}`);
         }
-        
+
         if (filters.maxViews !== undefined && filters.maxViews !== '') {
             params.push(`max_views=${filters.maxViews}`);
         }
-        
+
         const companyId = AdminDashboard.state.currentCompany?.id;
         if (companyId) {
             params.push(`company_id=${encodeURIComponent(companyId)}`);
         }
-        
+
         url += params.join('&');
-        
+
         const response = await fetch(url, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             displayRecords(data.results || []);
@@ -2273,24 +2478,24 @@ async function performSearch(query = '', filters = {}) {
 }
 
 // Apply filters from filter panel
-window.applyFilters = function() {
+window.applyFilters = function () {
     const dateFrom = document.getElementById('filterDateFrom')?.value;
     const dateTo = document.getElementById('filterDateTo')?.value;
     const minViews = document.getElementById('filterMinViews')?.value;
     const maxViews = document.getElementById('filterMaxViews')?.value;
     const searchQuery = document.getElementById('advancedSearch')?.value;
-    
+
     const filters = {};
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
     if (minViews) filters.minViews = parseInt(minViews);
     if (maxViews) filters.maxViews = parseInt(maxViews);
-    
+
     performSearch(searchQuery || '', filters);
 };
 
 // Clear filters
-window.clearFilters = function() {
+window.clearFilters = function () {
     document.getElementById('filterDateFrom').value = '';
     document.getElementById('filterDateTo').value = '';
     document.getElementById('filterMinViews').value = '';
@@ -2300,7 +2505,7 @@ window.clearFilters = function() {
 };
 
 // Toggle filters panel
-window.toggleFiltersPanel = function() {
+window.toggleFiltersPanel = function () {
     const panel = document.getElementById('filtersPanel');
     if (panel) {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -2320,17 +2525,17 @@ async function initializeStorageManagement() {
         showStorageEmptyState('Компания не выбрана');
         return;
     }
-    
+
     try {
         // Fetch storage configuration for current company
         const response = await fetch(`/api/companies/${encodeURIComponent(companyId)}`, {
             credentials: 'include'
         });
-        
+
         if (response.ok) {
             const company = await response.json();
             updateStorageUI(company);
-            
+
             // Load folders if local storage
             if (company.storage_type === 'local') {
                 await loadStorageFolders();
@@ -2350,26 +2555,26 @@ async function initializeStorageManagement() {
 function updateStorageUI(company) {
     const storageType = company.storage_type || 'local';
     const basePath = company.base_path || '/uploads';
-    
+
     // Update storage type and path
     const storageTypeEl = document.getElementById('storageType');
     const storageBasePathEl = document.getElementById('storageBasePath');
-    
+
     if (storageTypeEl) {
         storageTypeEl.textContent = getStorageTypeLabel(storageType);
     }
-    
+
     if (storageBasePathEl) {
         storageBasePathEl.textContent = basePath;
     }
-    
+
     // Update status badge
     updateStorageStatusBadge('ready');
-    
+
     // Show/hide management UI based on storage type
     const emptyState = document.getElementById('storageEmptyState');
     const managementUI = document.getElementById('storageFolderManagement');
-    
+
     if (storageType === 'local') {
         if (emptyState) emptyState.style.display = 'none';
         if (managementUI) managementUI.style.display = 'flex';
@@ -2400,15 +2605,15 @@ function getStorageTypeLabel(storageType) {
 function updateStorageStatusBadge(status) {
     const badge = document.getElementById('storageStatus');
     if (!badge) return;
-    
+
     badge.setAttribute('data-status', status);
-    
+
     const statusConfig = {
         'ready': { text: '✅ Готово', bg: 'var(--success-color)', color: 'white' },
         'warning': { text: '⚠️ Внимание', bg: 'var(--warning-color)', color: '#000' },
         'error': { text: '❌ Ошибка', bg: 'var(--danger-color)', color: 'white' }
     };
-    
+
     const config = statusConfig[status] || statusConfig.ready;
     badge.textContent = config.text;
     badge.style.background = config.bg;
@@ -2421,7 +2626,7 @@ function updateStorageStatusBadge(status) {
 function showStorageEmptyState(message) {
     const emptyState = document.getElementById('storageEmptyState');
     const managementUI = document.getElementById('storageFolderManagement');
-    
+
     if (emptyState) {
         emptyState.style.display = 'block';
         if (message) {
@@ -2429,7 +2634,7 @@ function showStorageEmptyState(message) {
             if (messageEl) messageEl.textContent = message;
         }
     }
-    
+
     if (managementUI) {
         managementUI.style.display = 'none';
     }
@@ -2441,14 +2646,14 @@ function showStorageEmptyState(message) {
 async function loadStorageFolders() {
     const companyId = AdminDashboard.state.currentCompany?.id;
     if (!companyId) return;
-    
+
     AdminDashboard.setState({ storageLoading: true });
-    
+
     try {
         // TODO: Replace with actual API endpoint when backend is ready
         // For now, show empty state
         const folders = [];
-        
+
         displayStorageFolders(folders);
     } catch (error) {
         console.error('Error loading storage folders:', error);
@@ -2464,17 +2669,17 @@ async function loadStorageFolders() {
 function displayStorageFolders(folders) {
     const listContainer = document.getElementById('storageFolderList');
     const countEl = document.getElementById('storageFolderCount');
-    
+
     if (!listContainer) return;
-    
+
     // Update count
     if (countEl) {
         countEl.textContent = `${folders.length} ${folders.length === 1 ? 'папка' : 'папок'}`;
     }
-    
+
     // Clear list
     listContainer.innerHTML = '';
-    
+
     if (folders.length === 0) {
         listContainer.innerHTML = `
             <div class="storage-empty-list" style="padding: 2rem 1rem; text-align: center; color: var(--secondary-color); font-size: 0.9rem;">
@@ -2484,7 +2689,7 @@ function displayStorageFolders(folders) {
         `;
         return;
     }
-    
+
     // Render folders
     folders.forEach(folder => {
         const folderItem = createFolderItemElement(folder);
@@ -2499,17 +2704,17 @@ function createFolderItemElement(folder) {
     const item = document.createElement('div');
     item.className = 'storage-folder-item';
     item.dataset.folderId = folder.id || folder.name;
-    
+
     const folderInfo = document.createElement('div');
     folderInfo.className = 'storage-folder-info';
-    
+
     const folderName = document.createElement('div');
     folderName.className = 'storage-folder-name';
     folderName.innerHTML = `📁 ${escapeHtml(folder.name)}`;
-    
+
     const folderMeta = document.createElement('div');
     folderMeta.className = 'storage-folder-meta';
-    
+
     // Add metadata
     if (folder.created_at) {
         const metaItem = document.createElement('span');
@@ -2517,30 +2722,30 @@ function createFolderItemElement(folder) {
         metaItem.innerHTML = `📅 ${new Date(folder.created_at).toLocaleDateString('ru-RU')}`;
         folderMeta.appendChild(metaItem);
     }
-    
+
     if (folder.file_count !== undefined) {
         const metaItem = document.createElement('span');
         metaItem.className = 'storage-folder-meta-item';
         metaItem.innerHTML = `📄 ${folder.file_count} файлов`;
         folderMeta.appendChild(metaItem);
     }
-    
+
     folderInfo.appendChild(folderName);
     folderInfo.appendChild(folderMeta);
-    
+
     const actions = document.createElement('div');
     actions.className = 'storage-folder-actions';
-    
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'storage-folder-delete-btn';
     deleteBtn.textContent = '🗑️ Удалить';
     deleteBtn.onclick = () => deleteStorageFolder(folder.id || folder.name);
-    
+
     actions.appendChild(deleteBtn);
-    
+
     item.appendChild(folderInfo);
     item.appendChild(actions);
-    
+
     return item;
 }
 
@@ -2551,12 +2756,12 @@ function validateFolderInput() {
     const input = document.getElementById('storageFolderInput');
     const errorEl = document.getElementById('storageFolderInputError');
     const createBtn = document.getElementById('createFolderBtn');
-    
+
     if (!input || !createBtn) return false;
-    
+
     const value = input.value.trim();
     const pattern = /^[a-zA-Z0-9_-]+$/;
-    
+
     if (!value) {
         input.classList.remove('error');
         if (errorEl) {
@@ -2566,7 +2771,7 @@ function validateFolderInput() {
         createBtn.disabled = true;
         return false;
     }
-    
+
     if (!pattern.test(value)) {
         input.classList.add('error');
         if (errorEl) {
@@ -2577,7 +2782,7 @@ function validateFolderInput() {
         createBtn.disabled = true;
         return false;
     }
-    
+
     input.classList.remove('error');
     if (errorEl) {
         errorEl.style.display = 'none';
@@ -2591,24 +2796,24 @@ function validateFolderInput() {
 /**
  * Create new storage folder
  */
-window.createStorageFolder = async function() {
+window.createStorageFolder = async function () {
     const input = document.getElementById('storageFolderInput');
-    
+
     if (!validateFolderInput()) {
         return;
     }
-    
+
     const folderName = input.value.trim();
     const companyId = AdminDashboard.state.currentCompany?.id;
-    
+
     if (!companyId) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     try {
         showLoading('Создание папки...');
-        
+
         // TODO: Replace with actual API endpoint when backend is ready
         // const response = await fetch('/api/storage/folders', {
         //     method: 'POST',
@@ -2619,16 +2824,16 @@ window.createStorageFolder = async function() {
         //         folder_name: folderName
         //     })
         // });
-        
+
         // Simulated success for now
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         showToast(`Папка "${folderName}" создана (функция в разработке)`, 'info');
         input.value = '';
-        
+
         // Refresh folder list
         await refreshStorageFolderList();
-        
+
     } catch (error) {
         console.error('Error creating folder:', error);
         showToast('Ошибка при создании папки', 'error');
@@ -2640,7 +2845,7 @@ window.createStorageFolder = async function() {
 /**
  * Refresh storage folder list
  */
-window.refreshStorageFolderList = async function() {
+window.refreshStorageFolderList = async function () {
     try {
         showLoading('Обновление списка...');
         await loadStorageFolders();
@@ -2660,16 +2865,16 @@ async function deleteStorageFolder(folderId) {
     if (!confirm('Вы уверены, что хотите удалить эту папку? Это действие нельзя отменить.')) {
         return;
     }
-    
+
     const companyId = AdminDashboard.state.currentCompany?.id;
     if (!companyId) {
         showToast('Компания не выбрана', 'error');
         return;
     }
-    
+
     try {
         showLoading('Удаление папки...');
-        
+
         // TODO: Replace with actual API endpoint when backend is ready
         // const response = await fetch(`/api/storage/folders/${encodeURIComponent(folderId)}`, {
         //     method: 'DELETE',
@@ -2677,15 +2882,15 @@ async function deleteStorageFolder(folderId) {
         //     headers: { 'Content-Type': 'application/json' },
         //     body: JSON.stringify({ company_id: companyId })
         // });
-        
+
         // Simulated success for now
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         showToast('Папка удалена (функция в разработке)', 'info');
-        
+
         // Refresh folder list
         await refreshStorageFolderList();
-        
+
     } catch (error) {
         console.error('Error deleting folder:', error);
         showToast('Ошибка при удалении папки', 'error');
@@ -2701,7 +2906,7 @@ document.addEventListener('DOMContentLoaded', () => {
         folderInput.addEventListener('input', validateFolderInput);
         folderInput.addEventListener('blur', validateFolderInput);
     }
-    
+
     // Initialize storage management on page load
     initializeStorageManagement();
 });

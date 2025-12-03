@@ -4,6 +4,23 @@
 
 This feature adds hierarchical organization for AR content in Vertex AR through a **Company → Project → Folder → Portrait → Video** structure, replacing the flat **Company → Client → Portrait → Video** structure.
 
+## Automatic Folder Provisioning
+
+When a new company is created through the API, Vertex AR automatically provisions a default folder structure for local storage companies. This includes creating directories for the standard content types:
+
+- `portraits`
+- `certificates`
+- `diplomas`
+
+Each category gets its own directory with the standard subdirectories:
+
+- `Image`
+- `QR`
+- `nft_markers`
+- `nft_cache`
+
+This ensures that newly created companies have the required folder structure immediately available without manual intervention.
+
 ## Architecture
 
 ### Database Schema
@@ -124,12 +141,18 @@ Content-Type: application/json
 
 #### List Folders
 ```http
-GET /api/folders?project_id=<project-uuid>&page=1&page_size=20
+GET /api/folders?project_id=<project-uuid>&company_id=<company-uuid>&page=1&page_size=20
 Authorization: Bearer <token>
 ```
 
+Query Parameters:
+- `project_id`: Filter folders by project ID
+- `company_id`: Filter folders by company ID (returns folders from all projects of the company)
+
 Response includes:
 - `portrait_count`: Number of portraits in the folder
+
+**Note**: When both `project_id` and `company_id` are provided, `project_id` takes precedence.
 
 #### Get Folder
 ```http
@@ -248,8 +271,8 @@ class PortraitResponse(BaseModel):
 - `create_folder(folder_id, project_id, name, description=None)`
 - `get_folder(folder_id)`
 - `get_folder_by_name(project_id, name)`
-- `list_folders(project_id=None, limit=None, offset=0)`
-- `count_folders(project_id=None)`
+- `list_folders(project_id=None, company_id=None, limit=None, offset=0)`
+- `count_folders(project_id=None, company_id=None)`
 - `update_folder(folder_id, name=None, description=None)`
 - `delete_folder(folder_id)`
 - `get_folder_portrait_count(folder_id)`
@@ -384,7 +407,7 @@ portraits = requests.get(
 When integrating this feature into the UI:
 
 1. **Company Selection**: First level - select company
-2. **Project Management**: 
+2. **Project Management**:
    - List/create/edit projects within selected company
    - Show folder count and portrait count for each project
 3. **Folder Management**:

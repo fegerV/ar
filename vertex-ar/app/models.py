@@ -32,14 +32,14 @@ class TokenResponse(BaseModel):
 class UserUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     full_name: Optional[str] = Field(None, max_length=150)
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_email(v)
         return v
-    
+
     @field_validator('full_name')
     @classmethod
     def validate_full_name_field(cls, v: Optional[str]) -> Optional[str]:
@@ -59,7 +59,7 @@ class UserProfile(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=256)
-    
+
     @field_validator('new_password')
     @classmethod
     def validate_new_password_field(cls, v: str) -> str:
@@ -94,79 +94,79 @@ class CompanyCreate(BaseModel):
     manager_name: Optional[str] = Field(default=None, max_length=150, description="Manager/contact person name")
     manager_phone: Optional[str] = Field(default=None, max_length=50, description="Manager phone number")
     manager_email: Optional[str] = Field(default=None, max_length=255, description="Manager email address")
-    
+
     @field_validator('name')
     @classmethod
     def validate_company_name(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
         if v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_email(v)
         return v
-    
+
     @field_validator('phone')
     @classmethod
     def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_phone(v)
         return v
-    
+
     @field_validator('website')
     @classmethod
     def validate_website_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_url(v)
         return v
-    
+
     @field_validator('social_links')
     @classmethod
     def validate_social_links_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_social_links(v)
         return v
-    
+
     @field_validator('manager_name', 'city')
     @classmethod
     def validate_name_fields(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_name(v)
         return v
-    
+
     @field_validator('manager_phone')
     @classmethod
     def validate_manager_phone_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_phone(v)
         return v
-    
+
     @field_validator('manager_email')
     @classmethod
     def validate_manager_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_email(v)
         return v
-    
+
     def model_post_init(self, __context):
         """Validate storage configuration after all fields are set."""
         # Remote storage types must have a connection
         if self.storage_type in ['minio', 'yandex_disk']:
             if not self.storage_connection_id:
                 raise ValueError(f'{self.storage_type} storage requires storage_connection_id')
-            
+
             # Yandex Disk also requires a folder
             if self.storage_type == 'yandex_disk' and not self.yandex_disk_folder_id:
                 raise ValueError('yandex_disk storage requires yandex_disk_folder_id (folder path)')
-        
+
         return super().model_post_init(__context) if hasattr(super(), 'model_post_init') else None
 
 
@@ -212,77 +212,81 @@ class CompanyUpdate(BaseModel):
     manager_name: Optional[str] = Field(None, max_length=150, description="Manager/contact person name")
     manager_phone: Optional[str] = Field(None, max_length=50, description="Manager phone number")
     manager_email: Optional[str] = Field(None, max_length=255, description="Manager email address")
-    
+
     @field_validator('name')
     @classmethod
     def validate_company_name(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
         return v
-    
+
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ['local', 'local_disk', 'minio', 'yandex_disk']:
             raise ValueError('storage_type must be one of: local, local_disk, minio, yandex_disk')
         return v
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_email(v)
         return v
-    
+
     @field_validator('phone')
     @classmethod
     def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_phone(v)
         return v
-    
+
     @field_validator('website')
     @classmethod
     def validate_website_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_url(v)
         return v
-    
+
     @field_validator('social_links')
     @classmethod
     def validate_social_links_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_social_links(v)
         return v
-    
+
     @field_validator('manager_name', 'city')
     @classmethod
     def validate_name_fields(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_name(v)
         return v
-    
+
     @field_validator('manager_phone')
     @classmethod
     def validate_manager_phone_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_phone(v)
         return v
-    
+
     @field_validator('manager_email')
     @classmethod
     def validate_manager_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_email(v)
         return v
-    
+
     def model_post_init(self, __context):
         """Validate storage configuration after all fields are set (for updates)."""
         # If storage_type is being updated to remote, ensure connection is provided
         if self.storage_type in ['minio', 'yandex_disk']:
             if self.storage_connection_id is not None and not self.storage_connection_id:
                 raise ValueError(f'{self.storage_type} storage requires storage_connection_id')
-        
+
+            # Yandex Disk also requires a folder
+            if self.storage_type == 'yandex_disk' and self.yandex_disk_folder_id is not None and not self.yandex_disk_folder_id:
+                raise ValueError('yandex_disk storage requires yandex_disk_folder_id (folder path)')
+
         return super().model_post_init(__context) if hasattr(super(), 'model_post_init') else None
 
 
@@ -291,7 +295,7 @@ class CompanyBackupConfig(BaseModel):
     """Model for setting company backup configuration."""
     backup_provider: Optional[str] = Field(None, description="Provider name (e.g., yandex_disk, google_drive)")
     backup_remote_path: Optional[str] = Field(None, description="Remote directory path for backups")
-    
+
     @field_validator('backup_provider')
     @classmethod
     def validate_provider(cls, v: Optional[str]) -> Optional[str]:
@@ -313,47 +317,52 @@ class StorageConnectionCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     type: str = Field(..., description="Storage type: minio, yandex_disk")
     config: Dict[str, Any] = Field(..., description="Storage configuration")
-    
+
     @field_validator('name')
     @classmethod
     def validate_connection_name(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
         if v not in ['minio', 'yandex_disk']:
             raise ValueError('type must be one of: minio, yandex_disk')
         return v
-    
+
     @field_validator('config')
     @classmethod
     def validate_config_fields(cls, v: Dict[str, Any], info) -> Dict[str, Any]:
         """Validate required fields based on storage type."""
         if not hasattr(info, 'data') or 'type' not in info.data:
             return v
-        
+
         storage_type = info.data.get('type')
-        
+
         if storage_type == 'yandex_disk':
-            # Yandex Disk requires OAuth token
-            if not v.get('oauth_token'):
-                raise ValueError('Yandex Disk requires oauth_token in config')
-            if not v.get('oauth_token').strip():
-                raise ValueError('oauth_token cannot be empty')
-                
+            # Yandex Disk requires Client ID, Client Secret, Redirect URI, and OAuth token
+            required_fields = ['client_id', 'client_secret', 'redirect_uri', 'oauth_token']
+            missing_fields = [field for field in required_fields if not v.get(field)]
+            if missing_fields:
+                raise ValueError(f'Yandex Disk requires the following fields in config: {", ".join(missing_fields)}')
+
+            # Validate non-empty
+            for field in required_fields:
+                if not str(v.get(field)).strip():
+                    raise ValueError(f'{field} cannot be empty')
+
         elif storage_type == 'minio':
             # MinIO requires endpoint, access_key, secret_key, and bucket
             required_fields = ['endpoint', 'access_key', 'secret_key', 'bucket']
             missing_fields = [field for field in required_fields if not v.get(field)]
             if missing_fields:
                 raise ValueError(f'MinIO requires the following fields in config: {", ".join(missing_fields)}')
-            
+
             # Validate non-empty
             for field in required_fields:
                 if not str(v.get(field)).strip():
                     raise ValueError(f'{field} cannot be empty')
-        
+
         return v
 
 
@@ -361,35 +370,36 @@ class StorageConnectionUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
-    
+
     @field_validator('name')
     @classmethod
     def validate_connection_name(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
         return v
-    
+
     @field_validator('config')
     @classmethod
     def validate_config_fields(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Validate config fields if provided (type is not available in update)."""
         if v is None:
             return v
-        
+
         # For updates, we validate based on what fields are present
         # since we don't know the type here
-        if 'oauth_token' in v:
-            # Yandex Disk field
-            if v['oauth_token'] is not None and not str(v['oauth_token']).strip():
-                raise ValueError('oauth_token cannot be empty')
-        
+        yandex_fields = ['client_id', 'client_secret', 'redirect_uri', 'oauth_token']
+        for field in yandex_fields:
+            if field in v and v[field] is not None:
+                if not str(v[field]).strip():
+                    raise ValueError(f'{field} cannot be empty')
+
         # MinIO fields
         minio_fields = ['endpoint', 'access_key', 'secret_key', 'bucket']
         for field in minio_fields:
             if field in v and v[field] is not None:
                 if not str(v[field]).strip():
                     raise ValueError(f'{field} cannot be empty')
-        
+
         return v
 
 
@@ -427,7 +437,7 @@ class CompanyStorageUpdate(BaseModel):
     storage_type: str
     storage_connection_id: Optional[str] = None
     yandex_disk_folder_id: Optional[str] = None
-    
+
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
@@ -439,7 +449,7 @@ class CompanyStorageUpdate(BaseModel):
 
 class CompanyStorageTypeUpdate(BaseModel):
     storage_type: str = Field(..., description="Storage type: local, local_disk, minio, or yandex_disk")
-    
+
     @field_validator('storage_type')
     @classmethod
     def validate_storage_type(cls, v: str) -> str:
@@ -450,7 +460,7 @@ class CompanyStorageTypeUpdate(BaseModel):
 
 class CompanyStorageFolderUpdate(BaseModel):
     folder_path: str = Field(..., min_length=1, max_length=255, description="Storage folder path")
-    
+
     @field_validator('folder_path')
     @classmethod
     def validate_folder_path(cls, v: str) -> str:
@@ -476,7 +486,7 @@ class CompanyStorageInfoResponse(BaseModel):
 
 class YandexFolderUpdate(BaseModel):
     folder_path: str = Field(..., min_length=1, description="Yandex Disk folder path to assign to company")
-    
+
     @field_validator('folder_path')
     @classmethod
     def validate_folder_path(cls, v: str) -> str:
@@ -488,7 +498,7 @@ class YandexFolderUpdate(BaseModel):
 class CompanyYandexFolderUpdate(BaseModel):
     """Alias for YandexFolderUpdate to match naming convention."""
     yandex_disk_folder_id: str = Field(..., min_length=1, description="Yandex Disk folder ID/path")
-    
+
     @field_validator('yandex_disk_folder_id')
     @classmethod
     def validate_folder_id(cls, v: str) -> str:
@@ -528,24 +538,24 @@ class ClientCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     company_id: str = Field(..., description="Company ID")
     email: Optional[str] = Field(None, max_length=255, description="Client email address")
-    
+
     @field_validator('phone')
     @classmethod
     def validate_phone_field(cls, v: str) -> str:
         return validate_phone(v)
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('company_id')
     @classmethod
     def validate_company_id_field(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('Company ID is required')
         return v.strip()
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
@@ -558,21 +568,21 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = Field(None, min_length=1, max_length=20)
     name: Optional[str] = Field(None, min_length=1, max_length=150)
     email: Optional[str] = Field(None, max_length=255, description="Client email address")
-    
+
     @field_validator('phone')
     @classmethod
     def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_phone(v)
         return v
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
         return v
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
@@ -614,26 +624,26 @@ class ProjectCreate(BaseModel):
     company_id: str = Field(..., description="Company ID")
     status: Optional[str] = Field(default="active", description="Lifecycle status")
     subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('company_id')
     @classmethod
     def validate_company_id_field(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('Company ID is required')
         return v.strip()
-    
+
     @field_validator('status')
     @classmethod
     def validate_status_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ['active', 'expiring', 'archived']:
             raise ValueError('status must be one of: active, expiring, archived')
         return v
-    
+
     @field_validator('subscription_end')
     @classmethod
     def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
@@ -651,21 +661,21 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     status: Optional[str] = Field(None, description="Lifecycle status")
     subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return validate_name(v)
         return v
-    
+
     @field_validator('status')
     @classmethod
     def validate_status_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ['active', 'expiring', 'archived']:
             raise ValueError('status must be one of: active, expiring, archived')
         return v
-    
+
     @field_validator('subscription_end')
     @classmethod
     def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
@@ -707,12 +717,12 @@ class FolderCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
     project_id: str = Field(..., description="Project ID")
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('project_id')
     @classmethod
     def validate_project_id_field(cls, v: str) -> str:
@@ -724,7 +734,7 @@ class FolderCreate(BaseModel):
 class FolderUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
@@ -759,24 +769,24 @@ class OrderCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     email: Optional[str] = Field(None, max_length=255, description="Client email address")
     subscription_end: Optional[str] = Field(None, description="Subscription end date (ISO format)")
-    
+
     @field_validator('phone')
     @classmethod
     def validate_phone_field(cls, v: str) -> str:
         return validate_phone(v)
-    
+
     @field_validator('name')
     @classmethod
     def validate_name_field(cls, v: str) -> str:
         return validate_name(v)
-    
+
     @field_validator('email')
     @classmethod
     def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v.strip():
             return validate_email(v)
         return v
-    
+
     @field_validator('subscription_end')
     @classmethod
     def validate_subscription_end_field(cls, v: Optional[str]) -> Optional[str]:
@@ -828,14 +838,14 @@ class VideoScheduleUpdate(BaseModel):
     end_datetime: Optional[str] = Field(None, description="End datetime in ISO format")
     rotation_type: Optional[str] = Field(None, description="Rotation type: none, sequential, cyclic")
     status: Optional[str] = Field(None, description="Status: active, inactive, archived")
-    
+
     @field_validator('rotation_type')
     @classmethod
     def validate_rotation_type(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in ['none', 'sequential', 'cyclic']:
             raise ValueError('rotation_type must be one of: none, sequential, cyclic')
         return v
-    
+
     @field_validator('status')
     @classmethod
     def validate_status(cls, v: Optional[str]) -> Optional[str]:
@@ -863,7 +873,7 @@ class VideoScheduleSummary(BaseModel):
 class VideoRotationRequest(BaseModel):
     portrait_id: str
     rotation_type: str = Field(..., description="Rotation type: sequential, cyclic")
-    
+
     @field_validator('rotation_type')
     @classmethod
     def validate_rotation_type(cls, v: str) -> str:
@@ -913,7 +923,7 @@ class NotificationSettingsUpdate(BaseModel):
     cpu_threshold_percent: Optional[int] = Field(None, ge=1, le=100)
     memory_threshold_percent: Optional[int] = Field(None, ge=1, le=100)
     is_active: Optional[bool] = None
-    
+
     @field_validator('smtp_from_email')
     @classmethod
     def validate_smtp_from_email(cls, v: Optional[str]) -> Optional[str]:
@@ -949,7 +959,7 @@ class NotificationSettingsResponse(BaseModel):
 
 class NotificationTestRequest(BaseModel):
     test_type: str = Field(..., description="Type of test: email, telegram, or both")
-    
+
     @field_validator('test_type')
     @classmethod
     def validate_test_type(cls, v: str) -> str:
@@ -990,7 +1000,7 @@ class EmailTemplateCreate(BaseModel):
     html_content: str = Field(..., min_length=10, description="HTML content of the email")
     variables_used: Optional[str] = Field(None, description="JSON array of variable names used in template")
     is_active: bool = Field(True, description="Whether template is active")
-    
+
     @field_validator('template_type')
     @classmethod
     def validate_template_type(cls, v: str) -> str:
@@ -998,7 +1008,7 @@ class EmailTemplateCreate(BaseModel):
         if v not in valid_types:
             raise ValueError(f'template_type must be one of: {", ".join(valid_types)}')
         return v
-    
+
     @field_validator('html_content')
     @classmethod
     def validate_html_content(cls, v: str) -> str:
@@ -1015,7 +1025,7 @@ class EmailTemplateUpdate(BaseModel):
     html_content: Optional[str] = Field(None, min_length=10, description="HTML content of the email")
     variables_used: Optional[str] = Field(None, description="JSON array of variable names used in template")
     is_active: Optional[bool] = Field(None, description="Whether template is active")
-    
+
     @field_validator('html_content')
     @classmethod
     def validate_html_content(cls, v: Optional[str]) -> Optional[str]:

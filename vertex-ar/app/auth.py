@@ -2,7 +2,6 @@
 Authentication module for Vertex AR application.
 Contains authentication classes and utilities.
 """
-import hashlib
 import secrets
 import threading
 from dataclasses import dataclass
@@ -26,59 +25,81 @@ class SessionData:
 
 
 class TokenManager:
-    """Manage issued access tokens with session timeouts."""
+    """Manage issued access tokens with session timeouts using database storage for Uvicorn worker compatibility."""
 
     def __init__(self, session_timeout_minutes: int = 30) -> None:
-        self._tokens: Dict[str, SessionData] = {}
-        self._lock = threading.Lock()
         self._session_timeout = timedelta(minutes=session_timeout_minutes)
+        self._lock = threading.Lock()
 
     def issue_token(self, username: str) -> str:
+        """Issue a new token and store it in the database."""
         token = secrets.token_urlsafe(32)
-        session = SessionData(
-            username=username,
-            issued_at=datetime.utcnow(),
-            last_seen=datetime.utcnow(),
-        )
-        with self._lock:
-            self._tokens[token] = session
+        expires_at = datetime.utcnow() + self._session_timeout
+
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+
+        # Store session in database
+        database.create_admin_session(token, username, expires_at)
         return token
 
     def verify_token(self, token: str) -> Optional[str]:
-        with self._lock:
-            session = self._tokens.get(token)
-            if session is None:
-                return None
+        """Verify a token against the database and update last seen timestamp."""
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
 
-            if self._session_timeout.total_seconds() > 0:
-                now = datetime.utcnow()
-                if now - session.last_seen > self._session_timeout:
-                    self._tokens.pop(token, None)
-                    logger.info("Session expired", username=session.username)
-                    return None
-                session.last_seen = now
+        # Get session from database
+        session = database.get_admin_session(token)
+        if session is None:
+            return None
 
-            return session.username
+        # Update last seen timestamp
+        database.update_admin_session_last_seen(token)
+        return session['username']
 
     def revoke_token(self, token: str) -> None:
-        with self._lock:
-            self._tokens.pop(token, None)
+        """Revoke a token by marking it as revoked in the database."""
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+
+        # Revoke session in database
+        database.revoke_admin_session(token)
 
     def revoke_user(self, username: str) -> None:
-        with self._lock:
-            tokens_to_remove = [token for token, session in self._tokens.items() if session.username == username]
-            for token in tokens_to_remove:
-                self._tokens.pop(token, None)
+        """Revoke all tokens for a user by marking them as revoked in the database."""
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+
+        # Revoke all sessions for user in database
+        database.revoke_admin_sessions_for_user(username)
 
     def revoke_user_except_current(self, username: str, current_token: Optional[str] = None) -> None:
         """Revoke all tokens for a user except the current one."""
-        with self._lock:
-            tokens_to_remove = [
-                token for token, session in self._tokens.items()
-                if session.username == username and token != current_token
-            ]
-            for token in tokens_to_remove:
-                self._tokens.pop(token, None)
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+
+        # Revoke all sessions for user except current in database
+        database.revoke_admin_sessions_for_user_except_current(username, current_token)
+
+    def cleanup_expired_sessions(self) -> int:
+        """Clean up expired sessions from the database. Returns number of sessions removed."""
+        # Get database instance
+        from app.main import get_current_app
+        app = get_current_app()
+        database = app.state.database
+
+        # Clean up expired sessions in database
+        return database.cleanup_expired_admin_sessions()
 
 
 class AuthSecurityManager:

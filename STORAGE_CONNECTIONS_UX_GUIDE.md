@@ -20,6 +20,9 @@ Navigate to **Admin → Хранилища (Storage)** and click "Добавит
 **For Yandex Disk:**
 - **Name**: Descriptive name for the connection (e.g., "Main Yandex Storage")
 - **Type**: Select "Яндекс Диск"
+- **Client ID**: Your Yandex OAuth application Client ID (required, will be encrypted)
+- **Client Secret**: Your Yandex OAuth application Client Secret (required, will be encrypted)
+- **Redirect URI**: Your application's redirect URI for OAuth (required)
 - **OAuth Token**: Paste your Yandex Disk OAuth token (required, will be encrypted)
 - **Base Path**: Optional root folder path (default: `vertex-ar`)
 
@@ -68,7 +71,7 @@ The system enforces the following validation:
 
 **Backend (API Level):**
 - `StorageConnectionCreate`: Validates required fields based on storage type
-  - Yandex Disk: Must have `oauth_token`
+  - Yandex Disk: Must have `client_id`, `client_secret`, `redirect_uri`, and `oauth_token`
   - MinIO: Must have `endpoint`, `access_key`, `secret_key`, `bucket`
 - `CompanyCreate/Update`: Validates storage configuration
   - Remote storage types (`minio`, `yandex_disk`) **must** have `storage_connection_id`
@@ -124,7 +127,7 @@ DELETE /api/companies/{id}          # Delete company
 ## Troubleshooting
 
 ### Problem: "No tested connections available" in company form
-**Solution**: 
+**Solution**:
 1. Go to Admin → Хранилища
 2. Create a new storage connection
 3. Click "Тест" button to verify it works
@@ -132,7 +135,7 @@ DELETE /api/companies/{id}          # Delete company
 
 ### Problem: Connection test fails
 **Solution**:
-- **Yandex Disk**: Verify OAuth token is valid (get new token from https://yandex.ru/dev/disk/poligon/)
+- **Yandex Disk**: Verify OAuth token is valid (get new token from https://yandex.ru/dev/disk/poligon/), Client ID and Client Secret are correct
 - **MinIO**: Check endpoint is reachable, access key and secret key are correct, and bucket exists
 
 ### Problem: "storage_connection_id required" error when creating company
@@ -154,7 +157,7 @@ DELETE /api/companies/{id}          # Delete company
 **Backend:**
 - `vertex-ar/app/models.py`: Enhanced validation for `StorageConnectionCreate/Update` and `CompanyCreate/Update`
 - `vertex-ar/app/api/storage_management.py`: Added encryption/decryption/masking helpers, updated all endpoints
-- `vertex-ar/app/encryption.py`: Existing encryption utilities (no changes needed)
+- `vertex-ar/app/encryption.py`: Updated to encrypt/decrypt Yandex Disk client secrets
 
 **Frontend:**
 - `vertex-ar/templates/admin_storage.html`: Enhanced form with help text and field descriptions

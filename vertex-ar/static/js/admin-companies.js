@@ -210,7 +210,7 @@ const CompanyManager = {
 
     openCreateCompanyModal() {
         this.state.currentCompany = null;
-        
+
         document.getElementById('companyModalTitle').textContent = 'Создать компанию';
         document.getElementById('companyName').value = '';
         document.getElementById('storageType').value = '';
@@ -218,7 +218,7 @@ const CompanyManager = {
         document.getElementById('storageFolder').value = '';
         document.getElementById('storageConnectionGroup').style.display = 'none';
         document.getElementById('storageFolderGroup').style.display = 'none';
-        
+
         this.showModal('companyModal');
     },
 
@@ -231,16 +231,20 @@ const CompanyManager = {
             }
 
             this.state.currentCompany = company;
-            
+
             document.getElementById('companyModalTitle').textContent = 'Редактировать компанию';
             document.getElementById('companyName').value = company.name;
             document.getElementById('companyName').disabled = true;
             document.getElementById('storageType').value = company.storage_type || 'local';
             document.getElementById('storageType').disabled = true;
-            
+
             if (company.storage_connection_id) {
                 await this.populateStorageConnections(company.storage_type);
                 document.getElementById('storageConnection').value = company.storage_connection_id;
+                document.getElementById('storageConnectionGroup').style.display = 'block';
+            } else if (company.storage_type === 'minio' || company.storage_type === 'yandex_disk') {
+                // For remote storage types without connection, show the connection group
+                await this.populateStorageConnections(company.storage_type);
                 document.getElementById('storageConnectionGroup').style.display = 'block';
             }
 
@@ -248,7 +252,7 @@ const CompanyManager = {
                 document.getElementById('storageFolder').value = company.storage_folder_path || company.yandex_disk_folder_id;
                 document.getElementById('storageFolderGroup').style.display = 'block';
             }
-            
+
             this.showModal('companyModal');
         } catch (error) {
             console.error('Error editing company:', error);
@@ -262,7 +266,14 @@ const CompanyManager = {
             return;
         }
 
-        if (!confirm(`Вы уверены, что хотите удалить компанию "${companyName}"?\n\nБудут удалены:\n- Все клиенты компании\n- Все портреты\n- Все связанные данные\n\nЭто действие необратимо!`)) {
+        if (!confirm(`Вы уверены, что хотите удалить компанию "${companyName}"?
+
+Будут удалены:
+- Все клиенты компании
+- Все портреты
+- Все связанные данные
+
+Это действие необратимо!`)) {
             return;
         }
 
@@ -311,7 +322,7 @@ const CompanyManager = {
                 this.showToast(`❌ Для ${storageType === 'minio' ? 'MinIO' : 'Яндекс Диска'} необходимо выбрать протестированное подключение`, 'error');
                 return;
             }
-            
+
             if (storageType === 'yandex_disk' && !storageFolder) {
                 this.showToast('❌ Для Яндекс Диска необходимо указать папку для хранения файлов', 'error');
                 return;
@@ -331,7 +342,7 @@ const CompanyManager = {
         }
 
         this.showLoading(this.state.currentCompany ? 'Обновление компании...' : 'Создание компании...');
-        
+
         try {
             let response;
             if (this.state.currentCompany) {
@@ -386,17 +397,26 @@ const CompanyManager = {
         const storageType = event.target.value;
         const storageConnectionGroup = document.getElementById('storageConnectionGroup');
         const storageFolderGroup = document.getElementById('storageFolderGroup');
+        const storageFolder = document.getElementById('storageFolder');
         const storageHelpText = document.getElementById('storageHelpText');
 
         // Clear previous selections
         document.getElementById('storageConnection').value = '';
-        document.getElementById('storageFolder').value = '';
+        storageFolder.value = '';
 
         if (storageType === 'local' || storageType === 'local_disk') {
             storageConnectionGroup.style.display = 'none';
             storageFolderGroup.style.display = 'block';
             document.getElementById('storageConnection').required = false;
-            
+            storageFolder.readOnly = false;
+
+            // Special handling for default "Vertex AR" company
+            const companyName = document.getElementById('companyName').value;
+            if (companyName === 'Vertex AR') {
+                storageFolder.value = 'portraits';
+                storageFolder.readOnly = true;
+            }
+
             // Update help text for local storage
             if (storageHelpText) {
                 storageHelpText.innerHTML = 'ℹ️ Локальное хранилище: файлы сохраняются на сервере. Укажите путь к папке для хранения.';
@@ -405,25 +425,26 @@ const CompanyManager = {
             storageConnectionGroup.style.display = 'block';
             storageFolderGroup.style.display = 'block';
             document.getElementById('storageConnection').required = true;
-            
+            storageFolder.readOnly = false;
+
             // Show/hide folder required indicator
             const folderRequired = document.getElementById('folderRequired');
             if (folderRequired) {
                 folderRequired.style.display = storageType === 'yandex_disk' ? 'inline' : 'none';
             }
-            
+
             // Update help text for remote storage
             if (storageHelpText) {
                 const typeName = storageType === 'minio' ? 'MinIO' : 'Яндекс Диск';
                 const folderNote = storageType === 'yandex_disk' ? ' Папка обязательна.' : '';
                 storageHelpText.innerHTML = `ℹ️ Удалённое хранилище ${typeName}: сначала выберите настроенное подключение (с галочкой ✓), затем укажите папку.${folderNote}`;
             }
-            
+
             await this.populateStorageConnections(storageType);
         } else {
             storageConnectionGroup.style.display = 'none';
             storageFolderGroup.style.display = 'none';
-            
+
             if (storageHelpText) {
                 storageHelpText.innerHTML = '';
             }
@@ -445,7 +466,7 @@ const CompanyManager = {
             }
 
             const connections = await response.json();
-            
+
             // Filter by storage type
             const filteredConnections = connections.filter(conn => {
                 return conn.type === storageType && conn.is_active && conn.is_tested;
@@ -481,7 +502,7 @@ const CompanyManager = {
         this.state.currentPath = '/';
         this.state.selectedFolder = null;
         document.getElementById('currentPath').value = '/';
-        
+
         this.showModal('folderModal');
         await this.loadFolders();
     },
@@ -498,7 +519,7 @@ const CompanyManager = {
             if (storageType === 'yandex_disk') {
                 const storageConnectionId = document.getElementById('storageConnection').value;
                 const companyId = this.state.currentCompany?.id;
-                
+
                 let url = `/api/yandex-disk/folders?path=${encodeURIComponent(this.state.currentPath)}`;
                 if (companyId) {
                     url += `&company_id=${companyId}`;
@@ -547,11 +568,11 @@ const CompanyManager = {
 
     selectFolder(path, name) {
         this.state.selectedFolder = { path, name };
-        
+
         document.querySelectorAll('.folder-item').forEach(item => {
             item.classList.remove('selected');
         });
-        
+
         event.target.closest('.folder-item').classList.add('selected');
     },
 
@@ -563,7 +584,7 @@ const CompanyManager = {
         }
 
         const storageType = document.getElementById('storageType').value;
-        
+
         if (storageType === 'yandex_disk') {
             this.showToast('Создание папок на Яндекс.Диске пока не поддерживается через интерфейс', 'warning');
             return;
@@ -633,7 +654,7 @@ const CompanyManager = {
         }
 
         this.showLoading('Сохранение настроек резервного копирования...');
-        
+
         try {
             const response = await fetch(`/api/remote-storage/companies/${this.state.currentCompany.id}/backup-config`, {
                 method: 'POST',
@@ -694,19 +715,19 @@ const CompanyManager = {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        
+
         const icon = {
             'success': '✅',
             'error': '❌',
             'warning': '⚠️',
             'info': 'ℹ️'
         }[type] || 'ℹ️';
-        
+
         toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
         container.appendChild(toast);
-        
+
         setTimeout(() => toast.classList.add('show'), 10);
-        
+
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);

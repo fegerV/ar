@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Управление хранилищами Vertex AR">
     <title>Управление хранилищами - Vertex AR</title>
-    
+
     <!-- Critical CSS for above-the-fold content -->
     <style>
         /* Critical styles for initial render */
@@ -23,7 +24,7 @@
             --text-color: #e0e0e0;
             --border-color: #444;
             --border-radius: 8px;
-            --box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             --transition-speed: 0.3s;
         }
 
@@ -33,7 +34,7 @@
             --border-color: #ddd;
             --light-color: #ffffff;
             --dark-color: #343a40;
-            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -296,8 +297,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .alert {
@@ -332,14 +338,37 @@
             color: var(--secondary-color);
         }
 
-        .mt-1 { margin-top: 0.5rem; }
-        .mt-2 { margin-top: 1rem; }
-        .mt-3 { margin-top: 1.5rem; }
-        .mb-1 { margin-bottom: 0.5rem; }
-        .mb-2 { margin-bottom: 1rem; }
-        .mb-3 { margin-bottom: 1.5rem; }
-        .ml-1 { margin-left: 0.5rem; }
-        .mr-1 { margin-right: 0.5rem; }
+        .mt-1 {
+            margin-top: 0.5rem;
+        }
+
+        .mt-2 {
+            margin-top: 1rem;
+        }
+
+        .mt-3 {
+            margin-top: 1.5rem;
+        }
+
+        .mb-1 {
+            margin-bottom: 0.5rem;
+        }
+
+        .mb-2 {
+            margin-bottom: 1rem;
+        }
+
+        .mb-3 {
+            margin-bottom: 1.5rem;
+        }
+
+        .ml-1 {
+            margin-left: 0.5rem;
+        }
+
+        .mr-1 {
+            margin-right: 0.5rem;
+        }
 
         /* Navigation Tabs */
         .nav-tabs {
@@ -411,6 +440,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header class="header">
@@ -485,14 +515,16 @@
                 <div class="alert alert-info" style="margin-bottom: 1.5rem;">
                     <strong>ℹ️ Регистрация подключения к хранилищу</strong>
                     <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
-                        Сначала зарегистрируйте подключение к удалённому хранилищу, затем привяжите компании к этому подключению. 
+                        Сначала зарегистрируйте подключение к удалённому хранилищу, затем привяжите компании к этому
+                        подключению.
                         Все учётные данные шифруются перед сохранением.
                     </p>
                 </div>
                 <form id="storageForm">
                     <div class="form-group">
                         <label for="storageName">Название подключения *</label>
-                        <input type="text" id="storageName" class="form-control" required placeholder="Например: Основное MinIO хранилище">
+                        <input type="text" id="storageName" class="form-control" required
+                            placeholder="Например: Основное MinIO хранилище">
                         <small class="text-muted">Понятное имя для идентификации подключения</small>
                     </div>
 
@@ -511,7 +543,8 @@
                         <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Параметры MinIO / S3</h4>
                         <div class="form-group">
                             <label for="minioEndpoint">Endpoint (адрес сервера) *</label>
-                            <input type="text" id="minioEndpoint" class="form-control" placeholder="minio.example.com:9000">
+                            <input type="text" id="minioEndpoint" class="form-control"
+                                placeholder="minio.example.com:9000">
                             <small class="text-muted">Адрес и порт MinIO сервера (без http://)</small>
                         </div>
                         <div class="form-group">
@@ -522,11 +555,13 @@
                         <div class="form-group">
                             <label for="minioSecretKey">Secret Key (секретный ключ) *</label>
                             <input type="password" id="minioSecretKey" class="form-control" placeholder="••••••••">
-                            <small class="text-muted">Секретный ключ (будет зашифрован и не отображается после сохранения)</small>
+                            <small class="text-muted">Секретный ключ (будет зашифрован и не отображается после
+                                сохранения)</small>
                         </div>
                         <div class="form-group">
                             <label for="minioBucket">Bucket (корзина) *</label>
-                            <input type="text" id="minioBucket" class="form-control" value="vertex-ar" placeholder="vertex-ar">
+                            <input type="text" id="minioBucket" class="form-control" value="vertex-ar"
+                                placeholder="vertex-ar">
                             <small class="text-muted">Имя корзины для хранения файлов</small>
                         </div>
                         <div class="form-group">
@@ -534,7 +569,8 @@
                                 <input type="checkbox" id="minioSecure">
                                 Использовать HTTPS
                             </label>
-                            <small class="text-muted" style="display: block; margin-left: 1.5rem;">Включить для защищённого соединения (SSL/TLS)</small>
+                            <small class="text-muted" style="display: block; margin-left: 1.5rem;">Включить для
+                                защищённого соединения (SSL/TLS)</small>
                         </div>
                     </div>
 
@@ -542,16 +578,34 @@
                     <div id="yandexConfig" style="display: none;">
                         <h4 style="margin: 1.5rem 0 1rem 0; font-size: 1.1rem;">Параметры Яндекс Диска</h4>
                         <div class="form-group">
+                            <label for="yandexClientId">Client ID *</label>
+                            <input type="text" id="yandexClientId" class="form-control" placeholder="Введите Client ID">
+                            <small class="text-muted">Client ID приложения Яндекс OAuth</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="yandexClientSecret">Client Secret *</label>
+                            <input type="password" id="yandexClientSecret" class="form-control"
+                                placeholder="Введите Client Secret">
+                            <small class="text-muted">Client Secret приложения Яндекс OAuth (будет зашифрован)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="yandexRedirectUri">Redirect URI *</label>
+                            <input type="text" id="yandexRedirectUri" class="form-control"
+                                placeholder="https://your-domain.com/oauth/callback">
+                            <small class="text-muted">URI перенаправления для OAuth авторизации</small>
+                        </div>
+                        <div class="form-group">
                             <label for="yandexToken">OAuth Token (токен доступа) *</label>
                             <textarea id="yandexToken" class="form-control" rows="3" placeholder="y0_AgA..."></textarea>
                             <small class="text-muted">
-                                OAuth токен от Яндекс Диска (будет зашифрован). 
+                                OAuth токен от Яндекс Диска (будет зашифрован).
                                 <a href="https://yandex.ru/dev/disk/poligon/" target="_blank">Получить токен</a>
                             </small>
                         </div>
                         <div class="form-group">
                             <label for="yandexBasePath">Базовый путь (необязательно)</label>
-                            <input type="text" id="yandexBasePath" class="form-control" value="vertex-ar" placeholder="vertex-ar">
+                            <input type="text" id="yandexBasePath" class="form-control" value="vertex-ar"
+                                placeholder="vertex-ar">
                             <small class="text-muted">Корневая папка для хранения файлов на Яндекс Диске</small>
                         </div>
                     </div>
@@ -574,7 +628,7 @@
         let storageConnections = [];
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             loadStorageList();
             loadStorageOptions();
         });
@@ -582,13 +636,13 @@
         // Load storage connections list
         async function loadStorageList() {
             const container = document.getElementById('storageList');
-            
+
             try {
                 const response = await fetch('/storages');
                 if (!response.ok) throw new Error('Failed to load storage list');
-                
+
                 storageConnections = await response.json();
-                
+
                 if (storageConnections.length === 0) {
                     container.innerHTML = `
                         <div class="text-center">
@@ -627,7 +681,7 @@
                         healthBadge = 'secondary';
                         healthIcon = '⏸';
                     }
-                    
+
                     html += `
                         <tr>
                             <td>
@@ -672,15 +726,15 @@
         // Load available storage options for companies
         async function loadStorageOptions() {
             const container = document.getElementById('storageOptions');
-            
+
             try {
                 const response = await fetch('/storage-options');
                 if (!response.ok) throw new Error('Failed to load storage options');
-                
+
                 const options = await response.json();
-                
+
                 let html = '<div class="row">';
-                
+
                 options.forEach(option => {
                     html += `
                         <div class="col-md-4 mb-3">
@@ -692,16 +746,16 @@
                                     </span>
                                 </p>
                                 <p>
-                                    ${option.is_available ? 
-                                        '<span class="badge badge-success">Доступно</span>' : 
-                                        '<span class="badge badge-danger">Недоступно</span>'
-                                    }
+                                    ${option.is_available ?
+                            '<span class="badge badge-success">Доступно</span>' :
+                            '<span class="badge badge-danger">Недоступно</span>'
+                        }
                                 </p>
                             </div>
                         </div>
                     `;
                 });
-                
+
                 html += '</div>';
                 container.innerHTML = html;
 
@@ -725,16 +779,16 @@
         function editStorage(storageId) {
             currentStorageId = storageId;
             const storage = storageConnections.find(s => s.id === storageId);
-            
+
             if (!storage) return;
-            
+
             document.getElementById('modalTitle').textContent = 'Изменить хранилище';
-            
+
             document.getElementById('storageName').value = storage.name;
             document.getElementById('storageType').value = storage.type;
-            
+
             updateConfigFields();
-            
+
             // Fill config fields
             if (storage.type === 'minio') {
                 document.getElementById('minioEndpoint').value = storage.config.endpoint || '';
@@ -743,17 +797,20 @@
                 document.getElementById('minioBucket').value = storage.config.bucket || '';
                 document.getElementById('minioSecure').checked = storage.config.secure || false;
             } else if (storage.type === 'yandex_disk') {
+                document.getElementById('yandexClientId').value = storage.config.client_id || '';
+                document.getElementById('yandexClientSecret').value = storage.config.client_secret || '';
+                document.getElementById('yandexRedirectUri').value = storage.config.redirect_uri || '';
                 document.getElementById('yandexToken').value = storage.config.oauth_token || '';
                 document.getElementById('yandexBasePath').value = storage.config.base_path || '';
             }
-            
+
             showModal();
         }
 
         // Update config fields based on storage type
         function updateConfigFields() {
             const type = document.getElementById('storageType').value;
-            
+
             document.getElementById('minioConfig').style.display = type === 'minio' ? 'block' : 'none';
             document.getElementById('yandexConfig').style.display = type === 'yandex_disk' ? 'block' : 'none';
         }
@@ -762,19 +819,19 @@
         async function testCurrentStorage() {
             const testBtn = document.getElementById('testBtn');
             const originalText = testBtn.innerHTML;
-            
+
             testBtn.innerHTML = '<span class="loading"></span> Тест...';
             testBtn.disabled = true;
-            
+
             try {
                 const config = getStorageConfig();
-                
+
                 // Create temporary storage for testing
                 const tempStorage = {
                     type: document.getElementById('storageType').value,
                     config: config
                 };
-                
+
                 // First save temporary storage, then test it
                 const response = await fetch('/storages/test', {
                     method: 'POST',
@@ -786,15 +843,15 @@
                         temp_storage: tempStorage
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAlert('Тест соединения пройден успешно!', 'success');
                 } else {
                     showAlert(`Ошибка теста: ${result.message}`, 'danger');
                 }
-                
+
             } catch (error) {
                 console.error('Error testing storage:', error);
                 showAlert('Ошибка при тестировании соединения', 'danger');
@@ -816,16 +873,16 @@
                         connection_id: storageId
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showAlert('Тест соединения пройден успешно!', 'success');
                     loadStorageList(); // Refresh to show updated test status
                 } else {
                     showAlert(`Ошибка теста: ${result.message}`, 'danger');
                 }
-                
+
             } catch (error) {
                 console.error('Error testing storage:', error);
                 showAlert('Ошибка при тестировании соединения', 'danger');
@@ -836,20 +893,20 @@
         async function saveStorage() {
             const saveBtn = document.getElementById('saveBtn');
             const originalText = saveBtn.innerHTML;
-            
+
             saveBtn.innerHTML = '<span class="loading"></span> Сохранение...';
             saveBtn.disabled = true;
-            
+
             try {
                 const data = {
                     name: document.getElementById('storageName').value,
                     type: document.getElementById('storageType').value,
                     config: getStorageConfig()
                 };
-                
+
                 const method = currentStorageId ? 'PUT' : 'POST';
                 const url = currentStorageId ? `/storages/${currentStorageId}` : '/storages';
-                
+
                 const response = await fetch(url, {
                     method: method,
                     headers: {
@@ -857,7 +914,7 @@
                     },
                     body: JSON.stringify(data)
                 });
-                
+
                 if (response.ok) {
                     showAlert('Хранилище сохранено успешно!', 'success');
                     closeModal();
@@ -867,7 +924,7 @@
                     const error = await response.json();
                     showAlert(`Ошибка сохранения: ${error.detail || 'Неизвестная ошибка'}`, 'danger');
                 }
-                
+
             } catch (error) {
                 console.error('Error saving storage:', error);
                 showAlert('Ошибка при сохранении хранилища', 'danger');
@@ -882,12 +939,12 @@
             if (!confirm('Вы уверены, что хотите удалить это хранилище?')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/storages/${storageId}`, {
                     method: 'DELETE'
                 });
-                
+
                 if (response.ok) {
                     showAlert('Хранилище удалено успешно!', 'success');
                     loadStorageList();
@@ -896,7 +953,7 @@
                     const error = await response.json();
                     showAlert(`Ошибка удаления: ${error.detail || 'Неизвестная ошибка'}`, 'danger');
                 }
-                
+
             } catch (error) {
                 console.error('Error deleting storage:', error);
                 showAlert('Ошибка при удалении хранилища', 'danger');
@@ -906,7 +963,7 @@
         // Get storage configuration from form
         function getStorageConfig() {
             const type = document.getElementById('storageType').value;
-            
+
             if (type === 'minio') {
                 return {
                     endpoint: document.getElementById('minioEndpoint').value,
@@ -917,11 +974,14 @@
                 };
             } else if (type === 'yandex_disk') {
                 return {
+                    client_id: document.getElementById('yandexClientId').value,
+                    client_secret: document.getElementById('yandexClientSecret').value,
+                    redirect_uri: document.getElementById('yandexRedirectUri').value,
                     oauth_token: document.getElementById('yandexToken').value,
                     base_path: document.getElementById('yandexBasePath').value
                 };
             }
-            
+
             return {};
         }
 
@@ -941,14 +1001,14 @@
         }
 
         // Close modal on escape key
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeModal();
             }
         });
 
         // Close modal on background click
-        document.getElementById('storageModal').addEventListener('click', function(e) {
+        document.getElementById('storageModal').addEventListener('click', function (e) {
             if (e.target === this) {
                 closeModal();
             }
@@ -963,7 +1023,7 @@
         htmlElement.setAttribute('data-theme', savedTheme);
         themeToggle.textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
-        themeToggle.addEventListener('click', function() {
+        themeToggle.addEventListener('click', function () {
             const currentTheme = htmlElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             htmlElement.setAttribute('data-theme', newTheme);
@@ -972,4 +1032,5 @@
         });
     </script>
 </body>
+
 </html>

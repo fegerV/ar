@@ -109,21 +109,21 @@ def _calculate_lifecycle_info(record: Dict[str, Any]) -> Dict[str, Any]:
     """Calculate lifecycle status and days remaining for a portrait."""
     subscription_end = record.get("subscription_end")
     lifecycle_status = record.get("lifecycle_status", "active")
-    
+
     days_remaining = None
     computed_status = lifecycle_status or "active"
-    
+
     if subscription_end:
         try:
             if isinstance(subscription_end, str):
                 end_date = datetime.fromisoformat(subscription_end.replace('Z', '+00:00'))
             else:
                 end_date = subscription_end
-            
+
             now = datetime.now(end_date.tzinfo) if end_date.tzinfo else datetime.now()
             delta = end_date - now
             days_remaining = delta.days
-            
+
             # Auto-compute status based on days remaining if not explicitly archived
             if lifecycle_status != "archived":
                 if days_remaining < 0:
@@ -134,7 +134,7 @@ def _calculate_lifecycle_info(record: Dict[str, Any]) -> Dict[str, Any]:
                     computed_status = "active"
         except (ValueError, AttributeError, TypeError):
             pass
-    
+
     return {
         "status": computed_status,
         "days_remaining": days_remaining,
@@ -150,10 +150,10 @@ def _serialize_records(records: List[Dict[str, Any]], total_count: int) -> List[
         order_position = total - idx
         image_source = record.get("image_preview_path") or record.get("image_path")
         video_preview = record.get("video_preview_path")
-        
+
         # Calculate lifecycle information
         lifecycle_info = _calculate_lifecycle_info(record)
-        
+
         serialized.append({
             "id": record.get("portrait_id"),
             "order_number": f"{max(order_position, 1):06d}",
@@ -378,28 +378,28 @@ async def admin_backup_settings(
         # For now, we'll store them in a JSON config file
         from pathlib import Path
         import json
-        
+
         config_dir = Path("app_data")
         config_dir.mkdir(exist_ok=True)
         config_file = config_dir / "backup_settings.json"
-        
+
         # Load existing settings
         existing_settings = {}
         if config_file.exists():
             with open(config_file, 'r') as f:
                 existing_settings = json.load(f)
-        
+
         # Update with new settings
         existing_settings.update(settings_data)
-        
+
         # Save updated settings
         with open(config_file, 'w') as f:
             json.dump(existing_settings, f, indent=2)
-        
+
         logger.info(f"Backup settings updated by admin: {_}")
-        
+
         return {"success": True, "message": "Backup settings saved successfully"}
-        
+
     except Exception as e:
         logger.error(f"Failed to save backup settings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to save settings: {str(e)}")
@@ -414,9 +414,9 @@ async def admin_get_backup_settings(
     try:
         from pathlib import Path
         import json
-        
+
         config_file = Path("app_data/backup_settings.json")
-        
+
         if config_file.exists():
             with open(config_file, 'r') as f:
                 settings = json.load(f)
@@ -427,9 +427,9 @@ async def admin_get_backup_settings(
                 "max_backups": 7,
                 "auto_split_backups": True
             }
-        
+
         return {"success": True, "settings": settings}
-        
+
     except Exception as e:
         logger.error(f"Failed to get backup settings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
@@ -444,7 +444,7 @@ async def admin_get_yandex_settings(
     try:
         database = get_database()
         settings = database.get_admin_settings()
-        
+
         if not settings:
             return {
                 "success": True,
@@ -460,7 +460,7 @@ async def admin_get_yandex_settings(
                     }
                 }
             }
-        
+
         return {
             "success": True,
             "settings": {
@@ -476,7 +476,7 @@ async def admin_get_yandex_settings(
                 "last_tested_at": settings.get("last_tested_at")
             }
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get Yandex settings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
@@ -490,36 +490,36 @@ async def admin_save_yandex_oauth_settings(
     """Save Yandex Disk OAuth settings."""
     try:
         from app.encryption import encryption_manager
-        
+
         data = await request.json()
         client_id = data.get("client_id", "").strip()
         client_secret = data.get("client_secret", "").strip()
         redirect_uri = data.get("redirect_uri", "https://oauth.yandex.ru/verification_code").strip()
-        
+
         if not client_id:
             raise HTTPException(status_code=400, detail="Client ID is required")
-        
+
         if not client_secret:
             raise HTTPException(status_code=400, detail="Client Secret is required")
-        
+
         if not redirect_uri:
             raise HTTPException(status_code=400, detail="Redirect URI is required")
-        
+
         client_secret_encrypted = encryption_manager.encrypt(client_secret)
-        
+
         database = get_database()
         success = database.save_yandex_oauth_settings(
             client_id=client_id,
             client_secret_encrypted=client_secret_encrypted,
             redirect_uri=redirect_uri
         )
-        
+
         if success:
             logger.info(f"Yandex OAuth settings saved by admin: {_}")
             return {"success": True, "message": "Yandex OAuth settings saved successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save settings")
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -535,27 +535,27 @@ async def admin_save_yandex_smtp_settings(
     """Save Yandex SMTP settings."""
     try:
         from app.encryption import encryption_manager
-        
+
         data = await request.json()
         smtp_email = data.get("smtp_email", "").strip() or None
         smtp_password = data.get("smtp_password", "").strip() or None
-        
+
         smtp_password_encrypted = None
         if smtp_password:
             smtp_password_encrypted = encryption_manager.encrypt(smtp_password)
-        
+
         database = get_database()
         success = database.save_yandex_smtp_settings(
             smtp_email=smtp_email,
             smtp_password_encrypted=smtp_password_encrypted
         )
-        
+
         if success:
             logger.info(f"Yandex SMTP settings saved by admin: {_}")
             return {"success": True, "message": "Yandex SMTP settings saved successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save settings")
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -572,51 +572,51 @@ async def admin_test_yandex_oauth(
     try:
         from app.encryption import encryption_manager
         import requests
-        
+
         database = get_database()
         settings = database.get_admin_settings()
-        
+
         if not settings:
             raise HTTPException(status_code=400, detail="Yandex OAuth settings not configured")
-        
+
         client_id = settings.get("yandex_client_id")
         client_secret_encrypted = settings.get("yandex_client_secret_encrypted")
-        
+
         if not client_id or not client_secret_encrypted:
             raise HTTPException(status_code=400, detail="Yandex OAuth settings incomplete")
-        
+
         try:
             client_secret = encryption_manager.decrypt(client_secret_encrypted)
         except Exception as e:
             logger.error(f"Failed to decrypt client secret: {e}")
             raise HTTPException(status_code=500, detail="Failed to decrypt credentials")
-        
+
         status = "connected"
         message = "Credentials validated successfully"
-        
+
         try:
             database.update_yandex_connection_status(oauth_status=status)
         except Exception as e:
             logger.warning(f"Failed to update connection status: {e}")
-        
+
         return {
             "success": True,
             "connected": status == "connected",
             "message": message,
             "status": status
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to test Yandex OAuth: {e}", exc_info=True)
-        
+
         try:
             database = get_database()
             database.update_yandex_connection_status(oauth_status="disconnected")
         except Exception:
             pass
-        
+
         raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
 
 
@@ -630,33 +630,33 @@ async def admin_test_yandex_smtp(
         from app.encryption import encryption_manager
         import smtplib
         import ssl
-        
+
         database = get_database()
         settings = database.get_admin_settings()
-        
+
         if not settings:
             raise HTTPException(status_code=400, detail="Yandex SMTP settings not configured")
-        
+
         smtp_email = settings.get("yandex_smtp_email")
         smtp_password_encrypted = settings.get("yandex_smtp_password_encrypted")
-        
+
         if not smtp_email or not smtp_password_encrypted:
             raise HTTPException(status_code=400, detail="Yandex SMTP settings incomplete")
-        
+
         try:
             smtp_password = encryption_manager.decrypt(smtp_password_encrypted)
         except Exception as e:
             logger.error(f"Failed to decrypt SMTP password: {e}")
             raise HTTPException(status_code=500, detail="Failed to decrypt credentials")
-        
+
         status = "connected"
         message = "SMTP connection successful"
-        
+
         try:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL("smtp.yandex.ru", 465, context=context) as server:
                 server.login(smtp_email, smtp_password)
-            
+
             status = "connected"
             message = "SMTP connection successful"
         except smtplib.SMTPAuthenticationError:
@@ -665,30 +665,30 @@ async def admin_test_yandex_smtp(
         except Exception as e:
             status = "disconnected"
             message = f"Connection failed: {str(e)}"
-        
+
         try:
             database.update_yandex_connection_status(smtp_status=status)
         except Exception as e:
             logger.warning(f"Failed to update SMTP status: {e}")
-        
+
         return {
             "success": True,
             "connected": status == "connected",
             "message": message,
             "status": status
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to test Yandex SMTP: {e}", exc_info=True)
-        
+
         try:
             database = get_database()
             database.update_yandex_connection_status(smtp_status="disconnected")
         except Exception:
             pass
-        
+
         raise HTTPException(status_code=500, detail=f"Connection test failed: {str(e)}")
 
 
@@ -789,6 +789,21 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
     portrait = database.get_portrait(portrait_id)
     if not portrait:
         return RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
+
+    # Get folder information if portrait has folder_id
+    folder_info = None
+    if portrait.get("folder_id"):
+        folder = database.get_folder(portrait["folder_id"])
+        if folder:
+            # Get project information
+            project = database.get_project(folder["project_id"])
+            if project:
+                # Build folder path information
+                folder_info = {
+                    "name": folder["name"],
+                    "project_name": project["name"],
+                    "path": f"{project['name']} / {folder['name']}"
+                }
 
     # Load image preview if available
     image_preview_data = None
@@ -933,6 +948,7 @@ async def admin_order_detail(request: Request, portrait_id: str) -> HTMLResponse
         "portrait_preview_filename": f"{portrait_id}_preview.jpg",
         "image_analysis": image_analysis_data,
         "marker_info": marker_info,
+        "folder_info": folder_info,  # Add folder information to context
     }
     return templates.TemplateResponse("admin_order_detail.html", context)
 
@@ -970,6 +986,10 @@ async def admin_login(
 
         logger.info(f"Admin login successful for user: {username}")
 
+        # Get session timeout from config (in minutes) and convert to seconds
+        session_timeout_minutes = app.state.config["SESSION_TIMEOUT_MINUTES"]
+        session_timeout_seconds = session_timeout_minutes * 60
+
         response = RedirectResponse(url="/admin", status_code=status.HTTP_302_FOUND)
         response.set_cookie(
             key="authToken",
@@ -977,7 +997,7 @@ async def admin_login(
             httponly=True,
             secure=request.url.scheme == "https",
             samesite="lax",
-            max_age=86400,
+            max_age=session_timeout_seconds,
             path="/",
         )
         return response
@@ -996,7 +1016,6 @@ async def upload_ar_content_admin(
     video: UploadFile = File(...),
     client_name: str = Form(None),
     client_phone: str = Form(None),
-    client_notes: str = Form(None),
     username: str = Depends(require_admin)
 ) -> ARContentResponse:
     """
@@ -1058,10 +1077,10 @@ async def get_dashboard_stats(
     storage_percent = 0.0
     if disk_usage["total"]:
         storage_percent = min(100.0, round((storage_usage["total_size"] / disk_usage["total"]) * 100, 2))
-    
+
     # Get status counts for lifecycle management
     status_counts = database.count_portraits_by_status(company_id=company_id)
-    
+
     return {
         "company_id": company_id,
         "total_clients": database.count_clients(company_id=company_id),
@@ -1117,8 +1136,8 @@ async def search_dashboard_records(
     else:
         search_query = q.strip() if q.strip() else None
         records_raw = database.get_admin_records(
-            company_id=company_id, 
-            limit=safe_limit, 
+            company_id=company_id,
+            limit=safe_limit,
             search=search_query,
             status=status
         )
@@ -1381,25 +1400,25 @@ async def admin_storage_page(request: Request):
     from app.main import get_current_app
     app = get_current_app()
     templates = app.state.templates
-    
+
     # Verify admin user
     auth_token = request.cookies.get("authToken")
     if not auth_token:
         return RedirectResponse(url="/admin/login", status_code=302)
-    
+
     try:
         tokens = app.state.tokens
         username = tokens.verify_token(auth_token)
         if not username:
             return RedirectResponse(url="/admin/login", status_code=302)
-        
+
         database = app.state.database
         user = database.get_user(username)
         if not user or not user.get("is_admin", False):
             return RedirectResponse(url="/admin/login", status_code=302)
-        
+
         return templates.TemplateResponse("admin_storage.html", {"request": request})
-    
+
     except Exception as exc:
         logger.error(f"Error rendering admin storage page: {exc}")
         return RedirectResponse(url="/admin/login", status_code=302)

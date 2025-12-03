@@ -17,12 +17,12 @@ logger = get_logger(__name__)
 def normalize_storage_type(storage_type: str) -> str:
     """
     Normalize storage type to canonical values.
-    
+
     Converts legacy 'local' to 'local_disk'.
-    
+
     Args:
         storage_type: The storage type to normalize
-        
+
     Returns:
         The normalized storage type
     """
@@ -48,25 +48,25 @@ class Database:
     def _execute(self, query: str, params: Optional[tuple] = None):
         """
         Execute a SQL query with slow query tracking.
-        
+
         Args:
             query: SQL query string
             params: Query parameters tuple
-            
+
         Returns:
             Cursor object
         """
         import time
         start_time = time.time()
-        
+
         try:
             if params:
                 result = self._connection.execute(query, params)
             else:
                 result = self._connection.execute(query)
-            
+
             duration_ms = (time.time() - start_time) * 1000
-            
+
             # Track slow queries in monitoring system
             if duration_ms > 50:  # Only track queries > 50ms to reduce overhead
                 try:
@@ -75,12 +75,12 @@ class Database:
                         system_monitor.track_slow_query(query, duration_ms, params)
                 except Exception:
                     pass  # Silently fail - monitoring shouldn't break DB operations
-            
+
             return result
-            
+
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
-            logger.error(f"Query failed after {duration_ms:.2f}ms: {query[:200]}", 
+            logger.error(f"Query failed after {duration_ms:.2f}ms: {query[:200]}",
                         error=str(e), params=params)
             raise
 
@@ -217,13 +217,13 @@ class Database:
                         self._connection.execute(
                             """INSERT INTO companies (
                                 id, name, storage_type, storage_folder_path,
-                                email, description, city, phone, website, 
+                                email, description, city, phone, website,
                                 manager_name, manager_phone, manager_email
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                             (
-                                "vertex-ar-default", 
-                                "Vertex AR", 
-                                "local_disk", 
+                                "vertex-ar-default",
+                                "Vertex AR",
+                                "local_disk",
                                 "vertex_ar_content",
                                 "contact@vertex-ar.com",
                                 "Default company for Vertex AR platform",
@@ -284,7 +284,7 @@ class Database:
                 self._connection.execute("ALTER TABLE videos ADD COLUMN file_size_mb INTEGER")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add video animation scheduling fields
             try:
                 self._connection.execute("ALTER TABLE videos ADD COLUMN start_datetime TIMESTAMP")
@@ -302,7 +302,7 @@ class Database:
                 self._connection.execute("ALTER TABLE videos ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived'))")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Create table for video schedule history
             self._connection.execute(
                 """
@@ -318,7 +318,7 @@ class Database:
                 )
                 """
             )
-            
+
             # Create indexes for scheduling
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_start_end ON videos(start_datetime, end_datetime)")
@@ -347,7 +347,7 @@ class Database:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN folder_id TEXT")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add lifecycle management columns to portraits table
             try:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN subscription_end TIMESTAMP")
@@ -357,7 +357,7 @@ class Database:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN lifecycle_status TEXT DEFAULT 'active' CHECK (lifecycle_status IN ('active', 'expiring', 'archived'))")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add notification tracking columns for lifecycle management
             try:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_7days_sent TIMESTAMP")
@@ -371,19 +371,19 @@ class Database:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_expired_sent TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add email column to clients table
             try:
                 self._connection.execute("ALTER TABLE clients ADD COLUMN email TEXT")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Create index for email lookups in clients table
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(company_id, email)")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add slug column to projects table for category functionality
             try:
                 self._connection.execute("ALTER TABLE projects ADD COLUMN slug TEXT")
@@ -393,7 +393,7 @@ class Database:
                 self._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_company_slug ON projects(company_id, slug)")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add lifecycle management columns to projects table
             try:
                 self._connection.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
@@ -419,7 +419,7 @@ class Database:
                 self._connection.execute("ALTER TABLE projects ADD COLUMN notified_expired TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add last_status_change to portraits table
             try:
                 self._connection.execute("ALTER TABLE portraits ADD COLUMN last_status_change TIMESTAMP")
@@ -525,7 +525,7 @@ class Database:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN storage_folder_path TEXT")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Backfill default storage_folder_path for existing companies with NULL values
             try:
                 cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_folder_path IS NULL")
@@ -537,7 +537,7 @@ class Database:
                     logger.info("Backfilled default storage_folder_path for existing companies")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add backup provider columns to companies table
             try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN backup_provider TEXT")
@@ -547,7 +547,7 @@ class Database:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN backup_remote_path TEXT")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Add contact and metadata columns to companies table
             try:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN email TEXT")
@@ -585,7 +585,7 @@ class Database:
                 self._connection.execute("ALTER TABLE companies ADD COLUMN manager_email TEXT")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Migrate legacy "local" storage_type to "local_disk"
             try:
                 cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_type = 'local'")
@@ -598,7 +598,7 @@ class Database:
                     logger.info(f"Migrated {count} companies from storage_type='local' to 'local_disk'")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Drop legacy content_types column from companies table
             self._migrate_drop_content_types()
 
@@ -610,7 +610,7 @@ class Database:
                     BEFORE INSERT ON companies
                     BEGIN
                         SELECT CASE
-                            WHEN NEW.storage_connection_id IS NOT NULL AND 
+                            WHEN NEW.storage_connection_id IS NOT NULL AND
                                  (SELECT COUNT(*) FROM storage_connections WHERE id = NEW.storage_connection_id) = 0
                             THEN RAISE(ABORT, 'Foreign key violation: storage_connection_id')
                         END;
@@ -719,7 +719,7 @@ class Database:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_active ON email_templates(is_active)")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Create email_queue table for persistent email queue
             self._connection.execute(
                 """
@@ -739,7 +739,7 @@ class Database:
                 )
                 """
             )
-            
+
             # Create indexes for email_queue table
             try:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status)")
@@ -753,7 +753,7 @@ class Database:
                 self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status_created ON email_queue(status, created_at)")
             except sqlite3.OperationalError:
                 pass
-            
+
             # Create monitoring_settings table for persisted monitoring configuration
             self._connection.execute(
                 """
@@ -774,17 +774,44 @@ class Database:
                 )
                 """
             )
-            
+
             # Seed default monitoring settings if none exist
             self._seed_default_monitoring_settings()
-            
+
             # Seed default email templates
             self._seed_default_email_templates()
-    
+
+            # Create admin_sessions table for shared session storage across Uvicorn workers
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS admin_sessions (
+                    token TEXT PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL,
+                    last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    revoked INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+                )
+                """
+            )
+
+            # Create index for efficient session cleanup
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)")
+            except sqlite3.OperationalError:
+                pass
+
+            # Create index for username lookups
+            try:
+                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_admin_sessions_username ON admin_sessions(username)")
+            except sqlite3.OperationalError:
+                pass
+
     def _migrate_drop_content_types(self) -> None:
         """
         Migrate companies table to drop the legacy content_types column.
-        
+
         This migration:
         1. Checks if content_types column exists
         2. Creates a new table without the column
@@ -792,24 +819,24 @@ class Database:
         4. Normalizes storage_type values (local -> local_disk)
         5. Drops old table and renames new table
         6. Recreates indexes
-        
+
         Logs all operations for operator visibility.
         """
         try:
             # Check if content_types column exists
             cursor = self._connection.execute("PRAGMA table_info(companies)")
             columns = [row[1] for row in cursor.fetchall()]
-            
+
             if "content_types" not in columns:
                 logger.info("Migration: content_types column not found in companies table (already migrated)")
                 return
-            
+
             logger.info("Migration: Starting content_types column removal from companies table")
-            
+
             with self._lock:
                 # Start transaction
                 self._connection.execute("BEGIN TRANSACTION")
-                
+
                 try:
                     # Create new table without content_types column
                     self._connection.execute("""
@@ -834,12 +861,12 @@ class Database:
                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                         )
                     """)
-                    
+
                     # Copy data from old table to new table with normalized storage_type
                     # Build dynamic column list excluding content_types
                     copy_columns = [col for col in columns if col != "content_types"]
                     columns_str = ", ".join(copy_columns)
-                    
+
                     # Use CASE to normalize storage_type during copy
                     select_columns = []
                     for col in copy_columns:
@@ -848,42 +875,42 @@ class Database:
                         else:
                             select_columns.append(col)
                     select_str = ", ".join(select_columns)
-                    
+
                     self._connection.execute(f"""
                         INSERT INTO companies_new ({columns_str})
                         SELECT {select_str}
                         FROM companies
                     """)
-                    
+
                     # Get count for logging
                     cursor = self._connection.execute("SELECT COUNT(*) FROM companies_new")
                     migrated_count = cursor.fetchone()[0]
-                    
+
                     # Drop old table
                     self._connection.execute("DROP TABLE companies")
-                    
+
                     # Rename new table
                     self._connection.execute("ALTER TABLE companies_new RENAME TO companies")
-                    
+
                     # Recreate index for storage_connection_id
                     self._connection.execute(
                         "CREATE INDEX IF NOT EXISTS idx_companies_storage ON companies(storage_connection_id)"
                     )
-                    
+
                     # Commit transaction
                     self._connection.commit()
-                    
+
                     logger.info(
                         f"Migration: Successfully dropped content_types column from companies table. "
                         f"Migrated {migrated_count} companies with normalized storage_type values."
                     )
-                    
+
                 except Exception as e:
                     # Rollback on any error
                     self._connection.execute("ROLLBACK")
                     logger.error(f"Migration: Failed to drop content_types column: {e}", exc_info=True)
                     raise
-                    
+
         except Exception as e:
             logger.error(f"Migration: Error checking content_types column: {e}", exc_info=True)
             # Don't raise - allow app to continue even if migration fails
@@ -993,6 +1020,93 @@ class Database:
         except Exception as exc:
             logger.error("Failed to ensure default admin user", username=username, exc_info=exc)
             raise
+
+    # Admin session methods
+    def create_admin_session(self, token: str, username: str, expires_at: datetime) -> bool:
+        """Create a new admin session."""
+        try:
+            self._execute(
+                "INSERT INTO admin_sessions (token, username, expires_at) VALUES (?, ?, ?)",
+                (token, username, expires_at),
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create admin session: {e}", exc_info=e)
+            return False
+
+    def get_admin_session(self, token: str) -> Optional[Dict[str, Any]]:
+        """Get admin session by token."""
+        try:
+            cursor = self._execute(
+                "SELECT * FROM admin_sessions WHERE token = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP",
+                (token,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return dict(row)
+        except Exception as e:
+            logger.error(f"Failed to get admin session: {e}", exc_info=e)
+            return None
+
+    def update_admin_session_last_seen(self, token: str) -> bool:
+        """Update last seen timestamp for admin session."""
+        try:
+            cursor = self._execute(
+                "UPDATE admin_sessions SET last_seen = CURRENT_TIMESTAMP WHERE token = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP",
+                (token,),
+            )
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to update admin session last seen: {e}", exc_info=e)
+            return False
+
+    def revoke_admin_session(self, token: str) -> bool:
+        """Revoke an admin session."""
+        try:
+            cursor = self._execute(
+                "UPDATE admin_sessions SET revoked = 1 WHERE token = ?",
+                (token,),
+            )
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to revoke admin session: {e}", exc_info=e)
+            return False
+
+    def revoke_admin_sessions_for_user(self, username: str) -> int:
+        """Revoke all admin sessions for a user. Returns number of sessions revoked."""
+        try:
+            cursor = self._execute(
+                "UPDATE admin_sessions SET revoked = 1 WHERE username = ? AND revoked = 0",
+                (username,),
+            )
+            return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Failed to revoke admin sessions for user: {e}", exc_info=e)
+            return 0
+
+    def revoke_admin_sessions_for_user_except_current(self, username: str, current_token: str) -> int:
+        """Revoke all admin sessions for a user except the current one. Returns number of sessions revoked."""
+        try:
+            cursor = self._execute(
+                "UPDATE admin_sessions SET revoked = 1 WHERE username = ? AND token != ? AND revoked = 0",
+                (username, current_token),
+            )
+            return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Failed to revoke admin sessions for user except current: {e}", exc_info=e)
+            return 0
+
+    def cleanup_expired_admin_sessions(self) -> int:
+        """Remove expired admin sessions. Returns number of sessions removed."""
+        try:
+            cursor = self._execute(
+                "DELETE FROM admin_sessions WHERE expires_at < CURRENT_TIMESTAMP OR revoked = 1",
+            )
+            return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Failed to cleanup expired admin sessions: {e}", exc_info=e)
+            return 0
 
     # AR Content methods
     def create_ar_content(
@@ -1239,7 +1353,7 @@ class Database:
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (portrait_id, client_id, image_path, image_preview_path,
-             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code, folder_id, 
+             marker_fset, marker_fset3, marker_iset, permanent_link, qr_code, folder_id,
              subscription_end, lifecycle_status),
         )
         return self.get_portrait(portrait_id)
@@ -1292,20 +1406,20 @@ class Database:
         """Get list of portraits with optional filters."""
         query = "SELECT * FROM portraits WHERE 1=1"
         params: List[Any] = []
-        
+
         if client_id:
             query += " AND client_id = ?"
             params.append(client_id)
-        
+
         if folder_id:
             query += " AND folder_id = ?"
             params.append(folder_id)
-        
+
         query += " ORDER BY created_at DESC"
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def list_portraits_paginated(
         self,
         page: int = 1,
@@ -1317,7 +1431,7 @@ class Database:
     ) -> List[Dict[str, Any]]:
         """
         Get paginated list of portraits with optional filters.
-        
+
         Args:
             page: Page number (1-indexed)
             page_size: Number of items per page
@@ -1325,7 +1439,7 @@ class Database:
             folder_id: Filter by folder ID
             company_id: Filter by company ID (via client relationship)
             lifecycle_status: Filter by lifecycle status (active, expiring, archived)
-        
+
         Returns:
             List of portrait dictionaries
         """
@@ -1341,30 +1455,30 @@ class Database:
         else:
             query = "SELECT * FROM portraits WHERE 1=1"
             params = []
-        
+
         # Apply filters
         if client_id:
             query += " AND client_id = ?" if not company_id else " AND p.client_id = ?"
             params.append(client_id)
-        
+
         if folder_id:
             query += " AND folder_id = ?" if not company_id else " AND p.folder_id = ?"
             params.append(folder_id)
-        
+
         if lifecycle_status:
             query += " AND lifecycle_status = ?" if not company_id else " AND p.lifecycle_status = ?"
             params.append(lifecycle_status)
-        
+
         # Add ordering and pagination
         query += " ORDER BY created_at DESC" if not company_id else " ORDER BY p.created_at DESC"
         query += " LIMIT ? OFFSET ?"
-        
+
         offset = (page - 1) * page_size
         params.extend([page_size, offset])
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def count_portraits(
         self,
         client_id: Optional[str] = None,
@@ -1374,13 +1488,13 @@ class Database:
     ) -> int:
         """
         Count portraits with optional filters.
-        
+
         Args:
             client_id: Filter by client ID
             folder_id: Filter by folder ID
             company_id: Filter by company ID (via client relationship)
             lifecycle_status: Filter by lifecycle status
-        
+
         Returns:
             Total count of portraits matching filters
         """
@@ -1396,20 +1510,20 @@ class Database:
         else:
             query = "SELECT COUNT(*) FROM portraits WHERE 1=1"
             params = []
-        
+
         # Apply filters
         if client_id:
             query += " AND client_id = ?" if not company_id else " AND p.client_id = ?"
             params.append(client_id)
-        
+
         if folder_id:
             query += " AND folder_id = ?" if not company_id else " AND p.folder_id = ?"
             params.append(folder_id)
-        
+
         if lifecycle_status:
             query += " AND lifecycle_status = ?" if not company_id else " AND p.lifecycle_status = ?"
             params.append(lifecycle_status)
-        
+
         cursor = self._execute(query, tuple(params))
         result = cursor.fetchone()
         return result[0] if result else 0
@@ -1512,7 +1626,7 @@ class Database:
         """Update video scheduling settings."""
         updates = []
         params = []
-        
+
         if start_datetime is not None:
             updates.append("start_datetime = ?")
             params.append(start_datetime)
@@ -1525,25 +1639,25 @@ class Database:
         if status is not None:
             updates.append("status = ?")
             params.append(status)
-        
+
         if not updates:
             return False
-        
+
         params.append(video_id)
-        
+
         with self._lock:
             # Get current status for history
             cursor = self._execute("SELECT status FROM videos WHERE id = ?", (video_id,))
             current = cursor.fetchone()
             if not current:
                 return False
-            
+
             old_status = current["status"]
-            
+
             # Update video
             query = f"UPDATE videos SET {', '.join(updates)} WHERE id = ?"
             cursor = self._execute(query, tuple(params))
-            
+
             # Record status change in history if status changed
             if status is not None and old_status != status:
                 self._execute(
@@ -1561,7 +1675,7 @@ class Database:
                         changed_by or "system"
                     )
                 )
-            
+
             self._connection.commit()
             return cursor.rowcount > 0
 
@@ -1570,10 +1684,10 @@ class Database:
         now = datetime.utcnow().isoformat()
         cursor = self._execute(
             """
-            SELECT * FROM videos 
-            WHERE status = 'active' 
-            AND start_datetime IS NOT NULL 
-            AND start_datetime <= ? 
+            SELECT * FROM videos
+            WHERE status = 'active'
+            AND start_datetime IS NOT NULL
+            AND start_datetime <= ?
             AND (end_datetime IS NULL OR end_datetime > ?)
             AND is_active = 0
             ORDER BY start_datetime ASC
@@ -1587,10 +1701,10 @@ class Database:
         now = datetime.utcnow().isoformat()
         cursor = self._execute(
             """
-            SELECT * FROM videos 
-            WHERE status = 'active' 
-            AND end_datetime IS NOT NULL 
-            AND end_datetime <= ? 
+            SELECT * FROM videos
+            WHERE status = 'active'
+            AND end_datetime IS NOT NULL
+            AND end_datetime <= ?
             AND is_active = 1
             ORDER BY end_datetime ASC
             """,
@@ -1601,16 +1715,16 @@ class Database:
     def get_videos_for_rotation(self, portrait_id: str, rotation_type: str) -> List[Dict[str, Any]]:
         """Get videos for rotation based on type."""
         now = datetime.utcnow().isoformat()
-        
+
         if rotation_type == "sequential":
             # Get videos that should be activated in sequence
             cursor = self._execute(
                 """
-                SELECT * FROM videos 
-                WHERE portrait_id = ? 
+                SELECT * FROM videos
+                WHERE portrait_id = ?
                 AND status = 'active'
-                AND start_datetime IS NOT NULL 
-                AND start_datetime <= ? 
+                AND start_datetime IS NOT NULL
+                AND start_datetime <= ?
                 AND (end_datetime IS NULL OR end_datetime > ?)
                 ORDER BY start_datetime ASC
                 """,
@@ -1620,11 +1734,11 @@ class Database:
             # Get videos for cyclic rotation
             cursor = self._execute(
                 """
-                SELECT * FROM videos 
-                WHERE portrait_id = ? 
+                SELECT * FROM videos
+                WHERE portrait_id = ?
                 AND status = 'active'
-                AND start_datetime IS NOT NULL 
-                AND start_datetime <= ? 
+                AND start_datetime IS NOT NULL
+                AND start_datetime <= ?
                 AND (end_datetime IS NULL OR end_datetime > ?)
                 ORDER BY created_at ASC
                 """,
@@ -1632,7 +1746,7 @@ class Database:
             )
         else:
             return []
-        
+
         return [dict(row) for row in cursor.fetchall()]
 
     def activate_video_with_history(self, video_id: str, reason: str = "schedule_activation", changed_by: str = "system") -> bool:
@@ -1643,19 +1757,19 @@ class Database:
             current = cursor.fetchone()
             if not current:
                 return False
-            
+
             # Deactivate all videos for this portrait first
             self._connection.execute(
                 "UPDATE videos SET is_active = 0 WHERE portrait_id = ?",
                 (current["portrait_id"],),
             )
-            
+
             # Activate selected video
             cursor = self._connection.execute(
                 "UPDATE videos SET is_active = 1 WHERE id = ?",
                 (video_id,),
             )
-            
+
             # Record in history
             self._execute(
                 """
@@ -1672,7 +1786,7 @@ class Database:
                     changed_by
                 )
             )
-            
+
             self._connection.commit()
             return cursor.rowcount > 0
 
@@ -1684,13 +1798,13 @@ class Database:
             current = cursor.fetchone()
             if not current:
                 return False
-            
+
             # Deactivate video
             cursor = self._connection.execute(
                 "UPDATE videos SET is_active = 0 WHERE id = ?",
                 (video_id,),
             )
-            
+
             # Record in history
             self._execute(
                 """
@@ -1707,7 +1821,7 @@ class Database:
                     changed_by
                 )
             )
-            
+
             self._connection.commit()
             return cursor.rowcount > 0
 
@@ -1717,10 +1831,10 @@ class Database:
         with self._lock:
             cursor = self._execute(
                 """
-                UPDATE videos 
-                SET status = 'archived', is_active = 0 
-                WHERE status = 'active' 
-                AND end_datetime IS NOT NULL 
+                UPDATE videos
+                SET status = 'archived', is_active = 0
+                WHERE status = 'active'
+                AND end_datetime IS NOT NULL
                 AND end_datetime < ?
                 """,
                 (now,),
@@ -1732,8 +1846,8 @@ class Database:
         """Get schedule change history for a video."""
         cursor = self._execute(
             """
-            SELECT * FROM video_schedule_history 
-            WHERE video_id = ? 
+            SELECT * FROM video_schedule_history
+            WHERE video_id = ?
             ORDER BY changed_at DESC
             """,
             (video_id,),
@@ -1743,37 +1857,37 @@ class Database:
     def get_scheduled_videos_summary(self) -> Dict[str, Any]:
         """Get summary of scheduled videos."""
         now = datetime.utcnow().isoformat()
-        
+
         # Count by status
         cursor = self._execute("SELECT status, COUNT(*) as count FROM videos GROUP BY status")
         status_counts = {row["status"]: row["count"] for row in cursor.fetchall()}
-        
+
         # Count due for activation
         cursor = self._execute(
             """
-            SELECT COUNT(*) as count FROM videos 
-            WHERE status = 'active' 
-            AND start_datetime IS NOT NULL 
-            AND start_datetime > ? 
+            SELECT COUNT(*) as count FROM videos
+            WHERE status = 'active'
+            AND start_datetime IS NOT NULL
+            AND start_datetime > ?
             AND is_active = 0
             """,
             (now,),
         )
         pending_activation = cursor.fetchone()["count"]
-        
+
         # Count due for deactivation
         cursor = self._execute(
             """
-            SELECT COUNT(*) as count FROM videos 
-            WHERE status = 'active' 
-            AND end_datetime IS NOT NULL 
-            AND end_datetime > ? 
+            SELECT COUNT(*) as count FROM videos
+            WHERE status = 'active'
+            AND end_datetime IS NOT NULL
+            AND end_datetime > ?
             AND is_active = 1
             """,
             (now,),
         )
         pending_deactivation = cursor.fetchone()["count"]
-        
+
         return {
             "status_counts": status_counts,
             "pending_activation": pending_activation,
@@ -1822,12 +1936,12 @@ class Database:
     ) -> List[Dict[str, Any]]:
         """
         Get list of all videos with scheduling information.
-        
+
         Args:
             company_id: Optional filter by company (via portrait -> client -> company)
             status: Optional filter by video status (active, inactive, archived)
             rotation_type: Optional filter by rotation type (none, sequential, cyclic)
-            
+
         Returns:
             List of video records with all fields including scheduling metadata
         """
@@ -1839,21 +1953,21 @@ class Database:
             WHERE 1=1
         """
         params: List[Any] = []
-        
+
         if company_id:
             query += " AND c.company_id = ?"
             params.append(company_id)
-        
+
         if status:
             query += " AND v.status = ?"
             params.append(status)
-        
+
         if rotation_type:
             query += " AND v.rotation_type = ?"
             params.append(rotation_type)
-        
+
         query += " ORDER BY v.created_at DESC"
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
@@ -1883,11 +1997,11 @@ class Database:
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row["total"] if row else 0
-    
+
     def count_portraits_by_status(self, company_id: Optional[str] = None) -> Dict[str, int]:
         """Count portraits grouped by lifecycle status."""
         query = """
-            SELECT 
+            SELECT
                 COALESCE(portraits.lifecycle_status, 'active') as status,
                 COUNT(*) as count
             FROM portraits
@@ -1966,10 +2080,10 @@ class Database:
 
     # Company methods
     def create_company(
-        self, 
-        company_id: str, 
-        name: str, 
-        storage_type: str = "local_disk", 
+        self,
+        company_id: str,
+        name: str,
+        storage_type: str = "local_disk",
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None,
         storage_folder_path: Optional[str] = "vertex_ar_content",
@@ -1989,16 +2103,16 @@ class Database:
         try:
             # Normalize storage_type to canonical value
             normalized_storage_type = normalize_storage_type(storage_type)
-            
+
             self._execute(
                 """INSERT INTO companies (
-                    id, name, storage_type, storage_connection_id, yandex_disk_folder_id, 
+                    id, name, storage_type, storage_connection_id, yandex_disk_folder_id,
                     storage_folder_path, backup_provider, backup_remote_path,
                     email, description, city, phone, website, social_links,
                     manager_name, manager_phone, manager_email
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    company_id, name, normalized_storage_type, storage_connection_id, yandex_disk_folder_id, 
+                    company_id, name, normalized_storage_type, storage_connection_id, yandex_disk_folder_id,
                     storage_folder_path, backup_provider, backup_remote_path,
                     email, description, city, phone, website, social_links,
                     manager_name, manager_phone, manager_email
@@ -2031,8 +2145,8 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     def update_company(
-        self, 
-        company_id: str, 
+        self,
+        company_id: str,
         name: Optional[str] = None,
         storage_type: Optional[str] = None,
         storage_connection_id: Optional[str] = None,
@@ -2052,7 +2166,7 @@ class Database:
     ) -> bool:
         """
         Update company fields.
-        
+
         Args:
             company_id: Company ID
             name: Company name (optional)
@@ -2071,85 +2185,93 @@ class Database:
             manager_name: Manager name (optional)
             manager_phone: Manager phone (optional)
             manager_email: Manager email (optional)
-            
+
         Returns:
             True if successful, False otherwise
         """
         try:
             updates = []
             params: List[Any] = []
-            
+
             if name is not None:
                 updates.append("name = ?")
                 params.append(name)
-            
+
             if storage_type is not None:
                 # Normalize storage_type to canonical value
-                updates.append("storage_type = ?")
-                params.append(normalize_storage_type(storage_type))
-            
+                # Prevent changing default company storage type
+                if company_id == "vertex-ar-default" and storage_type != "local_disk":
+                    logger.warning("Attempt to change default company storage type blocked")
+                else:
+                    updates.append("storage_type = ?")
+                    params.append(normalize_storage_type(storage_type))
+
             if storage_connection_id is not None:
                 updates.append("storage_connection_id = ?")
                 params.append(storage_connection_id)
-            
+
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
-            
+
             if storage_folder_path is not None:
-                updates.append("storage_folder_path = ?")
-                params.append(storage_folder_path)
-            
+                # Prevent changing default company storage folder path
+                if company_id == "vertex-ar-default" and storage_folder_path != "vertex_ar_content":
+                    logger.warning("Attempt to change default company storage folder path blocked")
+                else:
+                    updates.append("storage_folder_path = ?")
+                    params.append(storage_folder_path)
+
             if backup_provider is not None:
                 updates.append("backup_provider = ?")
                 params.append(backup_provider)
-            
+
             if backup_remote_path is not None:
                 updates.append("backup_remote_path = ?")
                 params.append(backup_remote_path)
-            
+
             if email is not None:
                 updates.append("email = ?")
                 params.append(email)
-            
+
             if description is not None:
                 updates.append("description = ?")
                 params.append(description)
-            
+
             if city is not None:
                 updates.append("city = ?")
                 params.append(city)
-            
+
             if phone is not None:
                 updates.append("phone = ?")
                 params.append(phone)
-            
+
             if website is not None:
                 updates.append("website = ?")
                 params.append(website)
-            
+
             if social_links is not None:
                 updates.append("social_links = ?")
                 params.append(social_links)
-            
+
             if manager_name is not None:
                 updates.append("manager_name = ?")
                 params.append(manager_name)
-            
+
             if manager_phone is not None:
                 updates.append("manager_phone = ?")
                 params.append(manager_phone)
-            
+
             if manager_email is not None:
                 updates.append("manager_email = ?")
                 params.append(manager_email)
-            
+
             if not updates:
                 return False
-            
+
             params.append(company_id)
             query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
-            
+
             self._execute(query, tuple(params))
             logger.info(f"Updated company {company_id}")
             return True
@@ -2173,7 +2295,7 @@ class Database:
     def get_companies_with_client_count(self) -> List[Dict[str, Any]]:
         """Get all companies with count of clients in each."""
         cursor = self._execute("""
-            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id, 
+            SELECT c.id, c.name, c.created_at, c.storage_type, c.storage_connection_id,
                    c.yandex_disk_folder_id, c.storage_folder_path,
                    c.backup_provider, c.backup_remote_path,
                    c.email, c.description, c.city, c.phone, c.website, c.social_links,
@@ -2195,13 +2317,13 @@ class Database:
     ) -> List[Dict[str, Any]]:
         """
         Get paginated list of companies with optional filtering.
-        
+
         Args:
             limit: Maximum number of companies to return
             offset: Number of companies to skip
             search: Optional search query (matches name)
             storage_type: Optional storage type filter
-            
+
         Returns:
             List of company dicts with client_count
         """
@@ -2217,21 +2339,21 @@ class Database:
             WHERE 1=1
         """
         params: List[Any] = []
-        
+
         if search:
             query += " AND c.name LIKE ?"
             params.append(f"%{search}%")
-        
+
         if storage_type:
             query += " AND c.storage_type = ?"
             params.append(storage_type)
-        
+
         query += " GROUP BY c.id ORDER BY c.name ASC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def count_companies_filtered(
         self,
         search: Optional[str] = None,
@@ -2239,33 +2361,33 @@ class Database:
     ) -> int:
         """
         Count companies with optional filtering.
-        
+
         Args:
             search: Optional search query (matches name)
             storage_type: Optional storage type filter
-            
+
         Returns:
             Total count of matching companies
         """
         query = "SELECT COUNT(*) as count FROM companies WHERE 1=1"
         params: List[Any] = []
-        
+
         if search:
             query += " AND name LIKE ?"
             params.append(f"%{search}%")
-        
+
         if storage_type:
             query += " AND storage_type = ?"
             params.append(storage_type)
-        
+
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row['count'] if row else 0
 
     def update_company_storage(
-        self, 
-        company_id: str, 
-        storage_type: str, 
+        self,
+        company_id: str,
+        storage_type: str,
         storage_connection_id: Optional[str] = None,
         yandex_disk_folder_id: Optional[str] = None
     ) -> bool:
@@ -2273,33 +2395,33 @@ class Database:
         try:
             # Normalize storage_type to canonical value
             normalized_storage_type = normalize_storage_type(storage_type)
-            
+
             # Build dynamic update query
             updates = ["storage_type = ?", "storage_connection_id = ?"]
             params: List[Any] = [normalized_storage_type, storage_connection_id]
-            
+
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
                 params.append(yandex_disk_folder_id)
-            
+
             params.append(company_id)
             query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
-            
+
             self._execute(query, tuple(params))
             logger.info(f"Updated company {company_id} storage to {normalized_storage_type}")
             return True
         except Exception as exc:
             logger.error(f"Failed to update company storage: {exc}")
             return False
-    
+
     def set_company_yandex_folder(self, company_id: str, folder_path: str) -> bool:
         """
         Set Yandex Disk folder path for a company.
-        
+
         Args:
             company_id: Company ID
             folder_path: Yandex Disk folder path
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -2313,21 +2435,21 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to set Yandex Disk folder: {exc}")
             return False
-    
+
     def set_company_backup_config(
-        self, 
-        company_id: str, 
-        backup_provider: Optional[str], 
+        self,
+        company_id: str,
+        backup_provider: Optional[str],
         backup_remote_path: Optional[str]
     ) -> bool:
         """
         Set remote backup configuration for a company.
-        
+
         Args:
             company_id: Company ID
             backup_provider: Provider name (e.g., 'yandex_disk', 'google_drive') or None to unset
             backup_remote_path: Remote directory path for backups or None to unset
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -2345,14 +2467,14 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to set backup config: {exc}")
             return False
-    
+
     def get_company_backup_config(self, company_id: str) -> Optional[Dict[str, Any]]:
         """
         Get remote backup configuration for a company.
-        
+
         Args:
             company_id: Company ID
-            
+
         Returns:
             Dict with backup_provider and backup_remote_path or None if company not found
         """
@@ -2390,7 +2512,7 @@ class Database:
         row = cursor.fetchone()
         if row is None:
             return None
-        
+
         result = dict(row)
         # Parse config JSON
         import json
@@ -2398,7 +2520,7 @@ class Database:
             result['config'] = json.loads(result['config'])
         except (json.JSONDecodeError, TypeError):
             result['config'] = {}
-        
+
         return result
 
     def get_storage_connections(self, active_only: bool = True, tested_only: bool = False) -> List[Dict[str, Any]]:
@@ -2406,20 +2528,20 @@ class Database:
         query = "SELECT * FROM storage_connections"
         conditions = []
         params = []
-        
+
         if active_only:
             conditions.append("is_active = 1")
         if tested_only:
             conditions.append("is_tested = 1")
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        
+
         query += " ORDER BY name ASC"
-        
+
         cursor = self._execute(query, tuple(params))
         rows = cursor.fetchall()
-        
+
         # Parse config JSON for each row
         import json
         results = []
@@ -2430,34 +2552,34 @@ class Database:
             except (json.JSONDecodeError, TypeError):
                 result['config'] = {}
             results.append(result)
-        
+
         return results
 
-    def update_storage_connection(self, connection_id: str, name: Optional[str] = None, 
+    def update_storage_connection(self, connection_id: str, name: Optional[str] = None,
                                 config: Optional[Dict[str, Any]] = None, is_active: Optional[bool] = None) -> bool:
         """Update storage connection."""
         updates = []
         params = []
-        
+
         if name is not None:
             updates.append("name = ?")
             params.append(name)
-        
+
         if config is not None:
             import json
             updates.append("config = ?")
             params.append(json.dumps(config))
-        
+
         if is_active is not None:
             updates.append("is_active = ?")
             params.append(is_active)
-        
+
         if not updates:
             return False
-        
+
         updates.append("updated_at = CURRENT_TIMESTAMP")
         params.append(connection_id)
-        
+
         try:
             query = f"UPDATE storage_connections SET {', '.join(updates)} WHERE id = ?"
             self._execute(query, tuple(params))
@@ -2489,7 +2611,7 @@ class Database:
             if row and row['count'] > 0:
                 logger.warning(f"Cannot delete storage connection {connection_id}: used by companies")
                 return False
-            
+
             cursor = self._execute("DELETE FROM storage_connections WHERE id = ?", (connection_id,))
             if cursor.rowcount > 0:
                 logger.info(f"Deleted storage connection: {connection_id}")
@@ -2502,7 +2624,7 @@ class Database:
     def get_available_storage_options(self) -> List[Dict[str, Any]]:
         """Get available storage options for company selection."""
         options = []
-        
+
         # Always include local storage
         options.append({
             "id": "local",
@@ -2511,7 +2633,7 @@ class Database:
             "connection_id": None,
             "is_available": True
         })
-        
+
         # Add tested remote storage connections
         connections = self.get_storage_connections(active_only=True, tested_only=True)
         for conn in connections:
@@ -2522,15 +2644,15 @@ class Database:
                 "connection_id": conn['id'],
                 "is_available": True
             })
-        
+
         return options
 
     # Project methods (also used for category management)
     def create_project(
-        self, 
-        project_id: str, 
-        company_id: str, 
-        name: str, 
+        self,
+        project_id: str,
+        company_id: str,
+        name: str,
         description: Optional[str] = None,
         status: str = "active",
         subscription_end: Optional[str] = None,
@@ -2596,9 +2718,9 @@ class Database:
         return row['count'] if row else 0
 
     def update_project(
-        self, 
-        project_id: str, 
-        name: Optional[str] = None, 
+        self,
+        project_id: str,
+        name: Optional[str] = None,
         description: Optional[str] = None,
         status: Optional[str] = None,
         subscription_end: Optional[str] = None,
@@ -2668,75 +2790,75 @@ class Database:
         """Get count of portraits in a project (across all folders)."""
         cursor = self._execute(
             """
-            SELECT COUNT(*) as count FROM portraits 
+            SELECT COUNT(*) as count FROM portraits
             WHERE folder_id IN (SELECT id FROM folders WHERE project_id = ?)
             """,
             (project_id,)
         )
         row = cursor.fetchone()
         return row['count'] if row else 0
-    
+
     def set_project_status(self, project_id: str, status: str) -> bool:
         """Set project status and record status change timestamp."""
         now = datetime.utcnow().isoformat()
         return self.update_project(project_id, status=status, last_status_change=now)
-    
+
     def list_projects_for_lifecycle_check(self) -> List[Dict[str, Any]]:
         """Get all projects with subscription_end dates for lifecycle checking."""
         cursor = self._execute(
             "SELECT * FROM projects WHERE subscription_end IS NOT NULL ORDER BY subscription_end ASC"
         )
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def count_projects_by_status(self, company_id: Optional[str] = None) -> Dict[str, int]:
         """Count projects grouped by lifecycle status."""
         query = """
-            SELECT 
+            SELECT
                 COALESCE(status, 'active') as status,
                 COUNT(*) as count
             FROM projects
             WHERE 1=1
         """
         params: List[Any] = []
-        
+
         if company_id:
             query += " AND company_id = ?"
             params.append(company_id)
-        
+
         query += " GROUP BY status"
-        
+
         cursor = self._execute(query, tuple(params))
         results = {row["status"]: row["count"] for row in cursor.fetchall()}
-        
+
         # Ensure all statuses are present
         for status in ["active", "expiring", "archived"]:
             if status not in results:
                 results[status] = 0
-        
+
         return results
 
     # Category methods (wrapping projects table)
     def create_category(
-        self, 
-        category_id: str, 
-        company_id: str, 
-        name: str, 
+        self,
+        category_id: str,
+        company_id: str,
+        name: str,
         slug: str,
         description: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create a new category (project) with storage-friendly slug.
-        
+
         Args:
             category_id: Unique category ID
             company_id: Parent company ID
             name: Display name for the category
             slug: URL/storage-friendly identifier
             description: Optional description
-            
+
         Returns:
             Created category dict
-            
+
         Raises:
             ValueError: If category with same name or slug already exists
         """
@@ -2747,46 +2869,46 @@ class Database:
             description=description,
             slug=slug
         )
-    
+
     def list_categories(
-        self, 
-        company_id: str, 
-        limit: Optional[int] = None, 
+        self,
+        company_id: str,
+        limit: Optional[int] = None,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
         List all categories (projects) for a company.
-        
+
         Args:
             company_id: Company ID to filter by
             limit: Optional limit for pagination
             offset: Optional offset for pagination
-            
+
         Returns:
             List of category dicts with id, name, slug, description, created_at
         """
         return self.list_projects(company_id=company_id, limit=limit, offset=offset)
-    
+
     def count_categories(self, company_id: str) -> int:
         """
         Count categories (projects) for a company.
-        
+
         Args:
             company_id: Company ID to filter by
-            
+
         Returns:
             Total count of categories
         """
         return self.count_projects(company_id=company_id)
-    
+
     def get_category_by_slug(self, company_id: str, slug: str) -> Optional[Dict[str, Any]]:
         """
         Get category by slug within a company.
-        
+
         Args:
             company_id: Company ID
             slug: Category slug
-            
+
         Returns:
             Category dict or None if not found
         """
@@ -2798,29 +2920,29 @@ class Database:
         if row is None:
             return None
         return dict(row)
-    
+
     def rename_category(self, category_id: str, new_name: str, new_slug: Optional[str] = None) -> bool:
         """
         Rename a category and optionally update its slug.
-        
+
         Args:
             category_id: Category ID
             new_name: New display name
             new_slug: Optional new slug
-            
+
         Returns:
             True if successful, False otherwise
         """
         updates = ["name = ?"]
         params = [new_name]
-        
+
         if new_slug is not None:
             updates.append("slug = ?")
             params.append(new_slug)
-        
+
         params.append(category_id)
         query = f"UPDATE projects SET {', '.join(updates)} WHERE id = ?"
-        
+
         try:
             cursor = self._execute(query, tuple(params))
             return cursor.rowcount > 0
@@ -2830,27 +2952,27 @@ class Database:
         except Exception as exc:
             logger.error(f"Failed to rename category: {exc}")
             return False
-    
+
     def delete_category(self, category_id: str) -> bool:
         """
         Delete a category (project).
-        
+
         Args:
             category_id: Category ID to delete
-            
+
         Returns:
             True if successful, False otherwise
         """
         return self.delete_project(category_id)
-    
+
     def assign_category_folder(self, portrait_id: str, category_folder_id: str) -> bool:
         """
         Assign a portrait to a category folder.
-        
+
         Args:
             portrait_id: Portrait ID
             category_folder_id: Folder ID (which belongs to a category/project)
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -2894,16 +3016,22 @@ class Database:
             return None
         return dict(row)
 
-    def list_folders(self, project_id: Optional[str] = None, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
-        """Get list of folders with optional project filter and pagination."""
-        query = "SELECT * FROM folders WHERE 1=1"
+    def list_folders(self, project_id: Optional[str] = None, company_id: Optional[str] = None, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get list of folders with optional project or company filter and pagination."""
+        query = "SELECT f.* FROM folders f"
         params: List[Any] = []
 
-        if project_id:
-            query += " AND project_id = ?"
-            params.append(project_id)
+        # Join with projects table if filtering by company_id
+        if company_id:
+            query += " JOIN projects p ON f.project_id = p.id WHERE p.company_id = ?"
+            params.append(company_id)
+        else:
+            query += " WHERE 1=1"
+            if project_id:
+                query += " AND f.project_id = ?"
+                params.append(project_id)
 
-        query += " ORDER BY created_at DESC"
+        query += " ORDER BY f.created_at DESC"
 
         if limit is not None:
             query += " LIMIT ? OFFSET ?"
@@ -2912,14 +3040,20 @@ class Database:
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
-    def count_folders(self, project_id: Optional[str] = None) -> int:
-        """Count folders with optional project filter."""
-        query = "SELECT COUNT(*) as count FROM folders WHERE 1=1"
+    def count_folders(self, project_id: Optional[str] = None, company_id: Optional[str] = None) -> int:
+        """Count folders with optional project or company filter."""
+        query = "SELECT COUNT(*) as count FROM folders f"
         params: List[Any] = []
 
-        if project_id:
-            query += " AND project_id = ?"
-            params.append(project_id)
+        # Join with projects table if filtering by company_id
+        if company_id:
+            query += " JOIN projects p ON f.project_id = p.id WHERE p.company_id = ?"
+            params.append(company_id)
+        else:
+            query += " WHERE 1=1"
+            if project_id:
+                query += " AND f.project_id = ?"
+                params.append(project_id)
 
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
@@ -2985,15 +3119,15 @@ class Database:
             'disk_threshold_percent', 'cpu_threshold_percent', 'memory_threshold_percent',
             'is_active'
         ]
-        
+
         # Build insert statement
         columns = ['id'] + [f for f in fields if f in kwargs]
         placeholders = ['?'] * len(columns)
         values = [settings_id] + [kwargs[f] for f in columns[1:]]
-        
+
         query = f"INSERT INTO notification_settings ({', '.join(columns)}) VALUES ({', '.join(placeholders)})"
         self._execute(query, tuple(values))
-        
+
         logger.info("Created notification settings")
         return self.get_notification_settings()
 
@@ -3008,21 +3142,21 @@ class Database:
             'disk_threshold_percent', 'cpu_threshold_percent', 'memory_threshold_percent',
             'is_active'
         ]
-        
+
         updates = []
         params = []
         for field in valid_fields:
             if field in kwargs:
                 updates.append(f"{field} = ?")
                 params.append(kwargs[field])
-        
+
         if not updates:
             return False
-        
+
         # Always update the updated_at timestamp
         updates.append("updated_at = CURRENT_TIMESTAMP")
         params.append(settings_id)
-        
+
         query = f"UPDATE notification_settings SET {', '.join(updates)} WHERE id = ?"
         cursor = self._execute(query, tuple(params))
         return cursor.rowcount > 0
@@ -3050,7 +3184,7 @@ class Database:
         """Add a notification to history."""
         self._execute(
             """
-            INSERT INTO notification_history 
+            INSERT INTO notification_history
             (id, notification_type, recipient, subject, message, status, error_message)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -3077,18 +3211,18 @@ class Database:
         """Get list of notification history with optional filters."""
         query = "SELECT * FROM notification_history WHERE 1=1"
         params: List[Any] = []
-        
+
         if notification_type:
             query += " AND notification_type = ?"
             params.append(notification_type)
-        
+
         if status:
             query += " AND status = ?"
             params.append(status)
-        
+
         query += " ORDER BY sent_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
@@ -3100,15 +3234,15 @@ class Database:
         """Count notification history with optional filters."""
         query = "SELECT COUNT(*) as count FROM notification_history WHERE 1=1"
         params: List[Any] = []
-        
+
         if notification_type:
             query += " AND notification_type = ?"
             params.append(notification_type)
-        
+
         if status:
             query += " AND status = ?"
             params.append(status)
-        
+
         cursor = self._execute(query, tuple(params))
         row = cursor.fetchone()
         return row['count'] if row else 0
@@ -3129,7 +3263,7 @@ class Database:
         """Get all portraits with subscription_end set for lifecycle checking."""
         cursor = self._execute(
             """
-            SELECT * FROM portraits 
+            SELECT * FROM portraits
             WHERE subscription_end IS NOT NULL
             ORDER BY subscription_end ASC
             """
@@ -3141,7 +3275,7 @@ class Database:
         if status not in ('active', 'expiring', 'archived'):
             logger.error(f"Invalid lifecycle status: {status}")
             return False
-        
+
         cursor = self._execute(
             "UPDATE portraits SET lifecycle_status = ? WHERE id = ?",
             (status, portrait_id)
@@ -3155,12 +3289,12 @@ class Database:
             '24hours': 'notification_24hours_sent',
             'expired': 'notification_expired_sent'
         }
-        
+
         field = field_map.get(notification_type)
         if not field:
             logger.error(f"Invalid notification type: {notification_type}")
             return False
-        
+
         cursor = self._execute(
             f"UPDATE portraits SET {field} = CURRENT_TIMESTAMP WHERE id = ?",
             (portrait_id,)
@@ -3171,7 +3305,7 @@ class Database:
         """Reset all lifecycle notification timestamps for a portrait."""
         cursor = self._execute(
             """
-            UPDATE portraits 
+            UPDATE portraits
             SET notification_7days_sent = NULL,
                 notification_24hours_sent = NULL,
                 notification_expired_sent = NULL
@@ -3197,14 +3331,14 @@ class Database:
     ) -> bool:
         """Save Yandex Disk OAuth settings with encrypted client secret."""
         from datetime import datetime
-        
+
         existing = self.get_admin_settings()
         now = datetime.now()
-        
+
         if existing:
             cursor = self._execute(
                 """
-                UPDATE admin_settings 
+                UPDATE admin_settings
                 SET yandex_client_id = ?,
                     yandex_client_secret_encrypted = ?,
                     yandex_redirect_uri = ?,
@@ -3217,14 +3351,14 @@ class Database:
             cursor = self._execute(
                 """
                 INSERT INTO admin_settings (
-                    id, yandex_client_id, yandex_client_secret_encrypted, 
+                    id, yandex_client_id, yandex_client_secret_encrypted,
                     yandex_redirect_uri, created_at, updated_at
                 )
                 VALUES (1, ?, ?, ?, ?, ?)
                 """,
                 (client_id, client_secret_encrypted, redirect_uri, now, now)
             )
-        
+
         return cursor.rowcount > 0
 
     def save_yandex_smtp_settings(
@@ -3234,14 +3368,14 @@ class Database:
     ) -> bool:
         """Save Yandex SMTP settings with encrypted password."""
         from datetime import datetime
-        
+
         existing = self.get_admin_settings()
         now = datetime.now()
-        
+
         if existing:
             cursor = self._execute(
                 """
-                UPDATE admin_settings 
+                UPDATE admin_settings
                 SET yandex_smtp_email = ?,
                     yandex_smtp_password_encrypted = ?,
                     updated_at = ?
@@ -3260,7 +3394,7 @@ class Database:
                 """,
                 (smtp_email, smtp_password_encrypted, now, now)
             )
-        
+
         return cursor.rowcount > 0
 
     def update_yandex_connection_status(
@@ -3270,40 +3404,40 @@ class Database:
     ) -> bool:
         """Update Yandex connection status."""
         from datetime import datetime
-        
+
         existing = self.get_admin_settings()
         now = datetime.now()
-        
+
         if not existing:
             self._execute(
                 "INSERT INTO admin_settings (id, created_at, updated_at) VALUES (1, ?, ?)",
                 (now, now)
             )
-        
+
         updates = []
         params = []
-        
+
         if oauth_status:
             updates.append("yandex_connection_status = ?")
             params.append(oauth_status)
-        
+
         if smtp_status:
             updates.append("yandex_smtp_status = ?")
             params.append(smtp_status)
-        
+
         if updates:
             updates.append("last_tested_at = ?")
             params.append(now)
             updates.append("updated_at = ?")
             params.append(now)
             params.append(1)  # WHERE id = 1
-            
+
             cursor = self._execute(
                 f"UPDATE admin_settings SET {', '.join(updates)} WHERE id = ?",
                 tuple(params)
             )
             return cursor.rowcount > 0
-        
+
         return False
 
     def _seed_default_email_templates(self) -> None:
@@ -3313,12 +3447,12 @@ class Database:
             count = cursor.fetchone()[0]
             if count > 0:
                 return
-            
+
             import uuid
             from datetime import datetime
-            
+
             now = datetime.now()
-            
+
             # Default template for subscription_end
             subscription_end_template = {
                 'id': str(uuid.uuid4()),
@@ -3348,7 +3482,7 @@ class Database:
         <div class="content">
             <p><strong>Уважаемый(ая) {{client_name}},</strong></p>
             <p><strong>Dear {{client_name}},</strong></p>
-            
+
             <div class="info-box">
                 <p class="warning">Ваша подписка на проект истекает!</p>
                 <p class="warning">Your subscription is expiring!</p>
@@ -3358,10 +3492,10 @@ class Database:
                     <li><strong>Осталось дней / Days Remaining:</strong> {{days_remaining}}</li>
                 </ul>
             </div>
-            
+
             <p>Пожалуйста, свяжитесь с нами для продления подписки.</p>
             <p>Please contact us to renew your subscription.</p>
-            
+
             <p style="margin-top: 30px;">
                 <strong>С уважением,<br>Best regards,<br>Команда Vertex AR</strong>
             </p>
@@ -3377,7 +3511,7 @@ class Database:
                 'created_at': now,
                 'updated_at': now
             }
-            
+
             # Default template for system_error
             system_error_template = {
                 'id': str(uuid.uuid4()),
@@ -3405,14 +3539,14 @@ class Database:
         <div class="content">
             <p><strong>Администратор {{admin_name}},</strong></p>
             <p>В системе произошла ошибка, требующая вашего внимания.</p>
-            
+
             <div class="error-box">
                 <p><strong>Сервис:</strong> {{service_name}}</p>
                 <p><strong>Время:</strong> {{error_timestamp}}</p>
                 <p><strong>Ошибка:</strong></p>
                 <p>{{error_message}}</p>
             </div>
-            
+
             <p><strong>Пожалуйста, проверьте систему как можно скорее.</strong></p>
         </div>
         <div class="footer">
@@ -3426,7 +3560,7 @@ class Database:
                 'created_at': now,
                 'updated_at': now
             }
-            
+
             # Default template for admin_report
             admin_report_template = {
                 'id': str(uuid.uuid4()),
@@ -3455,12 +3589,12 @@ class Database:
         <div class="content">
             <p><strong>Администратор {{admin_name}},</strong></p>
             <p>Предоставляем отчет за период: <strong>{{report_period}}</strong></p>
-            
+
             <div class="report-box">
                 <p><strong>Дата формирования:</strong> {{report_date}}</p>
                 <p>Подробный отчет прикреплен к этому письму или доступен в панели администратора.</p>
             </div>
-            
+
             <p style="margin-top: 30px;">
                 <strong>С уважением,<br>Vertex AR Monitoring System</strong>
             </p>
@@ -3476,7 +3610,7 @@ class Database:
                 'created_at': now,
                 'updated_at': now
             }
-            
+
             # Insert templates
             for template in [subscription_end_template, system_error_template, admin_report_template]:
                 self._execute(
@@ -3487,9 +3621,9 @@ class Database:
                     (template['id'], template['template_type'], template['subject'], template['html_content'],
                      template['variables_used'], template['is_active'], template['created_at'], template['updated_at'])
                 )
-            
+
             logger.info("Seeded 3 default email templates")
-            
+
         except Exception as e:
             logger.error(f"Error seeding default email templates: {e}")
 
@@ -3500,13 +3634,13 @@ class Database:
             count = cursor.fetchone()[0]
             if count > 0:
                 return
-            
+
             import uuid
             from datetime import datetime
             from app.config import settings
-            
+
             now = datetime.now()
-            
+
             # Create default monitoring settings based on current config
             default_settings = {
                 'id': str(uuid.uuid4()),
@@ -3523,12 +3657,12 @@ class Database:
                 'created_at': now,
                 'updated_at': now
             }
-            
+
             self._execute(
                 """
-                INSERT INTO monitoring_settings 
-                (id, cpu_threshold, memory_threshold, disk_threshold, health_check_interval, 
-                 consecutive_failures, dedup_window_seconds, max_runtime_seconds, 
+                INSERT INTO monitoring_settings
+                (id, cpu_threshold, memory_threshold, disk_threshold, health_check_interval,
+                 consecutive_failures, dedup_window_seconds, max_runtime_seconds,
                  health_check_cooldown_seconds, alert_recovery_minutes, is_active, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -3548,9 +3682,9 @@ class Database:
                     default_settings['updated_at']
                 )
             )
-            
+
             logger.info("Seeded default monitoring settings")
-            
+
         except Exception as e:
             logger.error(f"Error seeding default monitoring settings: {e}")
 
@@ -3582,7 +3716,7 @@ class Database:
     ) -> bool:
         """Update monitoring settings."""
         from datetime import datetime
-        
+
         # Get the active settings row
         current = self.get_monitoring_settings()
         if not current:
@@ -3591,53 +3725,53 @@ class Database:
             current = self.get_monitoring_settings()
             if not current:
                 return False
-        
+
         updates = []
         params = []
-        
+
         if cpu_threshold is not None:
             updates.append("cpu_threshold = ?")
             params.append(cpu_threshold)
-        
+
         if memory_threshold is not None:
             updates.append("memory_threshold = ?")
             params.append(memory_threshold)
-        
+
         if disk_threshold is not None:
             updates.append("disk_threshold = ?")
             params.append(disk_threshold)
-        
+
         if health_check_interval is not None:
             updates.append("health_check_interval = ?")
             params.append(health_check_interval)
-        
+
         if consecutive_failures is not None:
             updates.append("consecutive_failures = ?")
             params.append(consecutive_failures)
-        
+
         if dedup_window_seconds is not None:
             updates.append("dedup_window_seconds = ?")
             params.append(dedup_window_seconds)
-        
+
         if max_runtime_seconds is not None:
             updates.append("max_runtime_seconds = ?")
             params.append(max_runtime_seconds)
-        
+
         if health_check_cooldown_seconds is not None:
             updates.append("health_check_cooldown_seconds = ?")
             params.append(health_check_cooldown_seconds)
-        
+
         if alert_recovery_minutes is not None:
             updates.append("alert_recovery_minutes = ?")
             params.append(alert_recovery_minutes)
-        
+
         if not updates:
             return False
-        
+
         updates.append("updated_at = ?")
         params.append(datetime.now())
         params.append(current['id'])
-        
+
         cursor = self._execute(
             f"UPDATE monitoring_settings SET {', '.join(updates)} WHERE id = ?",
             tuple(params)
@@ -3652,17 +3786,17 @@ class Database:
         """Get email templates, optionally filtered by type and active status."""
         query = "SELECT * FROM email_templates WHERE 1=1"
         params = []
-        
+
         if template_type:
             query += " AND template_type = ?"
             params.append(template_type)
-        
+
         if is_active is not None:
             query += " AND is_active = ?"
             params.append(1 if is_active else 0)
-        
+
         query += " ORDER BY created_at DESC"
-        
+
         cursor = self._execute(query, tuple(params))
         return [dict(row) for row in cursor.fetchall()]
 
@@ -3697,7 +3831,7 @@ class Database:
         """Create a new email template."""
         from datetime import datetime
         now = datetime.now()
-        
+
         cursor = self._execute(
             """
             INSERT INTO email_templates (id, template_type, subject, html_content, variables_used, is_active, created_at, updated_at)
@@ -3717,33 +3851,33 @@ class Database:
     ) -> bool:
         """Update an email template."""
         from datetime import datetime
-        
+
         updates = []
         params = []
-        
+
         if subject is not None:
             updates.append("subject = ?")
             params.append(subject)
-        
+
         if html_content is not None:
             updates.append("html_content = ?")
             params.append(html_content)
-        
+
         if variables_used is not None:
             updates.append("variables_used = ?")
             params.append(variables_used)
-        
+
         if is_active is not None:
             updates.append("is_active = ?")
             params.append(1 if is_active else 0)
-        
+
         if not updates:
             return False
-        
+
         updates.append("updated_at = ?")
         params.append(datetime.now())
         params.append(template_id)
-        
+
         cursor = self._execute(
             f"UPDATE email_templates SET {', '.join(updates)} WHERE id = ?",
             tuple(params)
@@ -3770,15 +3904,15 @@ class Database:
     def create_email_job(self, job) -> str:
         """
         Create a new email job in the queue.
-        
+
         Args:
             job: EmailQueueJob instance
-        
+
         Returns:
             Job ID
         """
         job_dict = job.to_dict()
-        
+
         cursor = self._execute(
             """
             INSERT INTO email_queue (id, recipient_to, subject, body, html, template_id, variables, status, attempts, last_error, created_at, updated_at)
@@ -3799,21 +3933,21 @@ class Database:
                 job_dict["updated_at"],
             )
         )
-        
+
         return job_dict["id"]
 
     def update_email_job(self, job) -> bool:
         """
         Update an existing email job.
-        
+
         Args:
             job: EmailQueueJob instance with updated fields
-        
+
         Returns:
             True if updated, False otherwise
         """
         job_dict = job.to_dict()
-        
+
         cursor = self._execute(
             """
             UPDATE email_queue
@@ -3828,13 +3962,13 @@ class Database:
                 job_dict["id"],
             )
         )
-        
+
         return cursor.rowcount > 0
 
     def get_next_pending_email_job(self) -> Optional[Dict[str, Any]]:
         """
         Get the next pending email job from the queue.
-        
+
         Returns:
             Job dictionary or None if no pending jobs
         """
@@ -3854,7 +3988,7 @@ class Database:
     def get_all_pending_email_jobs(self) -> List[Dict[str, Any]]:
         """
         Get all pending email jobs from the queue.
-        
+
         Returns:
             List of job dictionaries
         """
@@ -3870,10 +4004,10 @@ class Database:
     def get_failed_email_jobs(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get failed email jobs.
-        
+
         Args:
             limit: Maximum number of jobs to return
-        
+
         Returns:
             List of job dictionaries
         """
@@ -3891,7 +4025,7 @@ class Database:
     def get_email_queue_stats(self) -> Dict[str, int]:
         """
         Get email queue statistics.
-        
+
         Returns:
             Dictionary with queue statistics
         """
@@ -3904,7 +4038,7 @@ class Database:
             GROUP BY status
             """
         )
-        
+
         stats = {
             "pending": 0,
             "sending": 0,
@@ -3912,22 +4046,22 @@ class Database:
             "failed": 0,
             "total": 0,
         }
-        
+
         for row in cursor.fetchall():
             status = row["status"]
             count = row["count"]
             stats[status] = count
             stats["total"] += count
-        
+
         return stats
 
     def delete_old_email_jobs(self, days: int = 30) -> int:
         """
         Delete old sent/failed email jobs.
-        
+
         Args:
             days: Delete jobs older than this many days
-        
+
         Returns:
             Number of jobs deleted
         """
@@ -3939,7 +4073,7 @@ class Database:
             """,
             (days,)
         )
-        
+
         return cursor.rowcount
 
 
@@ -3971,60 +4105,97 @@ def ensure_default_company(database: "Database") -> None:
     """
     Ensure the default company exists with proper storage configuration.
     Creates folder hierarchy for local storage if needed.
+    Ensures the default company uses local_disk storage with vertex_ar_content folder path
+    and that these settings cannot be changed.
     """
     from app.config import settings
     from pathlib import Path
-    
+
+    # Use the new company bootstrap service for complete initialization
+    try:
+        from app.services.company_bootstrap import CompanyBootstrap
+
+        # Initialize bootstrap service with the correct storage root
+        bootstrap = CompanyBootstrap(database, settings.STORAGE_ROOT)
+
+        # Perform complete bootstrap
+        result = bootstrap.bootstrap_complete_company()
+
+        logger.info(
+            "Default company bootstrap completed",
+            company_id=result["company"]["id"],
+            categories_created=len(result["categories"]),
+            folders_created=len(result["folders"])
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to bootstrap default company: {e}")
+        # Fall back to original implementation for backward compatibility
+        _original_ensure_default_company(database)
+
+
+def _original_ensure_default_company(database: "Database") -> None:
+    """Original implementation preserved for backward compatibility."""
+    from app.config import settings
+    from pathlib import Path
+
     # Check if default company exists
     existing = database.get_company("vertex-ar-default")
-    
-    # Create basic folder hierarchy using FolderService
+
+    if existing:
+        # Ensure default company always has correct immutable storage settings
+        # This protects against manual database modifications or bugs
+        if (existing.get("storage_type") != "local_disk" or
+            existing.get("storage_folder_path") != "vertex_ar_content"):
+            database.update_company(
+                "vertex-ar-default",
+                storage_type="local_disk",
+                storage_folder_path="vertex_ar_content"
+            )
+            logger.info("Corrected default company storage settings to local_disk/vertex_ar_content")
+        company = existing
+    else:
+        # Create company with explicit local_disk storage and deterministic folder path
+        try:
+            database.create_company(
+                company_id="vertex-ar-default",
+                name="Vertex AR",
+                storage_type="local_disk",
+                storage_folder_path="vertex_ar_content",
+                email="contact@vertex-ar.com",
+                description="Default company for Vertex AR platform",
+                city="Moscow",
+                phone="+7 (495) 000-00-00",
+                website="https://vertex-ar.com",
+                manager_name="System Administrator",
+                manager_phone="+7 (495) 000-00-00",
+                manager_email="admin@vertex-ar.com"
+            )
+            logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
+            company = database.get_company("vertex-ar-default")
+        except Exception as exc:
+            logger.error(f"Failed to create default company: {exc}")
+            return
+
+    # Ensure folder hierarchy exists
     # This runs whether company was just created or already exists
     try:
         from app.services.folder_service import FolderService
-        
-        if existing:
-            company = existing
-        else:
-            # Create company with explicit local_disk storage and deterministic folder path
-            try:
-                database.create_company(
-                    company_id="vertex-ar-default",
-                    name="Vertex AR",
-                    storage_type="local_disk",
-                    storage_folder_path="vertex_ar_content",
-                    email="contact@vertex-ar.com",
-                    description="Default company for Vertex AR platform",
-                    city="Moscow",
-                    phone="+7 (495) 000-00-00",
-                    website="https://vertex-ar.com",
-                    manager_name="System Administrator",
-                    manager_phone="+7 (495) 000-00-00",
-                    manager_email="admin@vertex-ar.com"
-                )
-                logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
-                company = database.get_company("vertex-ar-default")
-            except Exception as exc:
-                logger.error(f"Failed to create default company: {exc}")
-                return
-        
-        # Ensure folder hierarchy exists
+
         if company:
-            folder_service = FolderService(settings.STORAGE_ROOT)
-            
             # Create base directory structure for the default company
-            base_path = Path(settings.STORAGE_ROOT) / company.get("storage_folder_path", "vertex_ar_content")
+            base_path = Path(settings.STORAGE_ROOT) / "vertex_ar_content"
             base_path.mkdir(parents=True, exist_ok=True)
-            
-            # Create a default "portraits" category folder with standard subfolders
-            portraits_path = base_path / "vertex-ar-default" / "portraits"
-            for subfolder in FolderService.STANDARD_SUBFOLDERS:
-                (portraits_path / subfolder).mkdir(parents=True, exist_ok=True)
-            
+
+            # Create required subdirectories for orders
+            required_subdirs = ["portraits", "certificates", "diplomas"]
+            for subdir in required_subdirs:
+                (base_path / subdir).mkdir(parents=True, exist_ok=True)
+
             logger.info(
-                "Created folder hierarchy for default company",
+                "Ensured folder hierarchy for default company",
                 base_path=str(base_path),
-                subfolders=FolderService.STANDARD_SUBFOLDERS
+                subdirs=required_subdirs
             )
     except Exception as folder_exc:
         logger.warning(f"Failed to create folder hierarchy for default company: {folder_exc}")

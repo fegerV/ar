@@ -93,6 +93,8 @@ curl "https://api.example.com/api/companies?page=1&page_size=20&search=Acme&stor
 **Notes**:
 - `storage_type` defaults to `local_disk` if not specified
 - System auto-provisions default "Vertex AR" company on first startup
+- For local storage companies, the system automatically provisions a default folder structure with directories for `portraits`, `certificates`, and `diplomas`
+- Each category gets standard subdirectories: `Image`, `QR`, `nft_markers`, `nft_cache`
 - Categories (content organization) are managed separately via `/api/companies/{id}/categories`
 
 **Response**: `CompanyResponse` with 201 Created status.
