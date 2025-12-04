@@ -39,7 +39,8 @@ class Database:
         # Ensure directory exists
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        self._connection = sqlite3.connect(str(self.path), check_same_thread=False)
+        self._connection = sqlite3.connect(
+            str(self.path), check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         # Enable foreign key constraints for cascade delete
         self._connection.execute("PRAGMA foreign_keys = ON")
@@ -72,7 +73,8 @@ class Database:
                 try:
                     from app.main import system_monitor
                     if system_monitor:
-                        system_monitor.track_slow_query(query, duration_ms, params)
+                        system_monitor.track_slow_query(
+                            query, duration_ms, params)
                 except Exception:
                     pass  # Silently fail - monitoring shouldn't break DB operations
 
@@ -81,7 +83,7 @@ class Database:
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Query failed after {duration_ms:.2f}ms: {query[:200]}",
-                        error=str(e), params=params)
+                         error=str(e), params=params)
             raise
 
     def _initialise_schema(self) -> None:
@@ -210,21 +212,18 @@ class Database:
             )
             # Ensure default company exists
             try:
-                cursor = self._connection.execute("SELECT id FROM companies WHERE name = 'Vertex AR' LIMIT 1")
+                cursor = self._connection.execute(
+                    "SELECT id FROM companies WHERE name = 'Vertex AR' LIMIT 1")
                 if not cursor.fetchone():
                     # Try with new columns first, fall back to basic columns if they don't exist yet
                     try:
                         self._connection.execute(
-                            """INSERT INTO companies (
-                                id, name, storage_type, storage_folder_path,
-                                email, description, city, phone, website,
-                                manager_name, manager_phone, manager_email
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            "INSERT INTO companies (id, name, storage_type, storage_folder_path, email, description, city, phone, website, manager_name, manager_phone, manager_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             (
                                 "vertex-ar-default",
                                 "Vertex AR",
                                 "local_disk",
-                                "vertex_ar_content",
+                                "content",
                                 "contact@vertex-ar.com",
                                 "Default company for Vertex AR platform",
                                 "Moscow",
@@ -242,13 +241,15 @@ class Database:
                             ("vertex-ar-default", "Vertex AR")
                         )
                     self._connection.commit()
-                    logger.info("Created default company 'Vertex AR' with storage_type=local_disk and contact metadata")
+                    logger.info(
+                        "Created default company 'Vertex AR' with storage_type=local_disk and contact metadata")
             except sqlite3.OperationalError as e:
                 logger.warning(f"Error ensuring default company: {e}")
 
             # Migrate existing clients to default company if needed
             try:
-                cursor = self._connection.execute("SELECT COUNT(*) FROM clients WHERE company_id IS NULL")
+                cursor = self._connection.execute(
+                    "SELECT COUNT(*) FROM clients WHERE company_id IS NULL")
                 if cursor.fetchone()[0] > 0:
                     # Add company_id column if it doesn't exist
                     self._connection.execute(
@@ -261,45 +262,55 @@ class Database:
 
             # Add columns to existing tables if they don't exist
             try:
-                self._connection.execute("ALTER TABLE ar_content ADD COLUMN image_preview_path TEXT")
+                self._connection.execute(
+                    "ALTER TABLE ar_content ADD COLUMN image_preview_path TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE ar_content ADD COLUMN video_preview_path TEXT")
+                self._connection.execute(
+                    "ALTER TABLE ar_content ADD COLUMN video_preview_path TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE ar_content ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
+                self._connection.execute(
+                    "ALTER TABLE ar_content ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE ar_content ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0")
+                self._connection.execute(
+                    "ALTER TABLE ar_content ADD COLUMN click_count INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN description TEXT")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN description TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN file_size_mb INTEGER")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN file_size_mb INTEGER")
             except sqlite3.OperationalError:
                 pass
 
             # Add video animation scheduling fields
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN start_datetime TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN start_datetime TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN end_datetime TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN end_datetime TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN rotation_type TEXT DEFAULT 'none' CHECK (rotation_type IN ('none', 'sequential', 'cyclic'))")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN rotation_type TEXT DEFAULT 'none' CHECK (rotation_type IN ('none', 'sequential', 'cyclic'))")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE videos ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived'))")
+                self._connection.execute(
+                    "ALTER TABLE videos ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived'))")
             except sqlite3.OperationalError:
                 pass
 
@@ -321,154 +332,186 @@ class Database:
 
             # Create indexes for scheduling
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_start_end ON videos(start_datetime, end_datetime)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_videos_start_end ON videos(start_datetime, end_datetime)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_videos_portrait_active ON videos(portrait_id, is_active)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_videos_portrait_active ON videos(portrait_id, is_active)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_video_schedule_history_video ON video_schedule_history(video_id)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_video_schedule_history_video ON video_schedule_history(video_id)")
             except sqlite3.OperationalError:
                 pass
             # Create index for phone search
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone)")
             except sqlite3.OperationalError:
                 pass
 
             # Add folder_id column to portraits table
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN folder_id TEXT")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN folder_id TEXT")
             except sqlite3.OperationalError:
                 pass
 
             # Add lifecycle management columns to portraits table
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN subscription_end TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN subscription_end TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN lifecycle_status TEXT DEFAULT 'active' CHECK (lifecycle_status IN ('active', 'expiring', 'archived'))")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN lifecycle_status TEXT DEFAULT 'active' CHECK (lifecycle_status IN ('active', 'expiring', 'archived'))")
             except sqlite3.OperationalError:
                 pass
 
             # Add notification tracking columns for lifecycle management
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_7days_sent TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN notification_7days_sent TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_24hours_sent TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN notification_24hours_sent TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN notification_expired_sent TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN notification_expired_sent TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
 
             # Add email column to clients table
             try:
-                self._connection.execute("ALTER TABLE clients ADD COLUMN email TEXT")
+                self._connection.execute(
+                    "ALTER TABLE clients ADD COLUMN email TEXT")
             except sqlite3.OperationalError:
                 pass
 
             # Create index for email lookups in clients table
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(company_id, email)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(company_id, email)")
             except sqlite3.OperationalError:
                 pass
 
             # Add slug column to projects table for category functionality
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN slug TEXT")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN slug TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_company_slug ON projects(company_id, slug)")
+                self._connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_company_slug ON projects(company_id, slug)")
             except sqlite3.OperationalError:
                 pass
 
             # Add lifecycle management columns to projects table
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring', 'archived'))")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN subscription_end TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN subscription_end TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN last_status_change TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN last_status_change TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_7d TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN notified_7d TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_24h TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN notified_24h TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE projects ADD COLUMN notified_expired TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE projects ADD COLUMN notified_expired TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
 
             # Add last_status_change to portraits table
             try:
-                self._connection.execute("ALTER TABLE portraits ADD COLUMN last_status_change TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE portraits ADD COLUMN last_status_change TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
 
             # Create indexes for projects and folders
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_folders_project ON folders(project_id)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_folders_project ON folders(project_id)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_portraits_folder ON portraits(folder_id)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_portraits_folder ON portraits(folder_id)")
             except sqlite3.OperationalError:
                 pass
 
             # Migrate existing users table to new schema
             try:
-                self._connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE users ADD COLUMN email TEXT")
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN email TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE users ADD COLUMN full_name TEXT")
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN full_name TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
+                self._connection.execute(
+                    "ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
             except sqlite3.OperationalError:
                 pass
 
             # Create indexes for user management
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)")
             except sqlite3.OperationalError:
                 pass
 
@@ -510,92 +553,111 @@ class Database:
 
             # Add storage columns to companies table
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_connection_id TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN storage_connection_id TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_type TEXT NOT NULL DEFAULT 'local'")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN storage_type TEXT NOT NULL DEFAULT 'local'")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN yandex_disk_folder_id TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN yandex_disk_folder_id TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN storage_folder_path TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN storage_folder_path TEXT")
             except sqlite3.OperationalError:
                 pass
 
             # Backfill default storage_folder_path for existing companies with NULL values
             try:
-                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_folder_path IS NULL")
+                cursor = self._connection.execute(
+                    "SELECT COUNT(*) FROM companies WHERE storage_folder_path IS NULL")
                 if cursor.fetchone()[0] > 0:
                     self._connection.execute(
                         "UPDATE companies SET storage_folder_path = 'vertex_ar_content' WHERE storage_folder_path IS NULL"
                     )
                     self._connection.commit()
-                    logger.info("Backfilled default storage_folder_path for existing companies")
+                    logger.info(
+                        "Backfilled default storage_folder_path for existing companies")
             except sqlite3.OperationalError:
                 pass
 
             # Add backup provider columns to companies table
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN backup_provider TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN backup_provider TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN backup_remote_path TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN backup_remote_path TEXT")
             except sqlite3.OperationalError:
                 pass
 
             # Add contact and metadata columns to companies table
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN email TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN email TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN description TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN description TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN city TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN city TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN phone TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN phone TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN website TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN website TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN social_links TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN social_links TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_name TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN manager_name TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_phone TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN manager_phone TEXT")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("ALTER TABLE companies ADD COLUMN manager_email TEXT")
+                self._connection.execute(
+                    "ALTER TABLE companies ADD COLUMN manager_email TEXT")
             except sqlite3.OperationalError:
                 pass
 
             # Migrate legacy "local" storage_type to "local_disk"
             try:
-                cursor = self._connection.execute("SELECT COUNT(*) FROM companies WHERE storage_type = 'local'")
+                cursor = self._connection.execute(
+                    "SELECT COUNT(*) FROM companies WHERE storage_type = 'local'")
                 count = cursor.fetchone()[0]
                 if count > 0:
                     self._connection.execute(
                         "UPDATE companies SET storage_type = 'local_disk' WHERE storage_type = 'local'"
                     )
                     self._connection.commit()
-                    logger.info(f"Migrated {count} companies from storage_type='local' to 'local_disk'")
+                    logger.info(
+                        f"Migrated {count} companies from storage_type='local' to 'local_disk'")
             except sqlite3.OperationalError:
                 pass
 
@@ -622,15 +684,18 @@ class Database:
 
             # Create index for storage connections
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_storage_connections_type ON storage_connections(type)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_storage_connections_type ON storage_connections(type)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_storage_connections_active ON storage_connections(is_active)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_storage_connections_active ON storage_connections(is_active)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_companies_storage ON companies(storage_connection_id)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_companies_storage ON companies(storage_connection_id)")
             except sqlite3.OperationalError:
                 pass
 
@@ -682,15 +747,18 @@ class Database:
 
             # Create indexes for notification tables
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_type ON notification_history(notification_type)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notification_history_type ON notification_history(notification_type)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_status ON notification_history(status)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notification_history_status ON notification_history(status)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_notification_history_sent_at ON notification_history(sent_at)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notification_history_sent_at ON notification_history(sent_at)")
             except sqlite3.OperationalError:
                 pass
 
@@ -712,11 +780,13 @@ class Database:
 
             # Create indexes for email_templates table
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_type ON email_templates(template_type)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_email_templates_type ON email_templates(template_type)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_active ON email_templates(is_active)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_email_templates_active ON email_templates(is_active)")
             except sqlite3.OperationalError:
                 pass
 
@@ -742,15 +812,18 @@ class Database:
 
             # Create indexes for email_queue table
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_created_at ON email_queue(created_at)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_email_queue_created_at ON email_queue(created_at)")
             except sqlite3.OperationalError:
                 pass
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_email_queue_status_created ON email_queue(status, created_at)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_email_queue_status_created ON email_queue(status, created_at)")
             except sqlite3.OperationalError:
                 pass
 
@@ -798,13 +871,15 @@ class Database:
 
             # Create index for efficient session cleanup
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)")
             except sqlite3.OperationalError:
                 pass
 
             # Create index for username lookups
             try:
-                self._connection.execute("CREATE INDEX IF NOT EXISTS idx_admin_sessions_username ON admin_sessions(username)")
+                self._connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_admin_sessions_username ON admin_sessions(username)")
             except sqlite3.OperationalError:
                 pass
 
@@ -828,10 +903,12 @@ class Database:
             columns = [row[1] for row in cursor.fetchall()]
 
             if "content_types" not in columns:
-                logger.info("Migration: content_types column not found in companies table (already migrated)")
+                logger.info(
+                    "Migration: content_types column not found in companies table (already migrated)")
                 return
 
-            logger.info("Migration: Starting content_types column removal from companies table")
+            logger.info(
+                "Migration: Starting content_types column removal from companies table")
 
             with self._lock:
                 # Start transaction
@@ -864,14 +941,16 @@ class Database:
 
                     # Copy data from old table to new table with normalized storage_type
                     # Build dynamic column list excluding content_types
-                    copy_columns = [col for col in columns if col != "content_types"]
+                    copy_columns = [
+                        col for col in columns if col != "content_types"]
                     columns_str = ", ".join(copy_columns)
 
                     # Use CASE to normalize storage_type during copy
                     select_columns = []
                     for col in copy_columns:
                         if col == "storage_type":
-                            select_columns.append("CASE WHEN storage_type = 'local' THEN 'local_disk' ELSE storage_type END")
+                            select_columns.append(
+                                "CASE WHEN storage_type = 'local' THEN 'local_disk' ELSE storage_type END")
                         else:
                             select_columns.append(col)
                     select_str = ", ".join(select_columns)
@@ -883,14 +962,16 @@ class Database:
                     """)
 
                     # Get count for logging
-                    cursor = self._connection.execute("SELECT COUNT(*) FROM companies_new")
+                    cursor = self._connection.execute(
+                        "SELECT COUNT(*) FROM companies_new")
                     migrated_count = cursor.fetchone()[0]
 
                     # Drop old table
                     self._connection.execute("DROP TABLE companies")
 
                     # Rename new table
-                    self._connection.execute("ALTER TABLE companies_new RENAME TO companies")
+                    self._connection.execute(
+                        "ALTER TABLE companies_new RENAME TO companies")
 
                     # Recreate index for storage_connection_id
                     self._connection.execute(
@@ -908,11 +989,13 @@ class Database:
                 except Exception as e:
                     # Rollback on any error
                     self._connection.execute("ROLLBACK")
-                    logger.error(f"Migration: Failed to drop content_types column: {e}", exc_info=True)
+                    logger.error(
+                        f"Migration: Failed to drop content_types column: {e}", exc_info=True)
                     raise
 
         except Exception as e:
-            logger.error(f"Migration: Error checking content_types column: {e}", exc_info=True)
+            logger.error(
+                f"Migration: Error checking content_types column: {e}", exc_info=True)
             # Don't raise - allow app to continue even if migration fails
 
     def _execute(self, query: str, parameters: tuple[Any, ...] = ()) -> sqlite3.Cursor:
@@ -923,7 +1006,8 @@ class Database:
 
     # User methods (for admin authentication and profile management only)
     def get_user(self, username: str) -> Optional[Dict[str, Any]]:
-        cursor = self._execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor = self._execute(
+            "SELECT * FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -936,12 +1020,14 @@ class Database:
 
         # Filter valid fields
         valid_fields = {'email', 'full_name', 'is_admin', 'is_active'}
-        update_fields = {k: v for k, v in kwargs.items() if k in valid_fields and v is not None}
+        update_fields = {k: v for k, v in kwargs.items(
+        ) if k in valid_fields and v is not None}
 
         if not update_fields:
             return False
 
-        set_clause = ", ".join(f"{field} = ?" for field in update_fields.keys())
+        set_clause = ", ".join(
+            f"{field} = ?" for field in update_fields.keys())
         values = list(update_fields.values()) + [username]
 
         cursor = self._execute(
@@ -1013,12 +1099,15 @@ class Database:
                 updates["full_name"] = full_name
             if updates:
                 self.update_user(username, **updates)
-                logger.info("Default admin user updated", username=username, updates=list(updates.keys()))
+                logger.info("Default admin user updated",
+                            username=username, updates=list(updates.keys()))
             if user.get("hashed_password") != hashed_password:
                 self.change_password(username, hashed_password)
-                logger.info("Default admin password refreshed", username=username)
+                logger.info("Default admin password refreshed",
+                            username=username)
         except Exception as exc:
-            logger.error("Failed to ensure default admin user", username=username, exc_info=exc)
+            logger.error("Failed to ensure default admin user",
+                         username=username, exc_info=exc)
             raise
 
     # Admin session methods
@@ -1058,7 +1147,8 @@ class Database:
             )
             return cursor.rowcount > 0
         except Exception as e:
-            logger.error(f"Failed to update admin session last seen: {e}", exc_info=e)
+            logger.error(
+                f"Failed to update admin session last seen: {e}", exc_info=e)
             return False
 
     def revoke_admin_session(self, token: str) -> bool:
@@ -1082,7 +1172,8 @@ class Database:
             )
             return cursor.rowcount
         except Exception as e:
-            logger.error(f"Failed to revoke admin sessions for user: {e}", exc_info=e)
+            logger.error(
+                f"Failed to revoke admin sessions for user: {e}", exc_info=e)
             return 0
 
     def revoke_admin_sessions_for_user_except_current(self, username: str, current_token: str) -> int:
@@ -1094,7 +1185,8 @@ class Database:
             )
             return cursor.rowcount
         except Exception as e:
-            logger.error(f"Failed to revoke admin sessions for user except current: {e}", exc_info=e)
+            logger.error(
+                f"Failed to revoke admin sessions for user except current: {e}", exc_info=e)
             return 0
 
     def cleanup_expired_admin_sessions(self) -> int:
@@ -1105,7 +1197,8 @@ class Database:
             )
             return cursor.rowcount
         except Exception as e:
-            logger.error(f"Failed to cleanup expired admin sessions: {e}", exc_info=e)
+            logger.error(
+                f"Failed to cleanup expired admin sessions: {e}", exc_info=e)
             return 0
 
     # AR Content methods
@@ -1140,7 +1233,8 @@ class Database:
         return self.get_ar_content(content_id)
 
     def get_ar_content(self, content_id: str) -> Optional[Dict[str, Any]]:
-        cursor = self._execute("SELECT * FROM ar_content WHERE id = ?", (content_id,))
+        cursor = self._execute(
+            "SELECT * FROM ar_content WHERE id = ?", (content_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1153,7 +1247,8 @@ class Database:
                 (username,),
             )
         else:
-            cursor = self._execute("SELECT * FROM ar_content ORDER BY created_at DESC")
+            cursor = self._execute(
+                "SELECT * FROM ar_content ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
 
     def increment_view_count(self, content_id: str) -> None:
@@ -1172,7 +1267,8 @@ class Database:
 
     def delete_ar_content(self, content_id: str) -> bool:
         """Delete AR content from database."""
-        cursor = self._execute("DELETE FROM ar_content WHERE id = ?", (content_id,))
+        cursor = self._execute(
+            "DELETE FROM ar_content WHERE id = ?", (content_id,))
         return cursor.rowcount > 0
 
     # Client methods
@@ -1186,7 +1282,8 @@ class Database:
 
     def get_client(self, client_id: str) -> Optional[Dict[str, Any]]:
         """Get client by ID."""
-        cursor = self._execute("SELECT * FROM clients WHERE id = ?", (client_id,))
+        cursor = self._execute(
+            "SELECT * FROM clients WHERE id = ?", (client_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1195,9 +1292,11 @@ class Database:
     def get_client_by_phone(self, phone: str, company_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get client by phone number, optionally filtered by company."""
         if company_id:
-            cursor = self._execute("SELECT * FROM clients WHERE phone = ? AND company_id = ?", (phone, company_id))
+            cursor = self._execute(
+                "SELECT * FROM clients WHERE phone = ? AND company_id = ?", (phone, company_id))
         else:
-            cursor = self._execute("SELECT * FROM clients WHERE phone = ?", (phone,))
+            cursor = self._execute(
+                "SELECT * FROM clients WHERE phone = ?", (phone,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1206,9 +1305,11 @@ class Database:
     def get_client_by_email(self, email: str, company_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get client by email address, optionally filtered by company."""
         if company_id:
-            cursor = self._execute("SELECT * FROM clients WHERE email = ? AND company_id = ?", (email, company_id))
+            cursor = self._execute(
+                "SELECT * FROM clients WHERE email = ? AND company_id = ?", (email, company_id))
         else:
-            cursor = self._execute("SELECT * FROM clients WHERE email = ?", (email,))
+            cursor = self._execute(
+                "SELECT * FROM clients WHERE email = ?", (email,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1324,7 +1425,8 @@ class Database:
 
     def delete_client(self, client_id: str) -> bool:
         """Delete client."""
-        cursor = self._execute("DELETE FROM clients WHERE id = ?", (client_id,))
+        cursor = self._execute(
+            "DELETE FROM clients WHERE id = ?", (client_id,))
         return cursor.rowcount > 0
 
     # Portrait methods
@@ -1388,7 +1490,8 @@ class Database:
 
     def get_portrait(self, portrait_id: str) -> Optional[Dict[str, Any]]:
         """Get portrait by ID."""
-        cursor = self._execute("SELECT * FROM portraits WHERE id = ?", (portrait_id,))
+        cursor = self._execute(
+            "SELECT * FROM portraits WHERE id = ?", (portrait_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1396,7 +1499,8 @@ class Database:
 
     def get_portrait_by_link(self, permanent_link: str) -> Optional[Dict[str, Any]]:
         """Get portrait by permanent link."""
-        cursor = self._execute("SELECT * FROM portraits WHERE permanent_link = ?", (permanent_link,))
+        cursor = self._execute(
+            "SELECT * FROM portraits WHERE permanent_link = ?", (permanent_link,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1537,7 +1641,8 @@ class Database:
 
     def delete_portrait(self, portrait_id: str) -> bool:
         """Delete portrait."""
-        cursor = self._execute("DELETE FROM portraits WHERE id = ?", (portrait_id,))
+        cursor = self._execute(
+            "DELETE FROM portraits WHERE id = ?", (portrait_id,))
         return cursor.rowcount > 0
 
     # Video methods
@@ -1558,13 +1663,15 @@ class Database:
                 id, portrait_id, video_path, video_preview_path, description, is_active, file_size_mb
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (video_id, portrait_id, video_path, video_preview_path, description, int(is_active), file_size_mb),
+            (video_id, portrait_id, video_path, video_preview_path,
+             description, int(is_active), file_size_mb),
         )
         return self.get_video(video_id)
 
     def get_video(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Get video by ID."""
-        cursor = self._execute("SELECT * FROM videos WHERE id = ?", (video_id,))
+        cursor = self._execute(
+            "SELECT * FROM videos WHERE id = ?", (video_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -1647,7 +1754,8 @@ class Database:
 
         with self._lock:
             # Get current status for history
-            cursor = self._execute("SELECT status FROM videos WHERE id = ?", (video_id,))
+            cursor = self._execute(
+                "SELECT status FROM videos WHERE id = ?", (video_id,))
             current = cursor.fetchone()
             if not current:
                 return False
@@ -1753,7 +1861,8 @@ class Database:
         """Activate video and record in history."""
         with self._lock:
             # Get current status
-            cursor = self._execute("SELECT status, portrait_id FROM videos WHERE id = ?", (video_id,))
+            cursor = self._execute(
+                "SELECT status, portrait_id FROM videos WHERE id = ?", (video_id,))
             current = cursor.fetchone()
             if not current:
                 return False
@@ -1794,7 +1903,8 @@ class Database:
         """Deactivate video and record in history."""
         with self._lock:
             # Get current status
-            cursor = self._execute("SELECT status FROM videos WHERE id = ?", (video_id,))
+            cursor = self._execute(
+                "SELECT status FROM videos WHERE id = ?", (video_id,))
             current = cursor.fetchone()
             if not current:
                 return False
@@ -1859,8 +1969,10 @@ class Database:
         now = datetime.utcnow().isoformat()
 
         # Count by status
-        cursor = self._execute("SELECT status, COUNT(*) as count FROM videos GROUP BY status")
-        status_counts = {row["status"]: row["count"] for row in cursor.fetchall()}
+        cursor = self._execute(
+            "SELECT status, COUNT(*) as count FROM videos GROUP BY status")
+        status_counts = {row["status"]: row["count"]
+                         for row in cursor.fetchall()}
 
         # Count due for activation
         cursor = self._execute(
@@ -2064,7 +2176,8 @@ class Database:
             filters.append(
                 "(LOWER(clients.name) LIKE ? OR clients.phone LIKE ? OR LOWER(portraits.permanent_link) LIKE ? OR LOWER(portraits.id) LIKE ?)"
             )
-            params.extend([search_like, f"%{search}%", search_like, search_like])
+            params.extend(
+                [search_like, f"%{search}%", search_like, search_like])
         if status:
             filters.append("portraits.lifecycle_status = ?")
             params.append(status)
@@ -2118,14 +2231,16 @@ class Database:
                     manager_name, manager_phone, manager_email
                 ),
             )
-            logger.info(f"Created company: {name} with storage: {normalized_storage_type}")
+            logger.info(
+                f"Created company: {name} with storage: {normalized_storage_type}")
         except sqlite3.IntegrityError as exc:
             logger.error(f"Failed to create company: {exc}")
             raise ValueError("company_already_exists") from exc
 
     def get_company(self, company_id: str) -> Optional[Dict[str, Any]]:
         """Get company by ID."""
-        cursor = self._execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+        cursor = self._execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -2133,7 +2248,8 @@ class Database:
 
     def get_company_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get company by name."""
-        cursor = self._execute("SELECT * FROM companies WHERE name = ?", (name,))
+        cursor = self._execute(
+            "SELECT * FROM companies WHERE name = ?", (name,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -2201,7 +2317,8 @@ class Database:
                 # Normalize storage_type to canonical value
                 # Prevent changing default company storage type
                 if company_id == "vertex-ar-default" and storage_type != "local_disk":
-                    logger.warning("Attempt to change default company storage type blocked")
+                    logger.warning(
+                        "Attempt to change default company storage type blocked")
                 else:
                     updates.append("storage_type = ?")
                     params.append(normalize_storage_type(storage_type))
@@ -2216,8 +2333,9 @@ class Database:
 
             if storage_folder_path is not None:
                 # Prevent changing default company storage folder path
-                if company_id == "vertex-ar-default" and storage_folder_path != "vertex_ar_content":
-                    logger.warning("Attempt to change default company storage folder path blocked")
+                if company_id == "vertex-ar-default" and storage_folder_path != "content":
+                    logger.warning(
+                        "Attempt to change default company storage folder path blocked")
                 else:
                     updates.append("storage_folder_path = ?")
                     params.append(storage_folder_path)
@@ -2283,7 +2401,8 @@ class Database:
         """Delete company and all related data (clients, portraits, videos)."""
         try:
             # This will cascade delete clients, portraits, and videos due to ON DELETE CASCADE
-            cursor = self._execute("DELETE FROM companies WHERE id = ?", (company_id,))
+            cursor = self._execute(
+                "DELETE FROM companies WHERE id = ?", (company_id,))
             if cursor.rowcount > 0:
                 logger.info(f"Deleted company: {company_id}")
                 return True
@@ -2398,7 +2517,8 @@ class Database:
 
             # Build dynamic update query
             updates = ["storage_type = ?", "storage_connection_id = ?"]
-            params: List[Any] = [normalized_storage_type, storage_connection_id]
+            params: List[Any] = [
+                normalized_storage_type, storage_connection_id]
 
             if yandex_disk_folder_id is not None:
                 updates.append("yandex_disk_folder_id = ?")
@@ -2408,7 +2528,8 @@ class Database:
             query = f"UPDATE companies SET {', '.join(updates)} WHERE id = ?"
 
             self._execute(query, tuple(params))
-            logger.info(f"Updated company {company_id} storage to {normalized_storage_type}")
+            logger.info(
+                f"Updated company {company_id} storage to {normalized_storage_type}")
             return True
         except Exception as exc:
             logger.error(f"Failed to update company storage: {exc}")
@@ -2430,7 +2551,8 @@ class Database:
                 "UPDATE companies SET yandex_disk_folder_id = ? WHERE id = ?",
                 (folder_path, company_id)
             )
-            logger.info(f"Set Yandex Disk folder for company {company_id}: {folder_path}")
+            logger.info(
+                f"Set Yandex Disk folder for company {company_id}: {folder_path}")
             return True
         except Exception as exc:
             logger.error(f"Failed to set Yandex Disk folder: {exc}")
@@ -2508,7 +2630,8 @@ class Database:
 
     def get_storage_connection(self, connection_id: str) -> Optional[Dict[str, Any]]:
         """Get storage connection by ID."""
-        cursor = self._execute("SELECT * FROM storage_connections WHERE id = ?", (connection_id,))
+        cursor = self._execute(
+            "SELECT * FROM storage_connections WHERE id = ?", (connection_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -2556,7 +2679,7 @@ class Database:
         return results
 
     def update_storage_connection(self, connection_id: str, name: Optional[str] = None,
-                                config: Optional[Dict[str, Any]] = None, is_active: Optional[bool] = None) -> bool:
+                                  config: Optional[Dict[str, Any]] = None, is_active: Optional[bool] = None) -> bool:
         """Update storage connection."""
         updates = []
         params = []
@@ -2596,23 +2719,28 @@ class Database:
                 "UPDATE storage_connections SET is_tested = ?, test_result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (is_tested, test_result, connection_id),
             )
-            logger.info(f"Updated test result for storage connection: {connection_id}")
+            logger.info(
+                f"Updated test result for storage connection: {connection_id}")
             return True
         except Exception as exc:
-            logger.error(f"Failed to update storage connection test result: {exc}")
+            logger.error(
+                f"Failed to update storage connection test result: {exc}")
             return False
 
     def delete_storage_connection(self, connection_id: str) -> bool:
         """Delete storage connection."""
         try:
             # Check if any company is using this connection
-            cursor = self._execute("SELECT COUNT(*) as count FROM companies WHERE storage_connection_id = ?", (connection_id,))
+            cursor = self._execute(
+                "SELECT COUNT(*) as count FROM companies WHERE storage_connection_id = ?", (connection_id,))
             row = cursor.fetchone()
             if row and row['count'] > 0:
-                logger.warning(f"Cannot delete storage connection {connection_id}: used by companies")
+                logger.warning(
+                    f"Cannot delete storage connection {connection_id}: used by companies")
                 return False
 
-            cursor = self._execute("DELETE FROM storage_connections WHERE id = ?", (connection_id,))
+            cursor = self._execute(
+                "DELETE FROM storage_connections WHERE id = ?", (connection_id,))
             if cursor.rowcount > 0:
                 logger.info(f"Deleted storage connection: {connection_id}")
                 return True
@@ -2635,7 +2763,8 @@ class Database:
         })
 
         # Add tested remote storage connections
-        connections = self.get_storage_connections(active_only=True, tested_only=True)
+        connections = self.get_storage_connections(
+            active_only=True, tested_only=True)
         for conn in connections:
             options.append({
                 "id": conn['id'],
@@ -2662,7 +2791,8 @@ class Database:
         try:
             self._execute(
                 "INSERT INTO projects (id, company_id, name, description, status, subscription_end, slug) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (project_id, company_id, name, description, status, subscription_end, slug),
+                (project_id, company_id, name, description,
+                 status, subscription_end, slug),
             )
             logger.info(f"Created project: {name} in company {company_id}")
             return self.get_project(project_id)
@@ -2672,7 +2802,8 @@ class Database:
 
     def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
         """Get project by ID."""
-        cursor = self._execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        cursor = self._execute(
+            "SELECT * FROM projects WHERE id = ?", (project_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -2680,7 +2811,8 @@ class Database:
 
     def get_project_by_name(self, company_id: str, name: str) -> Optional[Dict[str, Any]]:
         """Get project by name within a company."""
-        cursor = self._execute("SELECT * FROM projects WHERE company_id = ? AND name = ?", (company_id, name))
+        cursor = self._execute(
+            "SELECT * FROM projects WHERE company_id = ? AND name = ?", (company_id, name))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -2768,7 +2900,8 @@ class Database:
     def delete_project(self, project_id: str) -> bool:
         """Delete project and all related folders (cascade)."""
         try:
-            cursor = self._execute("DELETE FROM projects WHERE id = ?", (project_id,))
+            cursor = self._execute(
+                "DELETE FROM projects WHERE id = ?", (project_id,))
             if cursor.rowcount > 0:
                 logger.info(f"Deleted project: {project_id}")
                 return True
@@ -2947,7 +3080,8 @@ class Database:
             cursor = self._execute(query, tuple(params))
             return cursor.rowcount > 0
         except sqlite3.IntegrityError:
-            logger.error(f"Failed to rename category {category_id}: slug or name conflict")
+            logger.error(
+                f"Failed to rename category {category_id}: slug or name conflict")
             return False
         except Exception as exc:
             logger.error(f"Failed to rename category: {exc}")
@@ -3002,7 +3136,8 @@ class Database:
 
     def get_folder(self, folder_id: str) -> Optional[Dict[str, Any]]:
         """Get folder by ID."""
-        cursor = self._execute("SELECT * FROM folders WHERE id = ?", (folder_id,))
+        cursor = self._execute(
+            "SELECT * FROM folders WHERE id = ?", (folder_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -3010,7 +3145,8 @@ class Database:
 
     def get_folder_by_name(self, project_id: str, name: str) -> Optional[Dict[str, Any]]:
         """Get folder by name within a project."""
-        cursor = self._execute("SELECT * FROM folders WHERE project_id = ? AND name = ?", (project_id, name))
+        cursor = self._execute(
+            "SELECT * FROM folders WHERE project_id = ? AND name = ?", (project_id, name))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -3081,7 +3217,8 @@ class Database:
     def delete_folder(self, folder_id: str) -> bool:
         """Delete folder."""
         try:
-            cursor = self._execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+            cursor = self._execute(
+                "DELETE FROM folders WHERE id = ?", (folder_id,))
             if cursor.rowcount > 0:
                 logger.info(f"Deleted folder: {folder_id}")
                 return True
@@ -3102,7 +3239,8 @@ class Database:
     # Notification settings methods
     def get_notification_settings(self) -> Optional[Dict[str, Any]]:
         """Get notification settings (returns first row, as we only have one config)."""
-        cursor = self._execute("SELECT * FROM notification_settings ORDER BY created_at DESC LIMIT 1")
+        cursor = self._execute(
+            "SELECT * FROM notification_settings ORDER BY created_at DESC LIMIT 1")
         row = cursor.fetchone()
         if row is None:
             return None
@@ -3188,14 +3326,17 @@ class Database:
             (id, notification_type, recipient, subject, message, status, error_message)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (history_id, notification_type, recipient, subject, message, status, error_message)
+            (history_id, notification_type, recipient,
+             subject, message, status, error_message)
         )
-        logger.info(f"Added notification history: {notification_type} to {recipient} ({status})")
+        logger.info(
+            f"Added notification history: {notification_type} to {recipient} ({status})")
         return self.get_notification_history_item(history_id)
 
     def get_notification_history_item(self, history_id: str) -> Optional[Dict[str, Any]]:
         """Get a single notification history item."""
-        cursor = self._execute("SELECT * FROM notification_history WHERE id = ?", (history_id,))
+        cursor = self._execute(
+            "SELECT * FROM notification_history WHERE id = ?", (history_id,))
         row = cursor.fetchone()
         if row is None:
             return None
@@ -3255,7 +3396,8 @@ class Database:
         )
         deleted = cursor.rowcount
         if deleted > 0:
-            logger.info(f"Cleaned up {deleted} old notification history records")
+            logger.info(
+                f"Cleaned up {deleted} old notification history records")
         return deleted
 
     # Lifecycle management methods
@@ -3802,7 +3944,8 @@ class Database:
 
     def get_email_template(self, template_id: str) -> Optional[Dict[str, Any]]:
         """Get a single email template by ID."""
-        cursor = self._execute("SELECT * FROM email_templates WHERE id = ?", (template_id,))
+        cursor = self._execute(
+            "SELECT * FROM email_templates WHERE id = ?", (template_id,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -3837,7 +3980,8 @@ class Database:
             INSERT INTO email_templates (id, template_type, subject, html_content, variables_used, is_active, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (template_id, template_type, subject, html_content, variables_used, 1 if is_active else 0, now, now)
+            (template_id, template_type, subject, html_content,
+             variables_used, 1 if is_active else 0, now, now)
         )
         return cursor.rowcount > 0
 
@@ -3886,7 +4030,8 @@ class Database:
 
     def delete_email_template(self, template_id: str) -> bool:
         """Delete an email template."""
-        cursor = self._execute("DELETE FROM email_templates WHERE id = ?", (template_id,))
+        cursor = self._execute(
+            "DELETE FROM email_templates WHERE id = ?", (template_id,))
         return cursor.rowcount > 0
 
     def toggle_email_template(self, template_id: str) -> bool:
@@ -4086,7 +4231,8 @@ def ensure_default_admin_user(database: "Database") -> None:
     password = getattr(settings, "DEFAULT_ADMIN_PASSWORD", None)
 
     if not username or not password:
-        logger.warning("Default admin credentials are not configured; skipping bootstrap")
+        logger.warning(
+            "Default admin credentials are not configured; skipping bootstrap")
         return
 
     hashed_password = hash_password(password)
@@ -4146,13 +4292,14 @@ def _original_ensure_default_company(database: "Database") -> None:
         # Ensure default company always has correct immutable storage settings
         # This protects against manual database modifications or bugs
         if (existing.get("storage_type") != "local_disk" or
-            existing.get("storage_folder_path") != "vertex_ar_content"):
+                existing.get("storage_folder_path") != "vertex_ar_content"):
             database.update_company(
                 "vertex-ar-default",
                 storage_type="local_disk",
                 storage_folder_path="vertex_ar_content"
             )
-            logger.info("Corrected default company storage settings to local_disk/vertex_ar_content")
+            logger.info(
+                "Corrected default company storage settings to local_disk/vertex_ar_content")
         company = existing
     else:
         # Create company with explicit local_disk storage and deterministic folder path
@@ -4171,7 +4318,8 @@ def _original_ensure_default_company(database: "Database") -> None:
                 manager_phone="+7 (495) 000-00-00",
                 manager_email="admin@vertex-ar.com"
             )
-            logger.info("Created default company 'Vertex AR' with storage_type=local_disk")
+            logger.info(
+                "Created default company 'Vertex AR' with storage_type=local_disk")
             company = database.get_company("vertex-ar-default")
         except Exception as exc:
             logger.error(f"Failed to create default company: {exc}")
@@ -4198,5 +4346,6 @@ def _original_ensure_default_company(database: "Database") -> None:
                 subdirs=required_subdirs
             )
     except Exception as folder_exc:
-        logger.warning(f"Failed to create folder hierarchy for default company: {folder_exc}")
+        logger.warning(
+            f"Failed to create folder hierarchy for default company: {folder_exc}")
         # Don't fail startup if folder creation fails
